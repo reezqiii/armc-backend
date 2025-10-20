@@ -28,9 +28,10 @@
     "passport-jwt": "^4.0.1",
     "pg": "^8.16.3",
     "puppeteer": "^24.16.2",
+    "reflect-metadata": "^0.2.2",
     "ssh2-sftp-client": "^9.1.0",
     "swagger-ui-express": "^5.0.1",
-    "typeorm": "^0.3.26",
+    "typeorm": "^0.3.27",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
