@@ -8,7 +8,10 @@ import { AuthModule } from './auth/auth.module';
 import { UserModule } from './portal/user.module';
 import { BookingModule } from './bookings/booking.module';
 import { CryptoModule } from './crypto/crypto.module'; 
-import { RequestModule } from './request/request.module';
+import { RequestModule } from './portal_request_user_permission/request.module';
+import { ProjectModule } from './portal_project/project.module';
+import { DepartmentModule } from './portal_department/department.module';
+import { RoleModule } from './portal_master_role_permission_db/role.module';
 
 @Module({
   imports: [
@@ -55,6 +58,9 @@ import { RequestModule } from './request/request.module';
     AuthModule,
     CryptoModule,
     RequestModule,
+    ProjectModule,
+    DepartmentModule,
+    RoleModule,
    
   ],
 })
