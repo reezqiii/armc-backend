@@ -14,15 +14,6 @@ export class RequestEntity {
   @PrimaryGeneratedColumn({ name: 'id_request' })
   id_request: number;
 
-  @Column({ name: 'id_role', type: 'int' })
-  id_role: number;
-
-  @Column({ name: 'id', type: 'int' })
-  id: number;
-
-  @Column({ name: 'id_department', type: 'int' })
-  id_department: number;
-
   @Column({ name: 'full_name', type: 'varchar', length: 255 })
   full_name: string;
 
@@ -74,18 +65,19 @@ export class RequestEntity {
   @Column({ name: 'canceled_date', type: 'timestamp', nullable: true })
   canceled_date: Date;
 
-   @ManyToOne(() => Project, (project) => project.requests, { eager: true })
-  @JoinColumn({ name: 'project_id' })
-  project: Project
+  // 🧩 Relasi ke Project
+  @ManyToOne(() => Project, (project) => project.id)
+  @JoinColumn({ name: 'id_project' }) // kolom di tabel request
+  project: Project;
 
   // 🧩 Relasi ke Department
-  @ManyToOne(() => Department, (department) => department.requests, { eager: true })
-  @JoinColumn({ name: 'department_id' })
-  department: Department
+  @ManyToOne(() => Department, (department) => department.id_department)
+  @JoinColumn({ name: 'id_department' })
+  department: Department;
 
   // 🧩 Relasi ke Role
-  @ManyToOne(() => Role, (role) => role.requests, { eager: true })
-  @JoinColumn({ name: 'role_id' })
-  role: Role
+  @ManyToOne(() => Role, (role) => role.id_role)
+  @JoinColumn({ name: 'id_role' })
+  role: Role;
 
 }

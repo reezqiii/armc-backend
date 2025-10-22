@@ -1,37 +1,179 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, SelectQueryBuilder } from 'typeorm';
+import { Repository, Like } from 'typeorm';
 import { RequestEntity } from './request.entity';
-import { ServerSideDTO } from "DTO/dto.serverside";
+import { Project } from '../portal_project/project.entity';
+import { Department } from '../portal_department/department.entity';
+import { Role } from '../portal_master_role_permission_db/role.entity';
+import { ServerSideDTO } from 'DTO/dto.serverside';
 
 @Injectable()
 export class RequestService {
   constructor(
     @InjectRepository(RequestEntity)
-    private readonly requestRepository: Repository<RequestEntity>,
+    private readonly requestRepo: Repository<RequestEntity>,
+
+    @InjectRepository(Project)
+    private readonly projectRepo: Repository<Project>,
+
+    @InjectRepository(Department)
+    private readonly departmentRepo: Repository<Department>,
+
+    @InjectRepository(Role)
+    private readonly roleRepo: Repository<Role>,
   ) { }
-  
 
-  // Create new request
-  async create(data: Partial<RequestEntity>): Promise<RequestEntity> {
-    const request = this.requestRepository.create(data);
-    return this.requestRepository.save(request);
+  /** Server-side pagination, search, sort */
+  async serverSideList(queryDto: ServerSideDTO) {
+    try {
+      const { page = 0, size = 10, search, sort } = queryDto;
+      const take = size;
+      const skip = page * take;
+
+      const qb = this.requestRepo
+        .createQueryBuilder('request')
+        .leftJoinAndSelect('request.project', 'project')
+        .leftJoinAndSelect('request.department', 'department')
+        .leftJoinAndSelect('request.role', 'role');
+
+      const columnMap: Record<string, string> = {
+        id_request: 'request.id_request',
+        full_name: 'request.full_name',
+        badge_no: 'request.badge_no',
+        email: 'request.email',
+        project_name: 'project.project_name',
+        department_name: 'department.name_of_department',
+        role_name: 'role.role_name',
+        request_status: 'request.request_status',
+        created_date: 'request.created_date',
+      };
+
+      // Searching
+      if (search) {
+        let filters: Record<string, any> = {};
+        try {
+          filters = JSON.parse(search);
+        } catch (e) {
+          throw new InternalServerErrorException('Format JSON search tidak valid');
+        }
+
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value === null || value === undefined || value === '') return;
+
+          const column = columnMap[key];
+          if (!column) throw new Error(`Kolom search tidak valid: ${key}`);
+
+          if (typeof value === 'string') {
+            qb.andWhere(`CAST(${column} AS TEXT) ILIKE :${key}`, { [key]: `%${value}%` });
+          } else {
+            qb.andWhere(`${column} = :${key}`, { [key]: value });
+          }
+        });
+      }
+
+      // Sorting
+      if (sort) {
+        const [col, dir] = sort.split(',');
+        const column = columnMap[col] ?? `request.${col}`;
+        qb.orderBy(column, dir?.toUpperCase() as 'ASC' | 'DESC');
+      } else {
+        qb.orderBy('request.created_date', 'DESC');
+      }
+
+      const [data, total] = await qb.skip(skip).take(take).getManyAndCount();
+
+      const statusMap: Record<number, string> = {
+        0: 'Draft',
+        1: 'Pending HOD',
+        2: 'Reject HOD',
+        3: 'Pending IT',
+        4: 'Reject IT',
+        5: 'Completed',
+      };
+
+      const mappedData = data.map((d) => ({
+        id_request: d.id_request,
+        created_date: d.created_date,
+        full_name: d.full_name,
+        badge_no: d.badge_no,
+        email: d.email,
+        project_name: d.project?.project_name || '-',
+        department_name: d.department?.name_of_department || '-',
+        role_name: d.role?.role_name || '-',
+        request_status: {
+          name: statusMap[d.request_status] ?? 'Unknown',
+        },
+      }));
+
+      return {
+        data: mappedData,
+        total_records: total,
+        total_pages: Math.ceil(total / take),
+        page,
+        size: take,
+      };
+    } catch (error) {
+      throw new InternalServerErrorException(error.message);
+    }
   }
 
-  // Get all requests
-  async findAll(): Promise<RequestEntity[]> {
-    return this.requestRepository.find();
+  /** Simple get all (tanpa pagination) */
+  async findAll(): Promise<any[]> {
+    const data = await this.requestRepo.find({
+      relations: ['project', 'department', 'role'],
+      order: { created_date: 'DESC' },
+    });
+
+    return data.map((d) => ({
+      ...d,
+      project_name: d.project?.project_name || '',
+      department_name: d.department?.name_of_department || '',
+      role_name: d.role?.role_name || '',
+    }));
   }
 
-  // Get single request by id_request
   async findOne(id: number): Promise<RequestEntity> {
-    return this.requestRepository.findOne({ where: { id_request: id } });
+    const data = await this.requestRepo.findOne({
+      where: { id_request: id },
+      relations: ['project', 'department', 'role'],
+    });
+    if (!data) throw new NotFoundException(`Request dengan ID ${id} tidak ditemukan`);
+    return data;
   }
 
-  // Hapus request berdasarkan id_request
-  async remove(id: number): Promise<{ deleted: boolean }> {
-    const result = await this.requestRepository.delete({ id_request: id });
-    return { deleted: result.affected > 0 };
+  async create(data: Partial<RequestEntity>): Promise<RequestEntity> {
+    const project = data.project
+      ? await this.projectRepo.findOne({ where: { id: data.project.id } })
+      : null;
+    const department = data.department
+      ? await this.departmentRepo.findOne({ where: { id_department: data.department.id_department } })
+      : null;
+    const role = data.role
+      ? await this.roleRepo.findOne({ where: { id_role: data.role.id_role } })
+      : null;
+
+    const newRequest = this.requestRepo.create({
+      ...data,
+      project,
+      department,
+      role,
+      created_date: new Date(),
+    });
+
+    return await this.requestRepo.save(newRequest);
+
   }
 
-  
+  async update(id_request: number, data: Partial<RequestEntity>): Promise<RequestEntity> {
+    const existing = await this.requestRepo.findOne({ where: { id_request } });
+    if (!existing) throw new NotFoundException(`Request dengan ID ${id_request} tidak ditemukan`);
+
+    Object.assign(existing, data);
+    return this.requestRepo.save(existing);
+  }
+
+  async remove(id: number): Promise<void> {
+    const result = await this.requestRepo.delete(id);
+    if (result.affected === 0) throw new NotFoundException(`Request dengan ID ${id} tidak ditemukan`);
+  }
+}
