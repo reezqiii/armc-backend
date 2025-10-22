@@ -105,6 +105,9 @@ export class RequestService {
         },
       }));
 
+      console.log('Mapped department_name:', mappedData.map(d => d.department_name));
+
+
       return {
         data: mappedData,
         total_records: total,
@@ -151,9 +154,17 @@ export class RequestService {
     const role = data.role
       ? await this.roleRepo.findOne({ where: { id_role: data.role.id_role } })
       : null;
-
+    const full_name = data.full_name;
+    const badge_no = data.badge_no;
+    const email = data.email;
+    const request_reason = data.request_reason;
+    // ... tambahkan field lain sesuai kebutuhan
     const newRequest = this.requestRepo.create({
-      ...data,
+      // ...data,
+      full_name,
+      request_reason,
+      badge_no,
+      email,
       project,
       department,
       role,

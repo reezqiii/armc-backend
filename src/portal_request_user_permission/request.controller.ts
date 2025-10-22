@@ -7,7 +7,7 @@ import { ServerSideDTO } from 'DTO/dto.serverside';
 @Controller('requests')
 @ApiBearerAuth('access-token')
 export class RequestController {
-  constructor(private readonly requestService: RequestService) {}
+  constructor(private readonly requestService: RequestService) { }
 
   // GET all requests dengan server-side pagination
   @Get()
@@ -24,12 +24,6 @@ export class RequestController {
   // POST create request
   @Post('/create')
   async create(@Body() data: Partial<RequestEntity>, @Req() req): Promise<RequestEntity> {
-    // Tambahkan field otomatis
-    data.created_by = req.user.userId;  // Ambil dari user login
-    data.created_date = new Date();
-    data.full_name = req.user.name;
-    data.request_status = 0; // default pending
-    data.status_active = 1;  // default aktif
     return this.requestService.create(data);
   }
 
