@@ -158,9 +158,8 @@ export class RequestService {
     const badge_no = data.badge_no;
     const email = data.email;
     const request_reason = data.request_reason;
-    // ... tambahkan field lain sesuai kebutuhan
+
     const newRequest = this.requestRepo.create({
-      // ...data,
       full_name,
       request_reason,
       badge_no,
@@ -168,6 +167,9 @@ export class RequestService {
       project,
       department,
       role,
+      request_type: data.request_type ?? 1,
+      request_status: data.request_status ?? 0,
+      status_active: data.status_active ?? 1,
       created_date: new Date(),
     });
 

@@ -29,7 +29,7 @@ export class RequestEntity {
   @Column({ name: 'request_reason', type: 'text' })
   request_reason: string;
 
-  @Column({ name: 'request_status', type: 'int' })
+  @Column({ name: 'request_status', type: 'int', default: 0 })
   request_status: number;
 
   @Column({ name: 'rejected_it_remarks', type: 'text', nullable: true })
@@ -65,17 +65,17 @@ export class RequestEntity {
   @Column({ name: 'canceled_date', type: 'timestamp', nullable: true })
   canceled_date: Date;
 
-  // 🧩 Relasi ke Project
+  // Relasi ke Project
   @ManyToOne(() => Project, (project) => project.id)
-  @JoinColumn({ name: 'id_project' }) // kolom di tabel request
+  @JoinColumn({ name: 'id_project' })
   project: Project;
 
-  // 🧩 Relasi ke Department
+  // Relasi ke Department
   @ManyToOne(() => Department, (department) => department.id_department)
   @JoinColumn({ name: 'id_department' })
   department: Department;
 
-  // 🧩 Relasi ke Role
+  // Relasi ke Role
   @ManyToOne(() => Role, (role) => role.id_role)
   @JoinColumn({ name: 'id_role' })
   role: Role;
