@@ -13,7 +13,7 @@ import { Role } from '../portal_master_role_permission_db/role.entity';
       RequestEntity,
       Project,
       Department,
-      Role,  // <-- semua entity yang dipakai di RequestService
+      Role,  
     ]),
   ],
   controllers: [RequestController],

@@ -9,7 +9,7 @@ import { ServerSideDTO } from 'DTO/dto.serverside';
 export class RequestController {
   constructor(private readonly requestService: RequestService) { }
 
-  // GET all requests dengan server-side pagination
+  // GET all requests 
   @Get()
   async findAll(@Query() queryDto: ServerSideDTO) {
     return await this.requestService.findAll(); // Bisa diganti serverSideList jika queryDto dipakai
@@ -29,9 +29,19 @@ export class RequestController {
 
   // PUT update request
   @Put(':id')
-  update(@Param('id') id_request: number, @Body() data: Partial<RequestEntity>): Promise<RequestEntity> {
-    return this.requestService.update(id_request, data); // pastikan ada method update di service
+  async update(
+    @Param('id') id_request: number,
+    @Body() data: Partial<RequestEntity>,
+    @Req() req  // <-- tambahkan ini
+  ): Promise<RequestEntity> {
+    if (data.status_active === 0) {
+      data.canceled_by = req.user?.id;  // sekarang 'req' sudah dikenali
+      data.canceled_date = new Date();
+    }
+
+    return this.requestService.update(id_request, data);
   }
+
 
   // DELETE request
   @Delete(':id')

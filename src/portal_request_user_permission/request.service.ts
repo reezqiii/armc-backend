@@ -36,6 +36,8 @@ export class RequestService {
         .leftJoinAndSelect('request.department', 'department')
         .leftJoinAndSelect('request.role', 'role');
 
+      qb.where('request.status_active = :active', { active: 1 });
+
       const columnMap: Record<string, string> = {
         id_request: 'request.id_request',
         full_name: 'request.full_name',
@@ -46,6 +48,7 @@ export class RequestService {
         role_name: 'role.role_name',
         request_status: 'request.request_status',
         created_date: 'request.created_date',
+        status_active: 'request.status_active', 
       };
 
       // Searching
@@ -53,16 +56,14 @@ export class RequestService {
         let filters: Record<string, any> = {};
         try {
           filters = JSON.parse(search);
-        } catch (e) {
-          throw new InternalServerErrorException('Format JSON search tidak valid');
+        } catch {
+          throw new InternalServerErrorException('invalid JSON search format');
         }
 
         Object.entries(filters).forEach(([key, value]) => {
           if (value === null || value === undefined || value === '') return;
-
           const column = columnMap[key];
-          if (!column) throw new Error(`Kolom search tidak valid: ${key}`);
-
+          if (!column) throw new Error(`Invalid search column: ${key}`);
           if (typeof value === 'string') {
             qb.andWhere(`CAST(${column} AS TEXT) ILIKE :${key}`, { [key]: `%${value}%` });
           } else {
@@ -80,14 +81,14 @@ export class RequestService {
         qb.orderBy('request.created_date', 'DESC');
       }
 
-      const [data, total] = await qb.skip(skip).take(take).getManyAndCount();
+      const [data, total] = await qb.getManyAndCount();
 
       const statusMap: Record<number, string> = {
         0: 'Draft',
-        1: 'Pending HOD',
-        2: 'Reject HOD',
-        3: 'Pending IT',
-        4: 'Reject IT',
+        1: 'Pending by HOD',
+        2: 'Rejected HOD',
+        3: 'Pending by IT',
+        4: 'Rejected IT',
         5: 'Completed',
       };
 
@@ -104,9 +105,6 @@ export class RequestService {
           name: statusMap[d.request_status] ?? 'Unknown',
         },
       }));
-
-      console.log('Mapped department_name:', mappedData.map(d => d.department_name));
-
 
       return {
         data: mappedData,
@@ -140,7 +138,7 @@ export class RequestService {
       where: { id_request: id },
       relations: ['project', 'department', 'role'],
     });
-    if (!data) throw new NotFoundException(`Request dengan ID ${id} tidak ditemukan`);
+    if (!data) throw new NotFoundException(`Request with ID ${id} was not found`);
     return data;
   }
 
@@ -179,7 +177,7 @@ export class RequestService {
 
   async update(id_request: number, data: Partial<RequestEntity>): Promise<RequestEntity> {
     const existing = await this.requestRepo.findOne({ where: { id_request } });
-    if (!existing) throw new NotFoundException(`Request dengan ID ${id_request} tidak ditemukan`);
+    if (!existing) throw new NotFoundException(`Request with ID ${id_request} was not found`);
 
     Object.assign(existing, data);
     return this.requestRepo.save(existing);
@@ -187,6 +185,6 @@ export class RequestService {
 
   async remove(id: number): Promise<void> {
     const result = await this.requestRepo.delete(id);
-    if (result.affected === 0) throw new NotFoundException(`Request dengan ID ${id} tidak ditemukan`);
+    if (result.affected === 0) throw new NotFoundException(`Request with ID ${id} was not found`);
   }
 }
