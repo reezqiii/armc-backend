@@ -12,6 +12,7 @@ import { RequestModule } from './portal_request_user_permission/request.module';
 import { ProjectModule } from './portal_project/project.module';
 import { DepartmentModule } from './portal_department/department.module';
 import { RoleModule } from './portal_master_role_permission_db/role.module';
+import { UserModule as UserDBModule } from './portal_user_db/user.module';
 
 @Module({
   imports: [
@@ -61,7 +62,7 @@ import { RoleModule } from './portal_master_role_permission_db/role.module';
     ProjectModule,
     DepartmentModule,
     RoleModule,
-   
+    UserDBModule,
   ],
 })
 export class AppModule {} 

@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, Query, Req } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { RequestService } from './request.service';
 import { RequestEntity } from './request.entity';
 import { ServerSideDTO } from 'DTO/dto.serverside';
+import { JwtAuthGuard } from 'jwt-auth.guard';
 
 @Controller('requests')
 @ApiBearerAuth('access-token')
@@ -23,8 +24,10 @@ export class RequestController {
 
   // POST create request
   @Post('/create')
+  @UseGuards(JwtAuthGuard)
   async create(@Body() data: Partial<RequestEntity>, @Req() req): Promise<RequestEntity> {
-    return this.requestService.create(data);
+    const userId = req.user.id_user;
+    return this.requestService.create(data, userId);
   }
 
   // PUT update request
@@ -32,16 +35,21 @@ export class RequestController {
   async update(
     @Param('id') id_request: number,
     @Body() data: Partial<RequestEntity>,
-    @Req() req  // <-- tambahkan ini
+    @Req() req
   ): Promise<RequestEntity> {
     if (data.status_active === 0) {
-      data.canceled_by = req.user?.id;  // sekarang 'req' sudah dikenali
-      data.canceled_date = new Date();
+      data.canceled_by = req.user?.id;
     }
 
     return this.requestService.update(id_request, data);
   }
 
+  @Put('cancel/:id')
+  @UseGuards(JwtAuthGuard)
+  async cancelRequest(@Param('id') id_request: number, @Req() req) {
+    const userId = req.user.id_user; 
+    return this.requestService.cancelRequest(id_request, userId);
+  }
 
   // DELETE request
   @Delete(':id')
