@@ -8,6 +8,7 @@ import {
 import { Project } from '../portal_project/project.entity';
 import { Department } from '../portal_department/department.entity';
 import { Role } from '../portal_master_role_permission_db/role.entity';
+import { User } from '../portal_user_db/user.entity';
 
 @Entity('portal_request_user_permission')
 export class RequestEntity {
@@ -44,12 +45,6 @@ export class RequestEntity {
   @Column({ name: 'approval_hod_date_at', type: 'timestamp', nullable: true })
   approval_hod_date_at: Date;
 
-  @Column({ name: 'approval_it_sign_id', type: 'int', nullable: true })
-  approval_it_sign_id: number;
-
-  @Column({ name: 'approval_hod_sign_id', type: 'int', nullable: true })
-  approval_hod_sign_id: number;
-
   @Column({ name: 'created_by', type: 'int' })
   created_by: number;
 
@@ -79,5 +74,15 @@ export class RequestEntity {
   @ManyToOne(() => Role, (role) => role.id_role)
   @JoinColumn({ name: 'id_role' })
   role: Role;
+
+    // 🔹 Relasi ke User (Approver IT)
+  @ManyToOne(() => User)
+  @JoinColumn({ name: 'approval_it_sign_id' })
+  approval_it_sign_id: User;
+
+  // 🔹 Relasi ke User (Approver HOD)
+  @ManyToOne(() => User)
+  @JoinColumn({ name: 'approval_hod_sign_id' })
+  approval_hod_sign_id: User;
 
 }

@@ -1,9 +1,9 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, Param } from '@nestjs/common';
 import { UserService } from './user.service';
 
 @Controller('api/user')
 export class UserController {
-  constructor(private readonly _user: UserService) {}
+  constructor(private readonly _user: UserService) { }
 
   @Get('/list')
   async GetUserList() {
@@ -11,8 +11,15 @@ export class UserController {
   }
 
   @Get('/search')
-async searchUsers(@Query('q') query: string) {
-  return await this._user.searchUsers(query); // akan return 1 user atau null
-}
+  async searchUsers(@Query('q') query: string) {
+    console.log('Searching users with query:', query);
+    return await this._user.searchUsers(query); 
+  }
+
+  @Get('/:id')
+  async getUserById(@Param('id') id: number) {
+    return await this._user.findOneById(id);
+  }
+
 
 }

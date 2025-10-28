@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './user.entity';
 import { Repository, ILike, FindOptionsWhere } from 'typeorm';
@@ -13,20 +13,31 @@ export class UserService {
     try {
       return await this._user.find();
     } catch (error) {
-      throw new Error(error);
+      throw new InternalServerErrorException(error);
     }
   }
 
-  async searchUsers(query: string): Promise<User[]> {
-    if (!query) return [];
-
+  async searchUsers(query?: string): Promise<User[]> {
     try {
-      return await this._user.find({
-        where: { full_name: ILike(`%${query}%`) }, // % untuk partial match
-      });
+      // Jika query kosong, ambil semua HOD
+      const where: FindOptionsWhere<User> = query
+        ? { full_name: ILike(`%${query}%`) }
+        : {};
+
+      const users = await this._user.find({ where });
+
+      return users;
     } catch (error) {
-      console.error(error);
-      throw new Error(error);
+      console.error('Failed to search users:', error);
+      throw new InternalServerErrorException(error);
+    }
+  }
+
+  async findOneById(id: number): Promise<User | null> {
+    try {
+      return await this._user.findOne({ where: { id_user: id, status_user: 1 } });
+    } catch (error) {
+      throw new InternalServerErrorException(error);
     }
   }
 }

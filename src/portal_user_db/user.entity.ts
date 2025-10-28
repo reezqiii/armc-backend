@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, JoinColumn, ManyToOne } from 'typeorm';
+import { Role } from '../portal_master_role_permission_db/role.entity';
 
 @Entity({ name: 'portal_user_db' })
 export class User {
@@ -37,4 +38,8 @@ export class User {
 
   @Column({ name: 'id_role_permission', type: 'int', nullable: true })
   id_role_permission: number;
+
+  @ManyToOne(() => Role)
+  @JoinColumn({ name: 'id_role' })
+  role: Role;
 }

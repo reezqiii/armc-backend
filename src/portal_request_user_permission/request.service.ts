@@ -29,7 +29,7 @@ export class RequestService {
 
     @InjectRepository(User, 'portal')
     private readonly userRepo: Repository<User>,
-  ) {}
+  ) { }
 
   /** 🔹 Server-side list with search, sort, and pagination */
   async serverSideList(queryDto: ServerSideDTO) {
@@ -43,6 +43,8 @@ export class RequestService {
         .leftJoinAndSelect('request.project', 'project')
         .leftJoinAndSelect('request.department', 'department')
         .leftJoinAndSelect('request.role', 'role')
+        .leftJoinAndSelect('request.approval_hod_sign', 'approvalHod')
+        .leftJoinAndSelect('request.approval_it_sign', 'approvalIt')
         .where('request.status_active = :active', { active: 1 });
 
       const columnMap: Record<string, string> = {
@@ -56,6 +58,8 @@ export class RequestService {
         request_status: 'request.request_status',
         created_date: 'request.created_date',
         status_active: 'request.status_active',
+        approval_hod: 'approvalHod.full_name',
+        approval_it: 'approvalIt.full_name',
       };
 
       // 🔍 Searching
@@ -68,7 +72,7 @@ export class RequestService {
         }
 
         for (const [key, value] of Object.entries(filters)) {
-          if (!value) continue;
+          if (value === undefined || value === null) continue;
           const column = columnMap[key];
           if (!column) throw new Error(`Invalid search column: ${key}`);
           qb.andWhere(
@@ -123,9 +127,15 @@ export class RequestService {
             request_status: {
               name: statusMap[d.request_status] ?? 'Unknown',
             },
-          };
-        }),
-      );
+            approval_hod: d.approval_hod_sign_id
+              ? `${d.approval_hod_sign_id} - ${d.approval_hod_sign_id.full_name}`
+              : '-',
+            approval_it: d.approval_it_sign_id
+              ? `${d.approval_it_sign_id} - ${d.approval_it_sign_id.full_name}`
+              : '-',
+        };
+  })
+); 
 
       return {
         data: mappedData,
@@ -175,8 +185,8 @@ export class RequestService {
 
     const department = data.department
       ? await this.departmentRepo.findOne({
-          where: { id_department: data.department.id_department },
-        })
+        where: { id_department: data.department.id_department },
+      })
       : null;
 
     const role = data.role
@@ -196,6 +206,8 @@ export class RequestService {
       status_active: data.status_active ?? 1,
       created_date: new Date(),
       created_by: userId,
+      approval_hod_sign_id: data.approval_hod_sign_id ?? null,
+      approval_it_sign_id: data.approval_it_sign_id ?? null,
     });
 
     return this.requestRepo.save(newRequest);
@@ -210,7 +222,28 @@ export class RequestService {
     if (!existing)
       throw new NotFoundException(`Request with ID ${id_request} not found`);
 
+    if (data.approval_hod_sign_id) {
+      existing.approval_hod_sign_id = data.approval_hod_sign_id;
+      existing.approval_hod_date_at = new Date();
+    }
+
+    if (data.approval_it_sign_id) {
+      existing.approval_it_sign_id = data.approval_it_sign_id;
+      existing.approval_it_date_at = new Date();
+    }
+
+    if (data.rejected_hod_remarks) {
+      existing.rejected_hod_remarks = data.rejected_hod_remarks;
+      existing.approval_hod_date_at = new Date();
+    }
+
+    if (data.rejected_it_remarks) {
+      existing.rejected_it_remarks = data.rejected_it_remarks;
+      existing.approval_it_date_at = new Date();
+    }
+
     Object.assign(existing, data);
+
     return this.requestRepo.save(existing);
   }
 
