@@ -9,7 +9,7 @@ import { RequestEntity } from './request.entity';
 import { Project } from '../portal_project/project.entity';
 import { Department } from '../portal_department/department.entity';
 import { Role } from '../portal_master_role_permission_db/role.entity';
-import { User } from '../portal/user.entity';
+import { User } from '../portal_user_db/user.entity';
 import { ServerSideDTO } from 'DTO/dto.serverside';
 
 @Injectable()
@@ -31,7 +31,6 @@ export class RequestService {
     private readonly userRepo: Repository<User>,
   ) { }
 
-  /** 🔹 Server-side list with search, sort, and pagination */
   async serverSideList(queryDto: ServerSideDTO) {
     try {
       const { page = 0, size = 10, search, sort } = queryDto;
@@ -43,8 +42,8 @@ export class RequestService {
         .leftJoinAndSelect('request.project', 'project')
         .leftJoinAndSelect('request.department', 'department')
         .leftJoinAndSelect('request.role', 'role')
-        .leftJoinAndSelect('request.approval_hod_sign', 'approvalHod')
-        .leftJoinAndSelect('request.approval_it_sign', 'approvalIt')
+        .leftJoinAndSelect('request.approval_hod_by', 'approvalHod')
+        .leftJoinAndSelect('request.approval_it_hod_by', 'approvalIt')
         .where('request.status_active = :active', { active: 1 });
 
       const columnMap: Record<string, string> = {
@@ -127,16 +126,19 @@ export class RequestService {
             request_status: {
               name: statusMap[d.request_status] ?? 'Unknown',
             },
-            approval_hod: d.approval_hod_sign_id
-              ? `${d.approval_hod_sign_id} - ${d.approval_hod_sign_id.full_name}`
-              : '-',
-            approval_it: d.approval_it_sign_id
-              ? `${d.approval_it_sign_id} - ${d.approval_it_sign_id.full_name}`
-              : '-',
-        };
-  })
-); 
 
+            // 🔹 HOD Approver
+            approval_hod: d.approval_hod_by
+              ? `${d.approval_hod_by.id_user} - ${d.approval_hod_by.full_name}`
+              : '-',
+
+            // 🔹 IT Manager Approver
+            approval_it: d.approval_it_hod_by
+              ? `${d.approval_it_hod_by.id_user} - ${d.approval_it_hod_by.full_name}`
+              : '-',
+          };
+        }),
+      );
       return {
         data: mappedData,
         total_records: total,
@@ -168,11 +170,24 @@ export class RequestService {
   async findOne(id: number): Promise<RequestEntity> {
     const data = await this.requestRepo.findOne({
       where: { id_request: id },
-      relations: ['project', 'department', 'role'],
+      relations: ['project', 'department', 'role', 'approval_hod_by', 'approval_it_hod_by'],
     });
     if (!data) throw new NotFoundException(`Request with ID ${id} not found`);
     return data;
   }
+
+  async findByRole(roleName: string): Promise<User[]> {
+    return this.userRepo.find({
+      where: {
+        role: {
+          role_name: roleName
+        }
+      },
+      relations: ['role'], 
+      order: { full_name: 'ASC' },
+    });
+  }
+
 
   /** 🔹 Create new request */
   async create(
@@ -190,7 +205,29 @@ export class RequestService {
       : null;
 
     const role = data.role
-      ? await this.roleRepo.findOne({ where: { id_role: data.role.id_role } })
+      ? await this.roleRepo.findOne({ where: { id_master_role: data.role.id_master_role } })
+      : null;
+
+    const approvalHodUser = data.approval_hod_by
+      ? await this.userRepo.findOne({
+        where: {
+          id_user:
+            typeof data.approval_hod_by === 'object'
+              ? data.approval_hod_by.id_user
+              : data.approval_hod_by,
+        },
+      })
+      : null;
+
+    const approvalItUser = data.approval_it_hod_by
+      ? await this.userRepo.findOne({
+        where: {
+          id_user:
+            typeof data.approval_it_hod_by === 'object'
+              ? data.approval_it_hod_by.id_user
+              : data.approval_it_hod_by,
+        },
+      })
       : null;
 
     const newRequest = this.requestRepo.create({
@@ -206,8 +243,8 @@ export class RequestService {
       status_active: data.status_active ?? 1,
       created_date: new Date(),
       created_by: userId,
-      approval_hod_sign_id: data.approval_hod_sign_id ?? null,
-      approval_it_sign_id: data.approval_it_sign_id ?? null,
+      approval_hod_by: approvalHodUser,
+      approval_it_hod_by: approvalItUser,
     });
 
     return this.requestRepo.save(newRequest);
@@ -218,34 +255,54 @@ export class RequestService {
     id_request: number,
     data: Partial<RequestEntity>,
   ): Promise<RequestEntity> {
-    const existing = await this.requestRepo.findOne({ where: { id_request } });
+    const existing = await this.requestRepo.findOne({
+      where: { id_request },
+      relations: ['approval_hod_by', 'approval_it_hod_by'],
+    });
+
     if (!existing)
       throw new NotFoundException(`Request with ID ${id_request} not found`);
 
-    if (data.approval_hod_sign_id) {
-      existing.approval_hod_sign_id = data.approval_hod_sign_id;
-      existing.approval_hod_date_at = new Date();
+    // 🔹 Jika HOD melakukan approval
+    if (data.approval_hod_by) {
+      const userHod = await this.userRepo.findOne({
+        where: { id_user: Number(data.approval_hod_by) },
+      });
+      if (userHod) {
+        existing.approval_hod_by = userHod;
+        existing.approval_hod_date_at = new Date();
+      }
     }
 
-    if (data.approval_it_sign_id) {
-      existing.approval_it_sign_id = data.approval_it_sign_id;
-      existing.approval_it_date_at = new Date();
+    // 🔹 Jika IT Manager melakukan approval
+    if (data.approval_it_hod_by) {
+      const userIt = await this.userRepo.findOne({
+        where: { id_user: Number(data.approval_it_hod_by) },
+      });
+      if (userIt) {
+        existing.approval_it_hod_by = userIt;
+        existing.approval_it_date_at = new Date();
+      }
     }
 
+    // 🔹 Jika HOD menolak request
     if (data.rejected_hod_remarks) {
       existing.rejected_hod_remarks = data.rejected_hod_remarks;
       existing.approval_hod_date_at = new Date();
     }
 
+    // 🔹 Jika IT menolak request
     if (data.rejected_it_remarks) {
       existing.rejected_it_remarks = data.rejected_it_remarks;
       existing.approval_it_date_at = new Date();
     }
 
+    // 🔹 Update kolom lain (jika ada)
     Object.assign(existing, data);
 
     return this.requestRepo.save(existing);
   }
+
 
   /** 🔹 Cancel request */
   async cancelRequest(

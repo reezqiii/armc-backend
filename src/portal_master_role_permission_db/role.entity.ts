@@ -3,8 +3,8 @@ import { RequestEntity } from '../portal_request_user_permission/request.entity'
 
 @Entity('portal_master_role_permission_db')
 export class Role {
-  @PrimaryGeneratedColumn({ name: 'id_role' })
-  id_role: number;
+  @PrimaryGeneratedColumn({ name: 'id_master_role' })
+  id_master_role: number;
 
   @Column({ name: 'role_name', type: 'varchar', length: 255 })
   role_name: string;

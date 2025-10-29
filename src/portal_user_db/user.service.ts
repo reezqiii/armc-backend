@@ -40,4 +40,17 @@ export class UserService {
       throw new InternalServerErrorException(error);
     }
   }
+
+  async findByRole(roleName: string): Promise<User[]> {
+    try {
+      return await this._user
+        .createQueryBuilder('user')
+        .leftJoinAndSelect('user.role', 'role')
+        .where('role.role_name = :roleName', { roleName })
+        .orderBy('user.full_name', 'ASC')
+        .getMany();
+    } catch (error) {
+      throw new InternalServerErrorException(error);
+    }
+  }
 }

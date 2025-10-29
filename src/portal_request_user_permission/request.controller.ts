@@ -4,13 +4,16 @@ import { RequestService } from './request.service';
 import { RequestEntity } from './request.entity';
 import { ServerSideDTO } from 'DTO/dto.serverside';
 import { JwtAuthGuard } from 'jwt-auth.guard';
-
+import { UserService } from '../portal_user_db/user.service';
 @Controller('requests')
 @ApiBearerAuth('access-token')
 export class RequestController {
-  constructor(private readonly requestService: RequestService) { }
+  constructor(
+    private readonly requestService: RequestService,
+    private readonly userService: UserService,
+  ) { }
 
-  // GET all requests 
+  // GET all requests
   @Get()
   async findAll(@Query() queryDto: ServerSideDTO) {
     return await this.requestService.findAll(); // Bisa diganti serverSideList jika queryDto dipakai
@@ -20,6 +23,13 @@ export class RequestController {
   @Get(':id')
   findOne(@Param('id') id: number): Promise<RequestEntity> {
     return this.requestService.findOne(id);
+  }
+
+  @Get('hods')
+  @UseGuards(JwtAuthGuard)
+  async findByRole(@Query('role') role: string) {
+    if (!role) return [];
+    return this.userService.findByRole(role);
   }
 
   // POST create request
@@ -47,7 +57,7 @@ export class RequestController {
   @Put('cancel/:id')
   @UseGuards(JwtAuthGuard)
   async cancelRequest(@Param('id') id_request: number, @Req() req) {
-    const userId = req.user.id_user; 
+    const userId = req.user.id_user;
     return this.requestService.cancelRequest(id_request, userId);
   }
 

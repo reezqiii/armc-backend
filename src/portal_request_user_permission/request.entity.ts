@@ -71,18 +71,17 @@ export class RequestEntity {
   department: Department;
 
   // Relasi ke Role
-  @ManyToOne(() => Role, (role) => role.id_role)
-  @JoinColumn({ name: 'id_role' })
+  @ManyToOne(() => Role, (role) => role.id_master_role)
+  @JoinColumn({ name: 'id_master_role' })
   role: Role;
 
-    // 🔹 Relasi ke User (Approver IT)
-  @ManyToOne(() => User)
-  @JoinColumn({ name: 'approval_it_sign_id' })
-  approval_it_sign_id: User;
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'approval_hod_by' }) // pastikan ini sama persis dengan nama kolom FK di DB
+  approval_hod_by: User;
 
-  // 🔹 Relasi ke User (Approver HOD)
-  @ManyToOne(() => User)
-  @JoinColumn({ name: 'approval_hod_sign_id' })
-  approval_hod_sign_id: User;
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'approval_it_hod_by' })
+  approval_it_hod_by: User;
+
 
 }
