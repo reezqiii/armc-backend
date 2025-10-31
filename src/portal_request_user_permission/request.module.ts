@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { RequestService } from './request.service';
+import { UserService } from '../portal_user_db/user.service';
 import { RequestController } from './request.controller';
 import { RequestEntity } from './request.entity';
 import { Project } from '../portal_project/project.entity';
@@ -13,11 +14,10 @@ import { User } from '../portal_user_db/user.entity';
     TypeOrmModule.forFeature([RequestEntity, Project, Department, Role]),
     TypeOrmModule.forFeature(
       [User],
-      'portal'
     ),
   ],
 
   controllers: [RequestController],
-  providers: [RequestService],
+  providers: [RequestService, UserService],
 })
 export class RequestModule { }

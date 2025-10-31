@@ -27,7 +27,7 @@ export class RequestService {
     @InjectRepository(Role)
     private readonly roleRepo: Repository<Role>,
 
-    @InjectRepository(User, 'portal')
+    @InjectRepository(User)
     private readonly userRepo: Repository<User>,
   ) { }
 
@@ -127,15 +127,15 @@ export class RequestService {
               name: statusMap[d.request_status] ?? 'Unknown',
             },
 
-            // 🔹 HOD Approver
             approval_hod: d.approval_hod_by
               ? `${d.approval_hod_by.id_user} - ${d.approval_hod_by.full_name}`
               : '-',
 
-            // 🔹 IT Manager Approver
             approval_it: d.approval_it_hod_by
               ? `${d.approval_it_hod_by.id_user} - ${d.approval_it_hod_by.full_name}`
               : '-',
+
+            request_admin: d.request_admin ?? 0,
           };
         }),
       );
@@ -151,7 +151,6 @@ export class RequestService {
     }
   }
 
-  /** 🔹 Get all (without pagination) */
   async findAll(): Promise<any[]> {
     const data = await this.requestRepo.find({
       relations: ['project', 'department', 'role'],
@@ -166,7 +165,6 @@ export class RequestService {
     }));
   }
 
-  /** 🔹 Get single request by ID */
   async findOne(id: number): Promise<RequestEntity> {
     const data = await this.requestRepo.findOne({
       where: { id_request: id },
@@ -183,13 +181,11 @@ export class RequestService {
           role_name: roleName
         }
       },
-      relations: ['role'], 
+      relations: ['role'],
       order: { full_name: 'ASC' },
     });
   }
 
-
-  /** 🔹 Create new request */
   async create(
     data: Partial<RequestEntity>,
     userId: number,
@@ -205,7 +201,7 @@ export class RequestService {
       : null;
 
     const role = data.role
-      ? await this.roleRepo.findOne({ where: { id_master_role: data.role.id_master_role } })
+      ? await this.roleRepo.findOne({ where: { id_role: data.role.id_role } })
       : null;
 
     const approvalHodUser = data.approval_hod_by
@@ -250,7 +246,6 @@ export class RequestService {
     return this.requestRepo.save(newRequest);
   }
 
-  /** 🔹 Update request */
   async update(
     id_request: number,
     data: Partial<RequestEntity>,
@@ -262,11 +257,14 @@ export class RequestService {
 
     if (!existing)
       throw new NotFoundException(`Request with ID ${id_request} not found`);
-
-    // 🔹 Jika HOD melakukan approval
     if (data.approval_hod_by) {
+
+      const hodId = typeof data.approval_hod_by === 'object'
+        ? data.approval_hod_by.id_user
+        : data.approval_hod_by;
+
       const userHod = await this.userRepo.findOne({
-        where: { id_user: Number(data.approval_hod_by) },
+        where: { id_user: Number(hodId) },
       });
       if (userHod) {
         existing.approval_hod_by = userHod;
@@ -274,10 +272,13 @@ export class RequestService {
       }
     }
 
-    // 🔹 Jika IT Manager melakukan approval
     if (data.approval_it_hod_by) {
+      const itId = typeof data.approval_it_hod_by === 'object'
+        ? data.approval_it_hod_by.id_user
+        : data.approval_it_hod_by;
+
       const userIt = await this.userRepo.findOne({
-        where: { id_user: Number(data.approval_it_hod_by) },
+        where: { id_user: Number(itId) },
       });
       if (userIt) {
         existing.approval_it_hod_by = userIt;
@@ -285,26 +286,91 @@ export class RequestService {
       }
     }
 
-    // 🔹 Jika HOD menolak request
     if (data.rejected_hod_remarks) {
       existing.rejected_hod_remarks = data.rejected_hod_remarks;
       existing.approval_hod_date_at = new Date();
     }
 
-    // 🔹 Jika IT menolak request
     if (data.rejected_it_remarks) {
       existing.rejected_it_remarks = data.rejected_it_remarks;
       existing.approval_it_date_at = new Date();
     }
 
-    // 🔹 Update kolom lain (jika ada)
     Object.assign(existing, data);
 
     return this.requestRepo.save(existing);
   }
 
+  async updateAdminStatus(id_request: number, request_admin: number) {
+    const existing = await this.requestRepo.findOne({ where: { id_request } });
+    if (!existing)
+      throw new NotFoundException(`Request with ID ${id_request} not found`);
 
-  /** 🔹 Cancel request */
+    existing.request_admin = request_admin;
+    await this.requestRepo.save(existing);
+  }
+
+  async hodApproval(
+    id_request: number,
+    action: string,
+    remarks: string,
+    userId: number
+  ) {
+    const existing = await this.requestRepo.findOne({
+      where: { id_request },
+      relations: ['approval_hod_by', 'approval_it_hod_by'],
+    });
+
+    if (!existing)
+      throw new NotFoundException(`Request with ID ${id_request} not found`);
+
+    if (action === 'approve') {
+      existing.request_status = 3;
+      existing.approval_hod_date_at = new Date();
+      existing.approval_hod_by = await this.userRepo.findOne({ where: { id_user: userId } });
+    } else if (action === 'reject') {
+      existing.request_status = 2;
+      existing.rejected_hod_remarks = remarks;
+      existing.approval_hod_date_at = new Date();
+      existing.approval_hod_by = await this.userRepo.findOne({ where: { id_user: userId } });
+    }
+    else {
+      throw new InternalServerErrorException('Invalid action');
+    }
+
+    return this.requestRepo.save(existing);
+  }
+
+  async itApproval(
+    id_request: number,
+    action: string,
+    remarks: string,
+    userId: number
+  ) {
+    const existing = await this.requestRepo.findOne({
+      where: { id_request },
+      relations: ['approval_it_hod_by', 'approval_hod_by'],
+    });
+
+    if (!existing)
+      throw new NotFoundException(`Request with ID ${id_request} not found`);
+
+    if (action === 'approve') {
+      existing.request_status = 5;
+      existing.approval_it_date_at = new Date();
+      existing.approval_it_hod_by = await this.userRepo.findOne({ where: { id_user: userId } });
+    } else if (action === 'reject') {
+      existing.request_status = 4;
+      existing.rejected_it_remarks = remarks;
+      existing.approval_it_date_at = new Date();
+      existing.approval_it_hod_by = await this.userRepo.findOne({ where: { id_user: userId } });
+    } else {
+      throw new InternalServerErrorException('Invalid action');
+    }
+
+    return this.requestRepo.save(existing);
+  }
+
   async cancelRequest(
     id_request: number,
     userId: number,
@@ -320,7 +386,6 @@ export class RequestService {
     return this.requestRepo.save(existing);
   }
 
-  /** 🔹 Delete request */
   async remove(id: number): Promise<void> {
     const result = await this.requestRepo.delete(id);
     if (result.affected === 0)

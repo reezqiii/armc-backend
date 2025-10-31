@@ -19,7 +19,6 @@ export class UserService {
 
   async searchUsers(query?: string): Promise<User[]> {
     try {
-      // Jika query kosong, ambil semua HOD
       const where: FindOptionsWhere<User> = query
         ? { full_name: ILike(`%${query}%`) }
         : {};

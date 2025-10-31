@@ -33,6 +33,9 @@ export class RequestEntity {
   @Column({ name: 'request_status', type: 'int', default: 0 })
   request_status: number;
 
+  @Column({ name: 'request_admin', type: 'int', default: 0 })
+  request_admin: number;
+
   @Column({ name: 'rejected_it_remarks', type: 'text', nullable: true })
   rejected_it_remarks: string;
 
@@ -60,28 +63,24 @@ export class RequestEntity {
   @Column({ name: 'canceled_date', type: 'timestamp', nullable: true })
   canceled_date: Date;
 
-  // Relasi ke Project
   @ManyToOne(() => Project, (project) => project.id)
   @JoinColumn({ name: 'id_project' })
   project: Project;
 
-  // Relasi ke Department
   @ManyToOne(() => Department, (department) => department.id_department)
   @JoinColumn({ name: 'id_department' })
   department: Department;
 
-  // Relasi ke Role
-  @ManyToOne(() => Role, (role) => role.id_master_role)
-  @JoinColumn({ name: 'id_master_role' })
+  @ManyToOne(() => Role, (role) => role.id_role)
+  @JoinColumn({ name: 'id_role' })
   role: Role;
 
   @ManyToOne(() => User, { nullable: true })
-  @JoinColumn({ name: 'approval_hod_by' }) // pastikan ini sama persis dengan nama kolom FK di DB
+  @JoinColumn({ name: 'approval_hod_by' }) 
   approval_hod_by: User;
 
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'approval_it_hod_by' })
   approval_it_hod_by: User;
-
 
 }

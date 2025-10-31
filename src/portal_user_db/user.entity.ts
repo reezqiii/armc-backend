@@ -34,7 +34,7 @@ export class User {
   update_by: number;
 
   @ManyToOne(() => Role)
-  @JoinColumn({ name: 'id_master_role' }) 
+  @JoinColumn({ name: 'id_role' }) 
   role: Role;
 
 }

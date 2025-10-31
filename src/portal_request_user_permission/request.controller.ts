@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, Query, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, Query, Req, UseGuards, Patch } from '@nestjs/common';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { RequestService } from './request.service';
 import { RequestEntity } from './request.entity';
@@ -13,13 +13,11 @@ export class RequestController {
     private readonly userService: UserService,
   ) { }
 
-  // GET all requests
   @Get()
   async findAll(@Query() queryDto: ServerSideDTO) {
-    return await this.requestService.findAll(); // Bisa diganti serverSideList jika queryDto dipakai
+    return await this.requestService.findAll();
   }
 
-  // GET single request
   @Get(':id')
   findOne(@Param('id') id: number): Promise<RequestEntity> {
     return this.requestService.findOne(id);
@@ -32,7 +30,6 @@ export class RequestController {
     return this.userService.findByRole(role);
   }
 
-  // POST create request
   @Post('/create')
   @UseGuards(JwtAuthGuard)
   async create(@Body() data: Partial<RequestEntity>, @Req() req): Promise<RequestEntity> {
@@ -40,7 +37,6 @@ export class RequestController {
     return this.requestService.create(data, userId);
   }
 
-  // PUT update request
   @Put(':id')
   async update(
     @Param('id') id_request: number,
@@ -61,12 +57,43 @@ export class RequestController {
     return this.requestService.cancelRequest(id_request, userId);
   }
 
-  // DELETE request
+  @Put(':id/hod-approval')
+  @UseGuards(JwtAuthGuard)
+  async hodApproval(
+    @Param('id') id_request: number,
+    @Body() body: { action: string; remarks?: string },
+    @Req() req
+  ) {
+    const userId = req.user.id_user;
+    return this.requestService.hodApproval(id_request, body.action, body.remarks, userId);
+  }
+
+  @Put(':id/it-approval')
+  @UseGuards(JwtAuthGuard)
+  async itApproval(
+    @Param('id') id_request: number,
+    @Body() body: { action: string; remarks?: string },
+    @Req() req
+  ) {
+    const userId = req.user.id_user;
+    return this.requestService.itApproval(id_request, body.action, body.remarks, userId);
+  }
+
+  @Patch(':id/admin-status')
+  @UseGuards(JwtAuthGuard)
+  async updateAdminStatus(
+    @Param('id') id_request: number,
+    @Body('request_admin') request_admin: number,
+  ): Promise<{ message: string }> {
+    await this.requestService.updateAdminStatus(id_request, request_admin);
+    return { message: 'Admin status updated successfully' };
+  }
+
   @Delete(':id')
   remove(@Param('id') id: number): Promise<void> {
     return this.requestService.remove(id);
   }
-  // POST server-side list
+
   @Post('/serverside_list')
   async serverSideList(@Query() queryDto: ServerSideDTO) {
     return await this.requestService.serverSideList(queryDto);
