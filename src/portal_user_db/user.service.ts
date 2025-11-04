@@ -23,7 +23,11 @@ export class UserService {
         ? { full_name: ILike(`%${query}%`) }
         : {};
 
-      const users = await this._user.find({ where });
+     const users = await this._user.find({
+      where,
+      relations: ['department', 'project'], 
+      order: { full_name: 'ASC' }, 
+    });
 
       return users;
     } catch (error) {

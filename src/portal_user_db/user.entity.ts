@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, JoinColumn, ManyToOne } from 'typeorm';
 import { Role } from '../portal_master_role_permission_db/role.entity';
-import { RolePermission } from '../portal_role_permission/role_permission.entity'
+import { Department } from 'portal_department/department.entity';
+import { Project } from 'portal_project/project.entity';
 @Entity({ name: 'portal_user_db' })
 export class User {
   @PrimaryGeneratedColumn({ name: 'id_user', type: 'int' })
@@ -21,8 +22,11 @@ export class User {
   @Column({ name: 'company', type: 'int', nullable: true })
   company: number;
 
+  @Column({ name: 'id_role', type: 'int', nullable: true })
+  id_role: number;
+
   @Column({ name: 'department', type: 'int', nullable: true })
-  department: number;
+  departmentId: number;
 
   @Column({ name: 'project_id', type: 'int', nullable: true })
   project_id: number;
@@ -34,7 +38,15 @@ export class User {
   update_by: number;
 
   @ManyToOne(() => Role)
-  @JoinColumn({ name: 'id_role' }) 
+  @JoinColumn({ name: 'id_role' })
   role: Role;
+
+  @ManyToOne(() => Project)
+  @JoinColumn({ name: 'project_id', referencedColumnName: 'id' })
+  project: Project;
+
+  @ManyToOne(() => Department)
+  @JoinColumn({ name: 'department', referencedColumnName: 'id_department' })
+  department: Department;
 
 }

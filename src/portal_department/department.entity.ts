@@ -9,6 +9,4 @@ export class Department {
   @Column({ name: 'name_of_department', type: 'varchar', length: 255 })
   name_of_department: string;
 
-  @OneToMany(() => RequestEntity, (request) => request.department)
-  requests: RequestEntity[];
 }

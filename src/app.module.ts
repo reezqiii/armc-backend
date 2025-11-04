@@ -14,6 +14,11 @@ import { DepartmentModule } from './portal_department/department.module';
 import { RoleModule } from './portal_master_role_permission_db/role.module';
 import { UserModule as UserDBModule } from './portal_user_db/user.module';
 import { RolePermissionModule } from './portal_role_permission/role_permission.module';
+import { PositionModule } from 'iss_design_new/position.module';
+import { IssEmployeeModule } from 'iss_employee/employee.module';
+import { IssProjectModule } from 'iss_project/iss_project.module';
+import { IssDept } from 'iss_dept/iss_dept.entity';
+import { IssDeptModule } from 'iss_dept/iss_dept.module';
 
 @Module({
   imports: [
@@ -51,7 +56,21 @@ import { RolePermissionModule } from './portal_role_permission/role_permission.m
         synchronize: false,
       }),
     }),
-
+    TypeOrmModule.forRootAsync({
+      name: 'db_iss',
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        type: 'postgres',
+        host: config.get('DB_ISS_HOST'),
+        port: config.get('DB_ISS_PORT'),
+        username: config.get('DB_ISS_USERNAME'),
+        password: config.get('DB_ISS_PASSWORD'),
+        database: config.get('DB_ISS_NAME'),
+        autoLoadEntities: true,
+        synchronize: false,
+      }),
+    }),
     
     BookingModule,
     UserModule,
@@ -65,6 +84,10 @@ import { RolePermissionModule } from './portal_role_permission/role_permission.m
     RoleModule,
     UserDBModule,
     RolePermissionModule,
+    PositionModule,
+    IssEmployeeModule,
+    IssProjectModule,
+    IssDeptModule,
   ],
 })
 export class AppModule {} 

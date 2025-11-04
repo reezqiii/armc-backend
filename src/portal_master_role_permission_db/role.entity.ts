@@ -12,6 +12,4 @@ export class Role {
   @Column({ name: 'status_active', type: 'int', default: 1 })
   status_active: number;
 
-  @OneToMany(() => RequestEntity, (request) => request.role)
-  requests: RequestEntity[];
 }

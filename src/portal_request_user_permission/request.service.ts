@@ -6,11 +6,12 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RequestEntity } from './request.entity';
-import { Project } from '../portal_project/project.entity';
-import { Department } from '../portal_department/department.entity';
-import { Role } from '../portal_master_role_permission_db/role.entity';
 import { User } from '../portal_user_db/user.entity';
 import { ServerSideDTO } from 'DTO/dto.serverside';
+import { IssProject } from 'iss_project/iss_project.entity';
+import { IssDept } from 'iss_dept/iss_dept.entity';
+import { Position } from 'iss_design_new/position.entity';
+import { IssEmployee } from 'iss_employee/employee.entity';
 
 @Injectable()
 export class RequestService {
@@ -18,17 +19,21 @@ export class RequestService {
     @InjectRepository(RequestEntity)
     private readonly requestRepo: Repository<RequestEntity>,
 
-    @InjectRepository(Project)
-    private readonly projectRepo: Repository<Project>,
+    @InjectRepository(IssProject, 'db_iss')
+    private readonly projectRepo: Repository<IssProject>,
 
-    @InjectRepository(Department)
-    private readonly departmentRepo: Repository<Department>,
+    @InjectRepository(IssDept, 'db_iss')
+    private readonly departmentRepo: Repository<IssDept>,
 
-    @InjectRepository(Role)
-    private readonly roleRepo: Repository<Role>,
+    @InjectRepository(Position, 'db_iss')
+    private readonly positionRepo: Repository<Position>,
 
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+
+    @InjectRepository(IssEmployee, 'db_iss')
+    private readonly employeeRepo: Repository<IssEmployee>,
+
   ) { }
 
   async serverSideList(queryDto: ServerSideDTO) {
@@ -39,9 +44,6 @@ export class RequestService {
 
       const qb = this.requestRepo
         .createQueryBuilder('request')
-        .leftJoinAndSelect('request.project', 'project')
-        .leftJoinAndSelect('request.department', 'department')
-        .leftJoinAndSelect('request.role', 'role')
         .leftJoinAndSelect('request.approval_hod_by', 'approvalHod')
         .leftJoinAndSelect('request.approval_it_hod_by', 'approvalIt')
         .where('request.status_active = :active', { active: 1 });
@@ -51,9 +53,6 @@ export class RequestService {
         full_name: 'request.full_name',
         badge_no: 'request.badge_no',
         email: 'request.email',
-        project_name: 'project.project_name',
-        department_name: 'department.name_of_department',
-        role_name: 'role.role_name',
         request_status: 'request.request_status',
         created_date: 'request.created_date',
         status_active: 'request.status_active',
@@ -105,6 +104,24 @@ export class RequestService {
 
       const mappedData = await Promise.all(
         data.map(async (d) => {
+          const project = d.project_id
+            ? await this.projectRepo.findOne({
+              where: { project_id: d.project_id },
+            })
+            : null;
+
+          const department = d.dept_id
+            ? await this.departmentRepo.findOne({
+              where: { dept_id: d.dept_id },
+            })
+            : null;
+
+          const position = d.design_id
+            ? await this.positionRepo.findOne({
+              where: { design_id: d.design_id },
+            })
+            : null;
+
           let requestorName = d.created_by?.toString();
           if (d.created_by) {
             const user = await this.userRepo.findOne({
@@ -120,9 +137,9 @@ export class RequestService {
             full_name: d.full_name,
             badge_no: d.badge_no,
             email: d.email,
-            project_name: d.project?.project_name || '-',
-            department_name: d.department?.name_of_department || '-',
-            role_name: d.role?.role_name || '-',
+            project_name: project?.project_desc || '-',
+            department_name: department?.dept || '-',
+            position_name: position?.design_desc || '-',
             request_status: {
               name: statusMap[d.request_status] ?? 'Unknown',
             },
@@ -139,6 +156,7 @@ export class RequestService {
           };
         }),
       );
+
       return {
         data: mappedData,
         total_records: total,
@@ -152,17 +170,36 @@ export class RequestService {
   }
 
   async findAll(): Promise<any[]> {
-    const data = await this.requestRepo.find({
-      relations: ['project', 'department', 'role'],
-      order: { created_date: 'DESC' },
-    });
+    const data = await this.requestRepo.find({ order: { created_date: 'DESC' } });
 
-    return data.map((d) => ({
-      ...d,
-      project_name: d.project?.project_name || '',
-      department_name: d.department?.name_of_department || '',
-      role_name: d.role?.role_name || '',
-    }));
+    return Promise.all(
+      data.map(async (d) => {
+        const project = d.project_id
+          ? await this.projectRepo.findOne({
+            where: { project_id: d.project_id },
+          })
+          : null;
+
+        const department = d.dept_id
+          ? await this.departmentRepo.findOne({
+            where: { dept_id: d.dept_id },
+          })
+          : null;
+
+        const position = d.design_id
+          ? await this.positionRepo.findOne({
+            where: { design_id: d.design_id },
+          })
+          : null;
+
+        return {
+          ...d,
+          project_name: project?.project_desc || '',
+          department_name: department?.dept || '',
+          position_name: position?.design_desc || '',
+        };
+      }),
+    );
   }
 
   async findOne(id: number): Promise<RequestEntity> {
@@ -186,23 +223,16 @@ export class RequestService {
     });
   }
 
-  async create(
-    data: Partial<RequestEntity>,
-    userId: number,
-  ): Promise<RequestEntity> {
-    const project = data.project
-      ? await this.projectRepo.findOne({ where: { id: data.project.id } })
-      : null;
+  async create(data: Partial<RequestEntity>, userId: number): Promise<RequestEntity> {
 
-    const department = data.department
-      ? await this.departmentRepo.findOne({
-        where: { id_department: data.department.id_department },
-      })
-      : null;
+    const employee = await this.employeeRepo.findOne({
+      where: { badge: userId },
+      relations: ['department', 'project', 'position'],
+    });
 
-    const role = data.role
-      ? await this.roleRepo.findOne({ where: { id_role: data.role.id_role } })
-      : null;
+    if (!employee) {
+      throw new NotFoundException(`Employee with badge ${userId} not found`);
+    }
 
     const approvalHodUser = data.approval_hod_by
       ? await this.userRepo.findOne({
@@ -226,14 +256,16 @@ export class RequestService {
       })
       : null;
 
+
     const newRequest = this.requestRepo.create({
+      ...data,
       full_name: data.full_name,
-      badge_no: data.badge_no,
-      email: data.email,
       request_reason: data.request_reason,
-      project,
-      department,
-      role,
+      email: data.email,
+      badge_no: employee?.badge?.toString() || '',
+      project_id: data.project_id || null,
+      dept_id: data.dept_id || null,
+      design_id: data.design_id || null,
       request_type: data.request_type ?? 1,
       request_status: data.request_status ?? 0,
       status_active: data.status_active ?? 1,

@@ -5,10 +5,11 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm'
-import { Project } from '../portal_project/project.entity';
-import { Department } from '../portal_department/department.entity';
 import { Role } from '../portal_master_role_permission_db/role.entity';
 import { User } from '../portal_user_db/user.entity';
+import { IssDept } from '../iss_dept/iss_dept.entity';
+import { IssProject } from '../iss_project/iss_project.entity';
+import { Position } from '../iss_design_new/position.entity';
 
 @Entity('portal_request_user_permission')
 export class RequestEntity {
@@ -36,6 +37,9 @@ export class RequestEntity {
   @Column({ name: 'request_admin', type: 'int', default: 0 })
   request_admin: number;
 
+  @Column({ name: 'remarks', type: 'text', nullable: true })
+  remarks: string;
+
   @Column({ name: 'rejected_it_remarks', type: 'text', nullable: true })
   rejected_it_remarks: string;
 
@@ -47,6 +51,9 @@ export class RequestEntity {
 
   @Column({ name: 'approval_hod_date_at', type: 'timestamp', nullable: true })
   approval_hod_date_at: Date;
+
+  @Column({ name: 'approval_lead_date_at', type: 'timestamp', nullable: true })
+  approval_lead_date_at: Date;
 
   @Column({ name: 'created_by', type: 'int' })
   created_by: number;
@@ -63,24 +70,25 @@ export class RequestEntity {
   @Column({ name: 'canceled_date', type: 'timestamp', nullable: true })
   canceled_date: Date;
 
-  @ManyToOne(() => Project, (project) => project.id)
-  @JoinColumn({ name: 'id_project' })
-  project: Project;
+  @Column({ name: 'project_id', type: 'int', nullable: true })
+  project_id: number;
 
-  @ManyToOne(() => Department, (department) => department.id_department)
-  @JoinColumn({ name: 'id_department' })
-  department: Department;
+  @Column({ name: 'dept_id', type: 'int', nullable: true })
+  dept_id: number;
 
-  @ManyToOne(() => Role, (role) => role.id_role)
-  @JoinColumn({ name: 'id_role' })
-  role: Role;
+  @Column({ name: 'design_id', type: 'int', nullable: true })
+  design_id: number;
 
   @ManyToOne(() => User, { nullable: true })
-  @JoinColumn({ name: 'approval_hod_by' }) 
+  @JoinColumn({ name: 'approval_hod_by' })
   approval_hod_by: User;
 
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'approval_it_hod_by' })
   approval_it_hod_by: User;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'approval_lead_it_by' })
+  approval_lead_it_by: User;
 
 }

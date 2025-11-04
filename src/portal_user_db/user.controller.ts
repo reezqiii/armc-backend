@@ -12,7 +12,6 @@ export class UserController {
 
   @Get('/search')
   async searchUsers(@Query('q') query: string) {
-    console.log('Searching users with query:', query);
     return await this._user.searchUsers(query); 
   }
 

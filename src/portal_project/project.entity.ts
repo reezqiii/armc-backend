@@ -11,7 +11,4 @@ export class Project {
 
   @Column({ name: 'project_code', type: 'varchar', length: 100, nullable: true })
   project_code: string;
-
-  @OneToMany(() => RequestEntity, (request) => request.project)
-  requests: RequestEntity[];
 }

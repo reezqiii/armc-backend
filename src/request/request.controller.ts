@@ -8,7 +8,6 @@ export class RequestController {
 
   @Post()
   async create(@Body() data: Partial<RequestEntity>): Promise<RequestEntity> {
-    console.log('Received body:', data);
     return this.requestService.create(data);
   }
 
