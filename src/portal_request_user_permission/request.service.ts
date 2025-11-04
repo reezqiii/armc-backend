@@ -205,22 +205,10 @@ export class RequestService {
   async findOne(id: number): Promise<RequestEntity> {
     const data = await this.requestRepo.findOne({
       where: { id_request: id },
-      relations: ['project', 'department', 'role', 'approval_hod_by', 'approval_it_hod_by'],
+      relations: ['approval_hod_by', 'approval_it_hod_by'],
     });
     if (!data) throw new NotFoundException(`Request with ID ${id} not found`);
     return data;
-  }
-
-  async findByRole(roleName: string): Promise<User[]> {
-    return this.userRepo.find({
-      where: {
-        role: {
-          role_name: roleName
-        }
-      },
-      relations: ['role'],
-      order: { full_name: 'ASC' },
-    });
   }
 
   async create(data: Partial<RequestEntity>, userId: number): Promise<RequestEntity> {
@@ -262,7 +250,7 @@ export class RequestService {
       full_name: data.full_name,
       request_reason: data.request_reason,
       email: data.email,
-      badge_no: employee?.badge?.toString() || '',
+      badge_no: data.badge_no,
       project_id: data.project_id || null,
       dept_id: data.dept_id || null,
       design_id: data.design_id || null,
@@ -276,6 +264,30 @@ export class RequestService {
     });
 
     return this.requestRepo.save(newRequest);
+  }
+
+  async getEmployeeByBadge(badge: number) {
+    const employee = await this.employeeRepo.findOne({
+      where: { badge },
+      relations: ['department', 'project', 'position'],
+    });
+
+    if (!employee) {
+      throw new NotFoundException(`Employee with badge ${badge} not found`);
+    }
+
+    console.log(employee);
+
+    return {
+      badge: employee.badge,
+      full_name: employee.name,
+      project_id: employee.project?.project_id || null,
+      project_name: employee.project?.project_desc || '-',
+      dept_id: employee.department?.dept_id || null,
+      dept_name: employee.department?.dept || '-',
+      design_id: employee.position?.design_id || null,
+      position_name: employee.position?.design_desc || '-',
+    };
   }
 
   async update(

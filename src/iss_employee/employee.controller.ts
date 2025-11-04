@@ -3,7 +3,7 @@ import { IssEmployeeService } from './employee.service';
 
 @Controller('iss_employee')
 export class IssEmployeeController {
-  constructor(private readonly employeeService: IssEmployeeService) {}
+  constructor(private readonly employeeService: IssEmployeeService) { }
 
   @Get()
   async getAll() {
@@ -12,6 +12,7 @@ export class IssEmployeeController {
 
   @Get('search')
   async getByBadge(@Query('badge', ParseIntPipe) badge?: number) {
+    console.log('Received badge query:', badge);
     if (!badge) {
       throw new NotFoundException('Badge is required');
     }

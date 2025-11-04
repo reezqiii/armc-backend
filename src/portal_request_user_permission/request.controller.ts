@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, Query, Req, UseGuards, Patch } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, Query, Req, UseGuards, Patch, } from '@nestjs/common';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { RequestService } from './request.service';
 import { RequestEntity } from './request.entity';
@@ -23,11 +23,17 @@ export class RequestController {
     return this.requestService.findOne(id);
   }
 
-  @Get('hods')
+  // @Get('hods')
+  // @UseGuards(JwtAuthGuard)
+  // async findByRole(@Query('role') role: string) {
+  //   if (!role) return [];
+  //   return this.userService.findByRole(role);
+  // }
+
+  @Get('employee/:badge')
   @UseGuards(JwtAuthGuard)
-  async findByRole(@Query('role') role: string) {
-    if (!role) return [];
-    return this.userService.findByRole(role);
+  async getEmployeeByBadge(@Param('badge') badge: number) {
+    return this.requestService.getEmployeeByBadge(badge);
   }
 
   @Post('/create')
