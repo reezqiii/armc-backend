@@ -13,6 +13,12 @@ export class RequestController {
     private readonly userService: UserService,
   ) { }
 
+  @Get('hods')
+  @UseGuards(JwtAuthGuard)
+  async getAllHods() {
+    return this.requestService.getAllHods();
+  }
+
   @Get()
   async findAll(@Query() queryDto: ServerSideDTO) {
     return await this.requestService.findAll();
@@ -22,13 +28,6 @@ export class RequestController {
   findOne(@Param('id') id: number): Promise<RequestEntity> {
     return this.requestService.findOne(id);
   }
-
-  // @Get('hods')
-  // @UseGuards(JwtAuthGuard)
-  // async findByRole(@Query('role') role: string) {
-  //   if (!role) return [];
-  //   return this.userService.findByRole(role);
-  // }
 
   @Get('employee/:badge')
   @UseGuards(JwtAuthGuard)

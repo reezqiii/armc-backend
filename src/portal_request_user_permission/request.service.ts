@@ -97,9 +97,11 @@ export class RequestService {
         0: 'Draft',
         1: 'Pending by HOD',
         2: 'Rejected by HOD',
-        3: 'Pending by IT',
-        4: 'Rejected by IT',
-        5: 'Completed',
+        3: 'Pending by Lead IT',
+        4: 'Rejected by Lead IT',
+        5: 'Pending by IT Manager',
+        6: 'Rejected by IT Manager',
+        7: 'Completed',
       };
 
       const mappedData = await Promise.all(
@@ -202,24 +204,43 @@ export class RequestService {
     );
   }
 
-  async findOne(id: number): Promise<RequestEntity> {
+  async findOne(id: number): Promise<any> {
     const data = await this.requestRepo.findOne({
       where: { id_request: id },
       relations: ['approval_hod_by', 'approval_it_hod_by'],
     });
+
     if (!data) throw new NotFoundException(`Request with ID ${id} not found`);
-    return data;
+
+    const project = data.project_id
+      ? await this.projectRepo.findOne({ where: { project_id: data.project_id } })
+      : null;
+
+    const department = data.dept_id
+      ? await this.departmentRepo.findOne({ where: { dept_id: data.dept_id } })
+      : null;
+
+    const position = data.design_id
+      ? await this.positionRepo.findOne({ where: { design_id: data.design_id } })
+      : null;
+
+    return {
+      ...data,
+      project_name: project?.project_desc || '-',
+      department_name: department?.dept || '-',
+      position_name: position?.design_desc || '-',
+    };
   }
 
   async create(data: Partial<RequestEntity>, userId: number): Promise<RequestEntity> {
 
     const employee = await this.employeeRepo.findOne({
-      where: { badge: userId },
+      where: { badge: Number(data.badge_no) },
       relations: ['department', 'project', 'position'],
     });
 
     if (!employee) {
-      throw new NotFoundException(`Employee with badge ${userId} not found`);
+      throw new NotFoundException(`Employee with badge ${data.badge_no} not found`);
     }
 
     const approvalHodUser = data.approval_hod_by
@@ -244,7 +265,6 @@ export class RequestService {
       })
       : null;
 
-
     const newRequest = this.requestRepo.create({
       ...data,
       full_name: data.full_name,
@@ -259,6 +279,7 @@ export class RequestService {
       status_active: data.status_active ?? 1,
       created_date: new Date(),
       created_by: userId,
+      remarks: data.remarks,
       approval_hod_by: approvalHodUser,
       approval_it_hod_by: approvalItUser,
     });
@@ -276,8 +297,6 @@ export class RequestService {
       throw new NotFoundException(`Employee with badge ${badge} not found`);
     }
 
-    console.log(employee);
-
     return {
       badge: employee.badge,
       full_name: employee.name,
@@ -288,6 +307,22 @@ export class RequestService {
       design_id: employee.position?.design_id || null,
       position_name: employee.position?.design_desc || '-',
     };
+  }
+
+  async getAllHods() {
+    try {
+      const users = await this.userRepo.find({
+        order: { full_name: 'ASC' },
+      });
+
+      return users.map(u => ({
+        id_user: u.id_user,
+        badge_no: u.badge_no,
+        full_name: u.full_name,
+      }));
+    } catch (error) {
+      throw new InternalServerErrorException('Failed to fetch HOD list');
+    }
   }
 
   async update(

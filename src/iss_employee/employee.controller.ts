@@ -1,4 +1,4 @@
-import { Controller, Get, Query, ParseIntPipe, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Query, ParseIntPipe, NotFoundException, Param } from '@nestjs/common';
 import { IssEmployeeService } from './employee.service';
 
 @Controller('iss_employee')
@@ -10,12 +10,18 @@ export class IssEmployeeController {
     return this.employeeService.findAll();
   }
 
+  @Get('employee/:id')
+  async getEmployeeByBadge(@Param('id') id: number) {
+    return await this.employeeService.findOneByBadge(id);
+  }
+
   @Get('search')
-  async getByBadge(@Query('badge', ParseIntPipe) badge?: number) {
-    console.log('Received badge query:', badge);
+  async getByBadge(@Query('badge') badge: string) {
     if (!badge) {
       throw new NotFoundException('Badge is required');
     }
-    return this.employeeService.findByBadge(badge);
+
+  const numericBadge = badge.split(' ')[0];
+    return this.employeeService.findByBadge(Number(numericBadge));
   }
 }
