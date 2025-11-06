@@ -12,6 +12,7 @@ import { IssProject } from 'iss_project/iss_project.entity';
 import { IssDept } from 'iss_dept/iss_dept.entity';
 import { Position } from 'iss_design_new/position.entity';
 import { IssEmployee } from 'iss_employee/employee.entity';
+import { MailService } from '../email/mail.service';
 
 @Injectable()
 export class RequestService {
@@ -33,6 +34,8 @@ export class RequestService {
 
     @InjectRepository(IssEmployee, 'db_iss')
     private readonly employeeRepo: Repository<IssEmployee>,
+
+    private readonly mailService: MailService,
 
   ) { }
 
@@ -58,6 +61,7 @@ export class RequestService {
         status_active: 'request.status_active',
         approval_hod: 'approvalHod.full_name',
         approval_it: 'approvalIt.full_name',
+        approval_lead_it: 'approvalLeadIt.full_name',
       };
 
       // 🔍 Searching
@@ -82,7 +86,6 @@ export class RequestService {
         }
       }
 
-      // 🔽 Sorting
       if (sort) {
         const [col, dir] = sort.split(',');
         const column = columnMap[col] ?? `request.${col}`;
@@ -95,8 +98,8 @@ export class RequestService {
 
       const statusMap: Record<number, string> = {
         0: 'Draft',
-        1: 'Pending by HOD',
-        2: 'Rejected by HOD',
+        1: 'Pending by HOD Req',
+        2: 'Rejected by HOD Req',
         3: 'Pending by Lead IT',
         4: 'Rejected by Lead IT',
         5: 'Pending by IT Manager',
@@ -148,6 +151,10 @@ export class RequestService {
 
             approval_hod: d.approval_hod_by
               ? `${d.approval_hod_by.id_user} - ${d.approval_hod_by.full_name}`
+              : '-',
+
+            approval_lead_it: d.approval_lead_it_by
+              ? `${d.approval_lead_it_by.id_user} - ${d.approval_lead_it_by.full_name}`
               : '-',
 
             approval_it: d.approval_it_hod_by
@@ -207,7 +214,7 @@ export class RequestService {
   async findOne(id: number): Promise<any> {
     const data = await this.requestRepo.findOne({
       where: { id_request: id },
-      relations: ['approval_hod_by', 'approval_it_hod_by'],
+      relations: ['approval_hod_by', 'approval_lead_it_by', 'approval_it_hod_by'],
     });
 
     if (!data) throw new NotFoundException(`Request with ID ${id} not found`);
@@ -229,6 +236,27 @@ export class RequestService {
       project_name: project?.project_desc || '-',
       department_name: department?.dept || '-',
       position_name: position?.design_desc || '-',
+      approval_hod_by: data.approval_hod_by
+        ? {
+          id: data.approval_hod_by.id_user,
+          badge_no: data.approval_hod_by.badge_no,
+          full_name: data.approval_hod_by.full_name,
+        }
+        : null,
+      approval_it_hod_by: data.approval_it_hod_by
+        ? {
+          id: data.approval_it_hod_by.id_user,
+          badge_no: data.approval_it_hod_by.badge_no,
+          full_name: data.approval_it_hod_by.full_name,
+        }
+        : null,
+      approval_lead_it_by: data.approval_lead_it_by
+        ? {
+          id: data.approval_lead_it_by.id_user,
+          badge_no: data.approval_lead_it_by.badge_no,
+          full_name: data.approval_lead_it_by.full_name,
+        }
+        : null,
     };
   }
 
@@ -243,16 +271,16 @@ export class RequestService {
       throw new NotFoundException(`Employee with badge ${data.badge_no} not found`);
     }
 
-    const approvalHodUser = data.approval_hod_by
-      ? await this.userRepo.findOne({
+    let approvalHodUser = null;
+    if (data.approval_hod_by) {
+      approvalHodUser = await this.userRepo.findOne({
         where: {
-          id_user:
-            typeof data.approval_hod_by === 'object'
-              ? data.approval_hod_by.id_user
-              : data.approval_hod_by,
+          id_user: typeof data.approval_hod_by === 'object'
+            ? data.approval_hod_by.id_user
+            : data.approval_hod_by
         },
-      })
-      : null;
+      });
+    }
 
     const approvalItUser = data.approval_it_hod_by
       ? await this.userRepo.findOne({
@@ -312,6 +340,7 @@ export class RequestService {
   async getAllHods() {
     try {
       const users = await this.userRepo.find({
+        where: { status_user: 1 },
         order: { full_name: 'ASC' },
       });
 
@@ -331,7 +360,7 @@ export class RequestService {
   ): Promise<RequestEntity> {
     const existing = await this.requestRepo.findOne({
       where: { id_request },
-      relations: ['approval_hod_by', 'approval_it_hod_by'],
+      relations: ['approval_hod_by', 'approval_lead_it_by', 'approval_it_hod_by'],
     });
 
     if (!existing)
@@ -348,6 +377,20 @@ export class RequestService {
       if (userHod) {
         existing.approval_hod_by = userHod;
         existing.approval_hod_date_at = new Date();
+      }
+    }
+
+    if (data.approval_lead_it_by) {
+      const leadItId = typeof data.approval_lead_it_by === 'object'
+        ? data.approval_lead_it_by.id_user
+        : data.approval_lead_it_by;
+
+      const userLeadIt = await this.userRepo.findOne({
+        where: { id_user: Number(leadItId) },
+      });
+      if (userLeadIt) {
+        existing.approval_lead_it_by = userLeadIt;
+        existing.approval_lead_date_at = new Date();
       }
     }
 
@@ -368,6 +411,11 @@ export class RequestService {
     if (data.rejected_hod_remarks) {
       existing.rejected_hod_remarks = data.rejected_hod_remarks;
       existing.approval_hod_date_at = new Date();
+    }
+
+    if (data.rejected_lead_remarks) {
+      existing.rejected_lead_remarks = data.rejected_lead_remarks;
+      existing.approval_lead_date_at = new Date();
     }
 
     if (data.rejected_it_remarks) {
@@ -397,7 +445,7 @@ export class RequestService {
   ) {
     const existing = await this.requestRepo.findOne({
       where: { id_request },
-      relations: ['approval_hod_by', 'approval_it_hod_by'],
+      relations: ['approval_hod_by', 'approval_lead_it_by', 'approval_it_hod_by'],
     });
 
     if (!existing)
@@ -420,6 +468,69 @@ export class RequestService {
     return this.requestRepo.save(existing);
   }
 
+  async submitToHod(id_request: number) {
+    const existing = await this.requestRepo.findOne({
+      where: { id_request },
+      relations: ['approval_hod_by'],
+    });
+
+    if (!existing) throw new NotFoundException(`Request with ID ${id_request} not found`);
+
+    if (!existing.approval_hod_by)
+      throw new InternalServerErrorException('HOD not assigned for this request');
+
+    existing.request_status = 1;
+
+    const saved = await this.requestRepo.save(existing);
+
+    try {
+      await this.mailService.sendHodApprovalEmail(
+        existing.approval_hod_by.email,
+        existing.full_name,
+        existing.id_request
+      );
+      console.log(`Email sent to HOD: ${existing.approval_hod_by.email}`);
+    } catch (err) {
+      console.error('Failed to send HOD email:', err);
+    }
+
+    return saved;
+  }
+
+  async leadItApproval(
+    id_request: number,
+    action: string,
+    remarks: string,
+    userId: number
+  ) {
+    const existing = await this.requestRepo.findOne({
+      where: { id_request },
+      relations: ['approval_hod_by', 'approval_lead_it_by', 'approval_it_hod_by'],
+    });
+
+    if (!existing)
+      throw new NotFoundException(`Request with ID ${id_request} not found`);
+
+    if (action === 'approve') {
+      existing.request_status = 5;
+      existing.approval_lead_date_at = new Date();
+      existing.approval_lead_it_by = await this.userRepo.findOne({
+        where: { id_user: userId },
+      });
+    } else if (action === 'reject') {
+      existing.request_status = 4;
+      existing.rejected_lead_remarks = remarks;
+      existing.approval_lead_date_at = new Date();
+      existing.approval_lead_it_by = await this.userRepo.findOne({
+        where: { id_user: userId },
+      });
+    } else {
+      throw new InternalServerErrorException('Invalid action');
+    }
+
+    return this.requestRepo.save(existing);
+  }
+
   async itApproval(
     id_request: number,
     action: string,
@@ -428,18 +539,18 @@ export class RequestService {
   ) {
     const existing = await this.requestRepo.findOne({
       where: { id_request },
-      relations: ['approval_it_hod_by', 'approval_hod_by'],
+      relations: ['approval_it_hod_by', 'approval_lead_it_by', 'approval_hod_by'],
     });
 
     if (!existing)
       throw new NotFoundException(`Request with ID ${id_request} not found`);
 
     if (action === 'approve') {
-      existing.request_status = 5;
+      existing.request_status = 7;
       existing.approval_it_date_at = new Date();
       existing.approval_it_hod_by = await this.userRepo.findOne({ where: { id_user: userId } });
     } else if (action === 'reject') {
-      existing.request_status = 4;
+      existing.request_status = 6;
       existing.rejected_it_remarks = remarks;
       existing.approval_it_date_at = new Date();
       existing.approval_it_hod_by = await this.userRepo.findOne({ where: { id_user: userId } });

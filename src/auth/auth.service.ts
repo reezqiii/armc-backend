@@ -32,6 +32,7 @@ export class AuthService {
         success: true,
         token: token,
         user: {
+          id: login?.id_user,
           full_name: login?.full_name,
         },
       };

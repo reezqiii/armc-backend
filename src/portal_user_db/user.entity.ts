@@ -2,6 +2,7 @@ import { Entity, PrimaryGeneratedColumn, Column, JoinColumn, ManyToOne } from 't
 import { Role } from '../portal_master_role_permission_db/role.entity';
 import { Department } from 'portal_department/department.entity';
 import { Project } from 'portal_project/project.entity';
+
 @Entity({ name: 'portal_user_db' })
 export class User {
   @PrimaryGeneratedColumn({ name: 'id_user', type: 'int' })
@@ -12,6 +13,9 @@ export class User {
 
   @Column({ name: 'full_name', type: 'varchar', length: 200, nullable: true })
   full_name: string;
+
+  @Column({ name: 'email', type: 'varchar', length: 200, nullable: true })
+  email: string;
 
   @Column({ name: 'badge_no', type: 'varchar', length: 200, nullable: true })
   badge_no: string;

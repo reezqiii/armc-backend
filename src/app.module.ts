@@ -19,6 +19,7 @@ import { IssEmployeeModule } from 'iss_employee/employee.module';
 import { IssProjectModule } from 'iss_project/iss_project.module';
 import { IssDept } from 'iss_dept/iss_dept.entity';
 import { IssDeptModule } from 'iss_dept/iss_dept.module';
+import { MailModule } from 'email/mail.module';
 
 @Module({
   imports: [
@@ -88,6 +89,7 @@ import { IssDeptModule } from 'iss_dept/iss_dept.module';
     IssEmployeeModule,
     IssProjectModule,
     IssDeptModule,
+    MailModule,
   ],
 })
 export class AppModule {} 

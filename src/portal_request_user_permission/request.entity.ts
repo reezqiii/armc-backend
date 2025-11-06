@@ -46,6 +46,9 @@ export class RequestEntity {
   @Column({ name: 'rejected_hod_remarks', type: 'text', nullable: true })
   rejected_hod_remarks: string;
 
+  @Column({ name: 'rejected_lead_remarks', type: 'text', nullable: true })
+  rejected_lead_remarks: string;
+
   @Column({ name: 'approval_it_date_at', type: 'timestamp', nullable: true })
   approval_it_date_at: Date;
 

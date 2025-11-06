@@ -73,6 +73,25 @@ export class RequestController {
     return this.requestService.hodApproval(id_request, body.action, body.remarks, userId);
   }
 
+  @Put(':id/submit-to-hod')
+  async submitToHodRequest(
+    @Param('id') id: number,
+    @Req() req: any
+  ) {
+    return this.requestService.submitToHod(id);
+  }
+
+  @Put(':id/lead-it-approval')
+  @UseGuards(JwtAuthGuard)
+  async leadItApproval(
+    @Param('id') id_request: number,
+    @Body() body: { action: string; remarks?: string },
+    @Req() req,
+  ) {
+    const userId = req.user.id_user;
+    return this.requestService.leadItApproval(id_request, body.action, body.remarks, userId);
+  }
+
   @Put(':id/it-approval')
   @UseGuards(JwtAuthGuard)
   async itApproval(
