@@ -5,11 +5,7 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm'
-import { Role } from '../portal_master_role_permission_db/role.entity';
 import { User } from '../portal_user_db/user.entity';
-import { IssDept } from '../iss_dept/iss_dept.entity';
-import { IssProject } from '../iss_project/iss_project.entity';
-import { Position } from '../iss_design_new/position.entity';
 
 @Entity('portal_request_user_permission')
 export class RequestEntity {
@@ -93,5 +89,9 @@ export class RequestEntity {
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'approval_lead_it_by' })
   approval_lead_it_by: User;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'created_by' })
+  created_by_user: User;
 
 }

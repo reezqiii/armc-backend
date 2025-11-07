@@ -3,11 +3,24 @@ html
   head
     meta(charset="UTF-8")
     title Approval Request
-  body
-    h2 Approval Request dari #{requestorName}
-    p Ada request baru yang perlu Anda approve.
-    p Tanggal request: #{requestDate}
-    p
-      | Klik link berikut untuk approve:
-      a(href="#") Approve Request
-    p Terima kasih.
+  body(style="font-family: Arial, sans-serif; background-color: #f4f6f8; margin: 0; padding: 0;")
+    table(width="100%", cellspacing="0", cellpadding="0", style="max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 8px; border: 1px solid #e0e0e0;")
+      tr
+        td(style="padding: 40px;")
+          h2(style="color: #2b2d42; margin-top: 0; font-size: 22px;") Approval Request dari #{requestorName}
+
+          p(style="color: #555555; font-size: 16px; line-height: 1.6; margin-bottom: 20px;")
+            | Ada request baru yang perlu Anda approve.
+
+          p(style="color: #777777; font-size: 14px; margin-bottom: 30px;")
+            | Tanggal request:
+            strong(style="color:#333; margin-left:4px;") #{requestDate}
+
+          div(style="background-color: #f1f3f5; padding: 15px 20px; border-radius: 6px; color: #333333; font-size: 15px; line-height: 1.5;")
+            | Mohon untuk melakukan proses approval melalui sistem sesuai prosedur yang berlaku.
+
+          p(style="color: #999999; font-size: 13px; margin-top: 30px;")
+            | Terima kasih atas perhatian dan kerjasamanya.
+
+          p(style="color: #2b2d42; font-size: 14px; font-weight: bold; margin-top: 10px;")
+            | IT Developer

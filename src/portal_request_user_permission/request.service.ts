@@ -231,11 +231,16 @@ export class RequestService {
       ? await this.positionRepo.findOne({ where: { design_id: data.design_id } })
       : null;
 
+        const createdByUser = data.created_by
+    ? await this.userRepo.findOne({ where: { id_user: data.created_by } })
+    : null;
+
     return {
       ...data,
       project_name: project?.project_desc || '-',
       department_name: department?.dept || '-',
       position_name: position?.design_desc || '-',
+      created_by_name: createdByUser?.full_name || '-',
       approval_hod_by: data.approval_hod_by
         ? {
           id: data.approval_hod_by.id_user,
@@ -260,7 +265,10 @@ export class RequestService {
     };
   }
 
-  async create(data: Partial<RequestEntity>, userId: number): Promise<RequestEntity> {
+  async create(
+    data: Partial<RequestEntity>,
+    userId: number
+  ): Promise<RequestEntity & { created_by_name?: string }> {
 
     const employee = await this.employeeRepo.findOne({
       where: { badge: Number(data.badge_no) },
@@ -312,7 +320,16 @@ export class RequestService {
       approval_it_hod_by: approvalItUser,
     });
 
-    return this.requestRepo.save(newRequest);
+    const savedRequest = await this.requestRepo.save(newRequest);
+
+    const createdByUser = await this.userRepo.findOne({
+      where: { id_user: userId },
+    });
+
+    return {
+      ...savedRequest,
+      created_by_name: createdByUser?.full_name || null,
+    };
   }
 
   async getEmployeeByBadge(badge: number) {
@@ -471,7 +488,7 @@ export class RequestService {
   async submitToHod(id_request: number) {
     const existing = await this.requestRepo.findOne({
       where: { id_request },
-      relations: ['approval_hod_by'],
+      relations: ['approval_hod_by', 'created_by_user'],
     });
 
     if (!existing) throw new NotFoundException(`Request with ID ${id_request} not found`);
@@ -486,10 +503,9 @@ export class RequestService {
     try {
       await this.mailService.sendHodApprovalEmail(
         existing.approval_hod_by.email,
-        existing.full_name,
+        existing.created_by_user?.full_name || 'Unknown User',
         existing.id_request
       );
-      console.log(`Email sent to HOD: ${existing.approval_hod_by.email}`);
     } catch (err) {
       console.error('Failed to send HOD email:', err);
     }

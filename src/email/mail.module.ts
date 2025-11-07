@@ -18,7 +18,7 @@ import { join } from 'path';
                 },
             },
             defaults: {
-                from: `"No Reply" <${process.env.EMAIL_USERNAME}>`,
+                from: `"IT Developer" <${process.env.EMAIL_USERNAME}>`,
             },
             template: {
                 dir: join(process.cwd(), 'src/templates'), // dari root project

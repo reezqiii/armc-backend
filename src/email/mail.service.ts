@@ -16,7 +16,6 @@ export class MailService {
                     requestDate: new Date().toLocaleDateString(),
                 },
             });
-            console.log(`Email approval sent to ${to}`);
         } catch (err) {
             console.error('Failed to send HOD approval email:', err);
         }
@@ -29,7 +28,6 @@ export class MailService {
                 subject: 'Test Email',
                 text: 'Ini email test dari NestJS!',
             });
-            console.log('Test email sent successfully');
         } catch (err) {
             console.error('Failed to send test email:', err);
         }

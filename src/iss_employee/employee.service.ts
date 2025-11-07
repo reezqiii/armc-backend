@@ -34,31 +34,20 @@ export class IssEmployeeService {
     }
   }
 
-  async findByBadge(badge: number): Promise<any> {
+  async findByBadge(badge: string): Promise<any> {
     try {
       const employee = await this.employeeRepo
         .createQueryBuilder('e')
         .leftJoinAndSelect('e.department', 'd')
         .leftJoinAndSelect('e.project', 'p')
         .leftJoinAndSelect('e.position', 'pos')
-        .where('CAST(e.badge AS TEXT) ILIKE :badge', { badge: `%${badge}%` })
+        .where('(CAST(e.badge AS TEXT) ILIKE :badge or e.name ILike :name)', { badge: `%${badge}%`, name: `%${badge}%` })
         .limit(10)
         .getMany();
 
       if (!employee) {
         throw new NotFoundException(`Employee with badge ${badge} not found`);
       }
-
-      // return {
-      //   badge_no: employee.badge,
-      //   full_name: employee.name,
-      //   department_name: employee.department?.dept || null,
-      //   project_name: employee.project?.project_desc || null,
-      //   position_name: employee.position?.design_desc || null,
-      //   department_id: employee.department?.dept_id || null,
-      //   project_id: employee.project?.project_id || null,
-      //   id_position: employee.position?.design_id || null,
-      // };
 
       return employee
 
@@ -81,19 +70,6 @@ export class IssEmployeeService {
       if (!employee) {
         throw new NotFoundException(`Employee with badge ${badge} not found`);
       }
-
-      // return {
-      //   badge_no: employee.badge,
-      //   full_name: employee.name,
-      //   department_name: employee.department?.dept || null,
-      //   project_name: employee.project?.project_desc || null,
-      //   position_name: employee.position?.design_desc || null,
-      //   department_id: employee.department?.dept_id || null,
-      //   project_id: employee.project?.project_id || null,
-      //   id_position: employee.position?.design_id || null,
-      // };
-
-      console.log('Found employee:', employee);
 
       return employee
 
