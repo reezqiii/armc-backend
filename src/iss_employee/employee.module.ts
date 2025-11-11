@@ -6,10 +6,16 @@ import { IssEmployeeController } from './employee.controller';
 import { IssDept } from '../iss_dept/iss_dept.entity';
 import { IssProject } from '../iss_project/iss_project.entity';
 import { Position } from '../iss_design_new/position.entity';
+import { Company } from '../portal_company/company.entity'; 
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([IssEmployee, IssDept, IssProject, Position], 'db_iss')],
+    TypeOrmModule.forFeature(
+      [IssEmployee, IssDept, IssProject, Position],
+      'db_iss'
+    ),
+    TypeOrmModule.forFeature([Company], 'portal'), 
+  ],
   providers: [IssEmployeeService],
   controllers: [IssEmployeeController],
   exports: [IssEmployeeService],

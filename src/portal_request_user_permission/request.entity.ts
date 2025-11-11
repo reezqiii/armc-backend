@@ -6,7 +6,8 @@ import {
   JoinColumn,
 } from 'typeorm'
 import { User } from '../portal_user_db/user.entity';
-
+import { Company } from 'portal_company/company.entity';
+import { NavMenu } from 'portal_nav_menu/menu.entity';
 @Entity('portal_request_user_permission')
 export class RequestEntity {
   @PrimaryGeneratedColumn({ name: 'id_request' })
@@ -78,6 +79,15 @@ export class RequestEntity {
   @Column({ name: 'design_id', type: 'int', nullable: true })
   design_id: number;
 
+  @Column({ name: 'id_company', type: 'int', nullable: true })
+  id_company: number;
+
+  @Column({ name: 'access_yard_company', type: 'varchar', nullable: true })
+  access_yard_company: string;
+
+  @Column({ name: 'access_nav_menu', type: 'varchar', nullable: true })
+  access_nav_menu: string;
+
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'approval_hod_by' })
   approval_hod_by: User;
@@ -94,4 +104,12 @@ export class RequestEntity {
   @JoinColumn({ name: 'created_by' })
   created_by_user: User;
 
+  @ManyToOne(() => Company, { nullable: true })
+  @JoinColumn({ name: 'id_company' })
+  company: Company;
+
+  @ManyToOne(() => NavMenu, { nullable: true })
+  @JoinColumn({ name: 'access_nav_menu' })
+  nav_menu: NavMenu;
 }
+

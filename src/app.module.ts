@@ -20,6 +20,8 @@ import { IssProjectModule } from 'iss_project/iss_project.module';
 import { IssDept } from 'iss_dept/iss_dept.entity';
 import { IssDeptModule } from 'iss_dept/iss_dept.module';
 import { MailModule } from 'email/mail.module';
+import { CompanyModule } from 'portal_company/company.module';
+import { NavMenuModule } from 'portal_nav_menu/menu.module';
 
 @Module({
   imports: [
@@ -90,6 +92,8 @@ import { MailModule } from 'email/mail.module';
     IssProjectModule,
     IssDeptModule,
     MailModule,
+    CompanyModule,
+    NavMenuModule,
   ],
 })
 export class AppModule {} 

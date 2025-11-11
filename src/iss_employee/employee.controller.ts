@@ -21,7 +21,6 @@ export class IssEmployeeController {
       throw new NotFoundException('Badge is required');
     }
 
-  // const numericBadge = badge.split(' ')[0];
     return this.employeeService.findByBadge(badge);
   }
 }

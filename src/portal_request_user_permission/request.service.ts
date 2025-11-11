@@ -13,30 +13,28 @@ import { IssDept } from 'iss_dept/iss_dept.entity';
 import { Position } from 'iss_design_new/position.entity';
 import { IssEmployee } from 'iss_employee/employee.entity';
 import { MailService } from '../email/mail.service';
-
+import { Company } from 'portal_company/company.entity';
+import { NavMenu } from 'portal_nav_menu/menu.entity';
 @Injectable()
 export class RequestService {
   constructor(
     @InjectRepository(RequestEntity)
     private readonly requestRepo: Repository<RequestEntity>,
-
     @InjectRepository(IssProject, 'db_iss')
     private readonly projectRepo: Repository<IssProject>,
-
     @InjectRepository(IssDept, 'db_iss')
     private readonly departmentRepo: Repository<IssDept>,
-
     @InjectRepository(Position, 'db_iss')
     private readonly positionRepo: Repository<Position>,
-
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
-
+    @InjectRepository(Company)
+    private readonly companyRepo: Repository<Company>,
+    @InjectRepository(NavMenu)
+    private readonly navMenuRepo: Repository<NavMenu>,
     @InjectRepository(IssEmployee, 'db_iss')
     private readonly employeeRepo: Repository<IssEmployee>,
-
     private readonly mailService: MailService,
-
   ) { }
 
   async serverSideList(queryDto: ServerSideDTO) {
@@ -64,7 +62,6 @@ export class RequestService {
         approval_lead_it: 'approvalLeadIt.full_name',
       };
 
-      // 🔍 Searching
       if (search) {
         let filters: Record<string, any> = {};
         try {
@@ -108,7 +105,9 @@ export class RequestService {
       };
 
       const mappedData = await Promise.all(
-        data.map(async (d) => {
+        data.map(async (d, index) => {
+          const runningNumber = total - (skip + index);
+
           const project = d.project_id
             ? await this.projectRepo.findOne({
               where: { project_id: d.project_id },
@@ -127,6 +126,12 @@ export class RequestService {
             })
             : null;
 
+          const company = d.id_company
+            ? await this.companyRepo.findOne({
+              where: { id_company: d.id_company },
+            })
+            : null;
+
           let requestorName = d.created_by?.toString();
           if (d.created_by) {
             const user = await this.userRepo.findOne({
@@ -137,11 +142,13 @@ export class RequestService {
 
           return {
             id_request: d.id_request,
+            no_request: runningNumber,
             created_date: d.created_date,
             requestor_name: requestorName,
             full_name: d.full_name,
             badge_no: d.badge_no,
             email: d.email,
+            company_name: company?.company_name || '-',
             project_name: project?.project_desc || '-',
             department_name: department?.dept || '-',
             position_name: position?.design_desc || '-',
@@ -214,7 +221,7 @@ export class RequestService {
   async findOne(id: number): Promise<any> {
     const data = await this.requestRepo.findOne({
       where: { id_request: id },
-      relations: ['approval_hod_by', 'approval_lead_it_by', 'approval_it_hod_by'],
+      relations: ['approval_hod_by', 'approval_lead_it_by', 'approval_it_hod_by', 'company'],
     });
 
     if (!data) throw new NotFoundException(`Request with ID ${id} not found`);
@@ -231,9 +238,9 @@ export class RequestService {
       ? await this.positionRepo.findOne({ where: { design_id: data.design_id } })
       : null;
 
-        const createdByUser = data.created_by
-    ? await this.userRepo.findOne({ where: { id_user: data.created_by } })
-    : null;
+    const createdByUser = data.created_by
+      ? await this.userRepo.findOne({ where: { id_user: data.created_by } })
+      : null;
 
     return {
       ...data,
@@ -241,6 +248,13 @@ export class RequestService {
       department_name: department?.dept || '-',
       position_name: position?.design_desc || '-',
       created_by_name: createdByUser?.full_name || '-',
+      // approval_hod_by: data.approval_hod_by,
+      company: data.company
+        ? {
+          id_company: data.company.id_company,
+          company_name: data.company.company_name,
+        }
+        : null,
       approval_hod_by: data.approval_hod_by
         ? {
           id: data.approval_hod_by.id_user,
@@ -268,7 +282,7 @@ export class RequestService {
   async create(
     data: Partial<RequestEntity>,
     userId: number
-  ): Promise<RequestEntity & { created_by_name?: string }> {
+  ): Promise<RequestEntity & { created_by_name?: string; no_request?: string }> {
 
     const employee = await this.employeeRepo.findOne({
       where: { badge: Number(data.badge_no) },
@@ -278,6 +292,18 @@ export class RequestService {
     if (!employee) {
       throw new NotFoundException(`Employee with badge ${data.badge_no} not found`);
     }
+
+    const company = await this.companyRepo.findOne({
+      where: { id_company: employee.company },
+    });
+
+    const accessYardValue = Array.isArray(data.access_yard_company)
+      ? data.access_yard_company.join(',')
+      : data.access_yard_company || null;
+
+    const accessNavMenuValue = Array.isArray(data.access_nav_menu)
+      ? data.access_nav_menu.join(',')
+      : data.access_nav_menu || null;
 
     let approvalHodUser = null;
     if (data.approval_hod_by) {
@@ -310,6 +336,10 @@ export class RequestService {
       project_id: data.project_id || null,
       dept_id: data.dept_id || null,
       design_id: data.design_id || null,
+      company: company || null,
+      id_company: company?.id_company || null,
+      access_yard_company: accessYardValue,
+      access_nav_menu: accessNavMenuValue,
       request_type: data.request_type ?? 1,
       request_status: data.request_status ?? 0,
       status_active: data.status_active ?? 1,
@@ -382,8 +412,20 @@ export class RequestService {
 
     if (!existing)
       throw new NotFoundException(`Request with ID ${id_request} not found`);
-    if (data.approval_hod_by) {
 
+  if (data.access_yard_company !== undefined) {
+    existing.access_yard_company = Array.isArray(data.access_yard_company)
+      ? data.access_yard_company.join(',')
+      : data.access_yard_company;
+  }
+
+  if (data.access_nav_menu !== undefined) {
+    existing.access_nav_menu = Array.isArray(data.access_nav_menu)
+      ? data.access_nav_menu.join(',')
+      : data.access_nav_menu;
+  }
+
+    if (data.approval_hod_by) {
       const hodId = typeof data.approval_hod_by === 'object'
         ? data.approval_hod_by.id_user
         : data.approval_hod_by;

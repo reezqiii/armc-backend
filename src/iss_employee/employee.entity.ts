@@ -8,6 +8,7 @@ import {
 import { IssDept } from '../iss_dept/iss_dept.entity';
 import { IssProject } from '../iss_project/iss_project.entity';
 import { Position } from '../iss_design_new/position.entity';
+import { Company } from 'portal_company/company.entity';
 
 @Entity('iss_employee')
 export class IssEmployee {
@@ -29,6 +30,9 @@ export class IssEmployee {
   @Column({ name: 'design_id', type: 'int', nullable: true })
   design_id_new: number;
 
+  @Column({ name: 'company', type: 'int', nullable: true })
+  company: number;
+
   @ManyToOne(() => IssDept, { nullable: true })
   @JoinColumn({ name: 'dept_id', referencedColumnName: 'dept_id' })
   department: IssDept;
@@ -40,5 +44,4 @@ export class IssEmployee {
   @ManyToOne(() => Position, { nullable: true })
   @JoinColumn({ name: 'design_id_new', referencedColumnName: 'design_id' })
   position: Position;
-
 }
