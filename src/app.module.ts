@@ -17,11 +17,10 @@ import { RolePermissionModule } from './portal_role_permission/role_permission.m
 import { PositionModule } from 'iss_design_new/position.module';
 import { IssEmployeeModule } from 'iss_employee/employee.module';
 import { IssProjectModule } from 'iss_project/iss_project.module';
-import { IssDept } from 'iss_dept/iss_dept.entity';
 import { IssDeptModule } from 'iss_dept/iss_dept.module';
-import { MailModule } from 'email/mail.module';
 import { CompanyModule } from 'portal_company/company.module';
 import { NavMenuModule } from 'portal_nav_menu/menu.module';
+import { EmailModule } from 'email/email.module';
 
 @Module({
   imports: [
@@ -91,7 +90,7 @@ import { NavMenuModule } from 'portal_nav_menu/menu.module';
     IssEmployeeModule,
     IssProjectModule,
     IssDeptModule,
-    MailModule,
+    EmailModule,
     CompanyModule,
     NavMenuModule,
   ],

@@ -2,25 +2,52 @@ doctype html
 html
   head
     meta(charset="UTF-8")
-    title Approval Request
-  body(style="font-family: Arial, sans-serif; background-color: #f4f6f8; margin: 0; padding: 0;")
-    table(width="100%", cellspacing="0", cellpadding="0", style="max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 8px; border: 1px solid #e0e0e0;")
+    title New IT Request Notification
+  body(style="font-family: Arial, sans-serif; background-color: #f7f8fa; margin: 0; padding: 0;")
+    table(width="100%", cellspacing="0", cellpadding="0", style="max-width: 650px; margin: 40px auto; background: #ffffff; border-radius: 8px; border: 1px solid #e0e0e0; box-shadow: 0 2px 8px rgba(0,0,0,0.05);")
       tr
-        td(style="padding: 40px;")
-          h2(style="color: #2b2d42; margin-top: 0; font-size: 22px;") Approval Request dari #{requestorName}
+        td(style="padding: 35px;")
 
-          p(style="color: #555555; font-size: 16px; line-height: 1.6; margin-bottom: 20px;")
-            | Ada request baru yang perlu Anda approve.
+          h2(style="color: #2b2d42; margin-top: 0; font-size: 20px; margin-bottom: 10px;") Dear IT Team,
+          p(style="color: #333333; font-size: 15px; line-height: 1.6; margin-bottom: 25px;")
+            | The following IT request is open :
 
-          p(style="color: #777777; font-size: 14px; margin-bottom: 30px;")
-            | Tanggal request:
-            strong(style="color:#333; margin-left:4px;") #{requestDate}
+          // Request Info Table
+          table(width="100%", cellpadding="4", cellspacing="0", style="font-size: 14px; color: #333; border-collapse: collapse; margin-bottom: 25px;")
+            tr
+              td(width="160", style="font-weight: bold; color: #2b2d42; padding: 6px 0;") Request Number
+              td: span(style="font-weight: bold;") #{requestNumber}
+            tr
+              td(style="font-weight: bold; color: #2b2d42; padding: 6px 0;") Requested by
+              td #{requestorName}
+            tr
+              td(style="font-weight: bold; color: #2b2d42; padding: 6px 0;") Request Date
+              td #{requestDate}
+            tr
+              td(style="font-weight: bold; color: #2b2d42; padding: 6px 0;") Description
+              td: span(style="font-weight: bold; text-transform: uppercase;") #{requestDescription}
+            tr
+              td(style="font-weight: bold; color: #2b2d42; padding: 6px 0;") Status
+              td Open
 
-          div(style="background-color: #f1f3f5; padding: 15px 20px; border-radius: 6px; color: #333333; font-size: 15px; line-height: 1.5;")
-            | Mohon untuk melakukan proses approval melalui sistem sesuai prosedur yang berlaku.
+          // SLA Section
+          p(style="color: #333333; font-size: 14px; line-height: 1.6; margin-bottom: 10px;")
+            | This Service represents a Service Level Agreement (SLA):
+          ul(style="color: #555555; font-size: 14px; margin-top: 0; padding-left: 20px;")
+            li Request must be processed within 1 day.
+            li Please contact IT Helpdesk if request takes more than 1 day.
 
-          p(style="color: #999999; font-size: 13px; margin-top: 30px;")
-            | Terima kasih atas perhatian dan kerjasamanya.
+          // Links Section
+          div(style="margin-top: 25px;")
+            p(style="color: #333; font-size: 14px; margin-bottom: 8px;")
+              | 🔗 
+              a(href='#{publicLink}', style='color:#1a73e8; text-decoration:none;') Open Public Link
+            p(style="color: #333; font-size: 14px; margin-bottom: 8px;")
+              | 🌐 
+              a(href='#{smoeLink}', style='color:#1a73e8; text-decoration:none;') Open SMOE Portal
 
-          p(style="color: #2b2d42; font-size: 14px; font-weight: bold; margin-top: 10px;")
-            | IT Developer
+          // Footer
+          p(style="color: #777; font-size: 12px; margin-top: 35px; border-top: 1px solid #eee; padding-top: 10px; line-height: 1.5;")
+            | This is a system generated email. Please do not reply to this address.
+            br
+            | © #{currentYear} IT Service – SEATRIUM BATAM

@@ -20,6 +20,7 @@ export class IssEmployeeService {
         .leftJoinAndSelect('e.department', 'd')
         .leftJoinAndSelect('e.project', 'p')
         .leftJoinAndSelect('e.position', 'pos')
+        .where('e.status = :status', { status: 0 })
         .getMany();
       const companyIds = [...new Set(employees.map(emp => emp.company).filter(Boolean))];
 
@@ -55,7 +56,11 @@ export class IssEmployeeService {
         .leftJoinAndSelect('e.department', 'd')
         .leftJoinAndSelect('e.project', 'p')
         .leftJoinAndSelect('e.position', 'pos')
-        .where('(CAST(e.badge AS TEXT) ILIKE :badge or e.name ILike :name)', { badge: `%${badge}%`, name: `%${badge}%` })
+        .where('e.status = :status', { status: 0 })
+        .andWhere(
+          '(CAST(e.badge AS TEXT) ILIKE :badge OR e.name ILIKE :name)',
+          { badge: `%${badge}%`, name: `%${badge}%` },
+        )
         .limit(10)
         .getMany();
 
@@ -79,6 +84,7 @@ export class IssEmployeeService {
         .leftJoinAndSelect('e.project', 'p')
         .leftJoinAndSelect('e.position', 'pos')
         .where('e.badge = :badge', { badge })
+        .andWhere('e.status = :status', { status: 0 })
         .getOne();
 
       if (!employee) {

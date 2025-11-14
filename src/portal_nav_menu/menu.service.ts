@@ -12,6 +12,7 @@ export class NavMenuService {
 
   async findAll(): Promise<NavMenu[]> {
     return this.navMenuRepository.find({
+      where: { access_role: 0 },
       order: { application_name: 'ASC' }, 
     });
   }

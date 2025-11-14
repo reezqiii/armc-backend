@@ -21,6 +21,9 @@ export class IssEmployee {
   @Column({ name: 'name', type: 'varchar', length: 50 })
   name: string;
 
+  @Column({ name: 'status', type: 'int', default: 0 })
+  status: number;
+
   @Column({ name: 'dept_id', type: 'int', nullable: true })
   dept_id: number;
 

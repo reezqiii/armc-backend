@@ -12,7 +12,7 @@ import { IssProject } from 'iss_project/iss_project.entity';
 import { IssDept } from 'iss_dept/iss_dept.entity';
 import { Position } from 'iss_design_new/position.entity';
 import { IssEmployee } from 'iss_employee/employee.entity';
-import { MailService } from '../email/mail.service';
+import { EmailService } from '../email/email.service';
 import { Company } from 'portal_company/company.entity';
 import { NavMenu } from 'portal_nav_menu/menu.entity';
 @Injectable()
@@ -34,7 +34,7 @@ export class RequestService {
     private readonly navMenuRepo: Repository<NavMenu>,
     @InjectRepository(IssEmployee, 'db_iss')
     private readonly employeeRepo: Repository<IssEmployee>,
-    private readonly mailService: MailService,
+    private readonly mailService: EmailService,
   ) { }
 
   async serverSideList(queryDto: ServerSideDTO) {
@@ -242,19 +242,55 @@ export class RequestService {
       ? await this.userRepo.findOne({ where: { id_user: data.created_by } })
       : null;
 
+    // --- Ambil nama company dari access_yard_company ---
+    let yardCompanies = [];
+    if (typeof data.access_yard_company === 'string') {
+      const ids = data.access_yard_company.split(',').map(id => id.trim());
+      yardCompanies = await Promise.all(
+        ids.map(async id => {
+          const company = await this.companyRepo.findOne({ where: { id_company: Number(id) } });
+          return {
+            id,
+            company_name: company?.company_name || id,
+          };
+        }),
+      );
+    }
+
+    let navMenus = [];
+    if (data.access_nav_menu) {
+      const ids = String(data.access_nav_menu)
+        .split(',')
+        .map(id => id.trim())
+        .filter(Boolean);
+
+      navMenus = await Promise.all(
+        ids.map(async id => {
+          const menu = await this.navMenuRepo.findOne({
+            where: { id_application: Number(id) },
+          });
+          return {
+            id,
+            application_name: menu?.application_name || `Unknown (${id})`,
+          };
+        }),
+      );
+    }
+
     return {
       ...data,
       project_name: project?.project_desc || '-',
       department_name: department?.dept || '-',
       position_name: position?.design_desc || '-',
       created_by_name: createdByUser?.full_name || '-',
-      // approval_hod_by: data.approval_hod_by,
+
       company: data.company
         ? {
           id_company: data.company.id_company,
           company_name: data.company.company_name,
         }
         : null,
+
       approval_hod_by: data.approval_hod_by
         ? {
           id: data.approval_hod_by.id_user,
@@ -262,6 +298,7 @@ export class RequestService {
           full_name: data.approval_hod_by.full_name,
         }
         : null,
+
       approval_it_hod_by: data.approval_it_hod_by
         ? {
           id: data.approval_it_hod_by.id_user,
@@ -269,6 +306,7 @@ export class RequestService {
           full_name: data.approval_it_hod_by.full_name,
         }
         : null,
+
       approval_lead_it_by: data.approval_lead_it_by
         ? {
           id: data.approval_lead_it_by.id_user,
@@ -276,6 +314,9 @@ export class RequestService {
           full_name: data.approval_lead_it_by.full_name,
         }
         : null,
+
+      access_yard_company: yardCompanies,
+      access_nav_menu: navMenus,
     };
   }
 
@@ -413,17 +454,17 @@ export class RequestService {
     if (!existing)
       throw new NotFoundException(`Request with ID ${id_request} not found`);
 
-  if (data.access_yard_company !== undefined) {
-    existing.access_yard_company = Array.isArray(data.access_yard_company)
-      ? data.access_yard_company.join(',')
-      : data.access_yard_company;
-  }
+    if (data.access_yard_company !== undefined) {
+      existing.access_yard_company = Array.isArray(data.access_yard_company)
+        ? data.access_yard_company.join(',')
+        : data.access_yard_company;
+    }
 
-  if (data.access_nav_menu !== undefined) {
-    existing.access_nav_menu = Array.isArray(data.access_nav_menu)
-      ? data.access_nav_menu.join(',')
-      : data.access_nav_menu;
-  }
+    if (data.access_nav_menu !== undefined) {
+      existing.access_nav_menu = Array.isArray(data.access_nav_menu)
+        ? data.access_nav_menu.join(',')
+        : data.access_nav_menu;
+    }
 
     if (data.approval_hod_by) {
       const hodId = typeof data.approval_hod_by === 'object'
@@ -534,20 +575,22 @@ export class RequestService {
     });
 
     if (!existing) throw new NotFoundException(`Request with ID ${id_request} not found`);
-
     if (!existing.approval_hod_by)
       throw new InternalServerErrorException('HOD not assigned for this request');
 
     existing.request_status = 1;
-
     const saved = await this.requestRepo.save(existing);
 
     try {
-      await this.mailService.sendHodApprovalEmail(
-        existing.approval_hod_by.email,
-        existing.created_by_user?.full_name || 'Unknown User',
-        existing.id_request
-      );
+      await this.mailService.sendHodApprovalEmail({
+        to: existing.approval_hod_by.email,
+        requestNumber: `ITF14-${String(existing.id_request).padStart(6, '0')}`,
+        requestorName: existing.created_by_user?.full_name || 'Unknown User',
+        requestDate: existing.created_date?.toISOString().split('T')[0] || '',
+        requestDescription: existing.request_reason || '-',
+        publicLink: `http://public.smoe.com/request/${existing.id_request}`,
+        smoeLink: `http://itportal.smoe.com/approval/${existing.id_request}`,
+      });
     } catch (err) {
       console.error('Failed to send HOD email:', err);
     }
