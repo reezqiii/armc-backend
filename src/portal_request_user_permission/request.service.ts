@@ -58,6 +58,7 @@ export class RequestService {
         created_date: 'request.created_date',
         status_active: 'request.status_active',
         approval_hod: 'approvalHod.full_name',
+        approval_hod_by: 'approvalHod.id_user',
         approval_it: 'approvalIt.full_name',
         approval_lead_it: 'approvalLeadIt.full_name',
       };
@@ -566,6 +567,22 @@ export class RequestService {
     }
 
     return this.requestRepo.save(existing);
+  }
+
+  async hodApprovalBulk(ids: number[], action: string, remarks: string, userId: number) {
+    const results = [];
+
+    for (const id of ids) {
+      const res = await this.hodApproval(id, action, remarks, userId);
+      results.push(res);
+    }
+
+    return {
+      success: true,
+      count: results.length,
+      message: `Processed ${results.length} requests`,
+      results,
+    };
   }
 
   async submitToHod(id_request: number) {

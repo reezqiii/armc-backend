@@ -73,6 +73,21 @@ export class RequestController {
     return this.requestService.hodApproval(id_request, body.action, body.remarks, userId);
   }
 
+  @Put('hod-approval/bulk')
+  @UseGuards(JwtAuthGuard)
+  async hodApprovalBulk(
+    @Body()
+    body: {
+      ids: number[];
+      action: string;
+      remarks?: string;
+    },
+    @Req() req
+  ) {
+    const userId = req.user.id_user;
+    return this.requestService.hodApprovalBulk(body.ids, body.action, body.remarks, userId);
+  }
+
   @Put(':id/submit-to-hod')
   async submitToHodRequest(
     @Param('id') id: number,
