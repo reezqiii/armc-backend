@@ -134,7 +134,15 @@ export class RequestController {
   }
 
   @Post('/serverside_list')
-  async serverSideList(@Query() queryDto: ServerSideDTO) {
-    return await this.requestService.serverSideList(queryDto);
+  async serverSideList(
+    @Query() query: any
+  ) {
+    if (query.sort_by) {
+      query.sort = `${query.sort_by},${(query.sort_order || 'ASC').toUpperCase()}`;
+    }
+
+    const dto: ServerSideDTO = query;
+
+    return this.requestService.serverSideList(dto);
   }
 }

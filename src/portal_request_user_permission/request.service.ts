@@ -47,7 +47,11 @@ export class RequestService {
         .createQueryBuilder('request')
         .leftJoinAndSelect('request.approval_hod_by', 'approvalHod')
         .leftJoinAndSelect('request.approval_it_hod_by', 'approvalIt')
+        .leftJoinAndSelect('request.approval_lead_it_by', 'approvalLeadIt')
+        .leftJoinAndSelect('request.created_by_user', 'requestor')
+        .leftJoinAndSelect('request.company', 'company')
         .where('request.status_active = :active', { active: 1 });
+
 
       const columnMap: Record<string, string> = {
         id_request: 'request.id_request',
@@ -57,24 +61,46 @@ export class RequestService {
         request_status: 'request.request_status',
         created_date: 'request.created_date',
         status_active: 'request.status_active',
+        requestor_name: 'requestor.full_name',
+        company_name: 'company.company_name',
         approval_hod: 'approvalHod.full_name',
         approval_hod_by: 'approvalHod.id_user',
         approval_it: 'approvalIt.full_name',
         approval_lead_it: 'approvalLeadIt.full_name',
       };
 
+      const manualSortFields = [
+        'department_name',
+        'project_name',
+        'position_name',
+      ];
+
+      let manualSearchQueue: Array<{ field: string; value: any }> = [];
+      let manualSortField: string | null = null;
+      let manualSortDir: 'ASC' | 'DESC' = 'ASC';
+
       if (search) {
         let filters: Record<string, any> = {};
+
         try {
           filters = JSON.parse(search);
         } catch {
           throw new InternalServerErrorException('Invalid JSON search format');
         }
 
+        const manualFields = ['department_name', 'project_name', 'position_name'];
+
         for (const [key, value] of Object.entries(filters)) {
           if (value === undefined || value === null) continue;
+
+          if (manualFields.includes(key)) {
+            manualSearchQueue.push({ field: key, value }); // <-- aman, visible di luar
+            continue;
+          }
+
           const column = columnMap[key];
-          if (!column) throw new Error(`Invalid search column: ${key}`);
+          if (!column) continue;
+
           qb.andWhere(
             typeof value === 'string'
               ? `CAST(${column} AS TEXT) ILIKE :${key}`
@@ -85,9 +111,17 @@ export class RequestService {
       }
 
       if (sort) {
-        const [col, dir] = sort.split(',');
-        const column = columnMap[col] ?? `request.${col}`;
-        qb.orderBy(column, (dir?.toUpperCase() as 'ASC' | 'DESC') || 'ASC');
+        const [sortField, sortDirRaw] = sort.split(',');
+        const sortDir = sortDirRaw?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+
+        if (manualSortFields.includes(sortField)) {
+          // ⬅️ SIMPAN instruksi manual sort (JANGAN DIJALANKAN DI SINI)
+          manualSortField = sortField;
+          manualSortDir = sortDir;
+        } else {
+          const column = columnMap[sortField] ?? `request.${sortField}`;
+          qb.orderBy(column, sortDir);
+        }
       } else {
         qb.orderBy('request.created_date', 'DESC');
       }
@@ -105,7 +139,7 @@ export class RequestService {
         7: 'Completed',
       };
 
-      const mappedData = await Promise.all(
+      let mappedData = await Promise.all(
         data.map(async (d, index) => {
           const runningNumber = total - (skip + index);
 
@@ -173,6 +207,25 @@ export class RequestService {
           };
         }),
       );
+
+      for (const { field, value } of manualSearchQueue) {
+        const searchValue = String(value).toLowerCase();
+
+        mappedData = mappedData.filter(item => {
+          const target = String(item[field] ?? '').toLowerCase();
+          return target.includes(searchValue);
+        });
+      }
+
+      if (manualSortField) {
+        const direction = manualSortDir === 'DESC' ? -1 : 1;
+
+        mappedData.sort((a, b) => {
+          const A = a[manualSortField] ?? '';
+          const B = b[manualSortField] ?? '';
+          return A.localeCompare(B) * direction;
+        });
+      }
 
       return {
         data: mappedData,

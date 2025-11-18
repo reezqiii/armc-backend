@@ -8,6 +8,9 @@ import {
 import { User } from '../portal_user_db/user.entity';
 import { Company } from 'portal_company/company.entity';
 import { NavMenu } from 'portal_nav_menu/menu.entity';
+import { IssDept } from 'iss_dept/iss_dept.entity';
+import { Position } from 'iss_design_new/position.entity';
+import { IssProject } from 'iss_project/iss_project.entity';
 @Entity('portal_request_user_permission')
 export class RequestEntity {
   @PrimaryGeneratedColumn({ name: 'id_request' })
@@ -82,6 +85,15 @@ export class RequestEntity {
   @Column({ name: 'id_company', type: 'int', nullable: true })
   id_company: number;
 
+  @Column({ name: 'approval_hod_by', type: 'int', nullable: true })
+  approval_hod_by_id: number;
+
+  @Column({ name: 'approval_it_hod_by', type: 'int', nullable: true })
+  approval_it_hod_by_id: number;
+
+  @Column({ name: 'approval_lead_it_by', type: 'int', nullable: true })
+  approval_lead_it_by_id: number;
+
   @Column({ name: 'access_yard_company', type: 'varchar', nullable: true })
   access_yard_company: string;
 
@@ -104,12 +116,14 @@ export class RequestEntity {
   @JoinColumn({ name: 'created_by' })
   created_by_user: User;
 
+  @ManyToOne(() => NavMenu, { nullable: true })
+  @JoinColumn({ name: 'access_nav_menu' })
+  nav_menu: NavMenu;
+
   @ManyToOne(() => Company, { nullable: true })
   @JoinColumn({ name: 'id_company' })
   company: Company;
 
-  @ManyToOne(() => NavMenu, { nullable: true })
-  @JoinColumn({ name: 'access_nav_menu' })
-  nav_menu: NavMenu;
+
 }
 
