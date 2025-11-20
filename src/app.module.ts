@@ -21,6 +21,7 @@ import { IssDeptModule } from 'iss_dept/iss_dept.module';
 import { CompanyModule } from 'portal_company/company.module';
 import { NavMenuModule } from 'portal_nav_menu/menu.module';
 import { EmailModule } from 'email/email.module';
+import { PortalUserPermissionModule } from 'portal_user_permission/user_permission.module';
 
 @Module({
   imports: [
@@ -86,6 +87,7 @@ import { EmailModule } from 'email/email.module';
     RoleModule,
     UserDBModule,
     RolePermissionModule,
+    PortalUserPermissionModule,
     PositionModule,
     IssEmployeeModule,
     IssProjectModule,

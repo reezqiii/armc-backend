@@ -1,7 +1,7 @@
 import {
   Injectable,
   InternalServerErrorException,
-  NotFoundException,
+  NotFoundException, ForbiddenException
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -15,6 +15,8 @@ import { IssEmployee } from 'iss_employee/employee.entity';
 import { EmailService } from '../email/email.service';
 import { Company } from 'portal_company/company.entity';
 import { NavMenu } from 'portal_nav_menu/menu.entity';
+import { PortalPermission } from 'portal_permission/permission.entity';
+import { PortalUserPermissionService } from 'portal_user_permission/user_permission.service';
 @Injectable()
 export class RequestService {
   constructor(
@@ -28,6 +30,9 @@ export class RequestService {
     private readonly positionRepo: Repository<Position>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    private readonly permissionService: PortalUserPermissionService,
+    @InjectRepository(PortalPermission)
+    private readonly portalPermissionRepo: Repository<PortalPermission>,
     @InjectRepository(Company)
     private readonly companyRepo: Repository<Company>,
     @InjectRepository(NavMenu)
@@ -296,7 +301,6 @@ export class RequestService {
       ? await this.userRepo.findOne({ where: { id_user: data.created_by } })
       : null;
 
-    // --- Ambil nama company dari access_yard_company ---
     let yardCompanies = [];
     if (typeof data.access_yard_company === 'string') {
       const ids = data.access_yard_company.split(',').map(id => id.trim());
@@ -577,6 +581,12 @@ export class RequestService {
       existing.approval_it_date_at = new Date();
     }
 
+    delete data.approval_hod_by;
+    delete data.approval_lead_it_by;
+    delete data.approval_it_hod_by;
+    delete data.access_yard_company;
+    delete data.access_nav_menu;
+
     Object.assign(existing, data);
 
     return this.requestRepo.save(existing);
@@ -674,6 +684,13 @@ export class RequestService {
     remarks: string,
     userId: number
   ) {
+
+    const permissions = await this.permissionService.getUserPermissionsForApp(userId, 31);
+
+    if (!permissions.approvalLeadIt.includes("2000")) {
+      throw new ForbiddenException("Not allowed to approve as Lead IT");
+    }
+
     const existing = await this.requestRepo.findOne({
       where: { id_request },
       relations: ['approval_hod_by', 'approval_lead_it_by', 'approval_it_hod_by'],
@@ -708,6 +725,13 @@ export class RequestService {
     remarks: string,
     userId: number
   ) {
+
+    const permissions = await this.permissionService.getUserPermissionsForApp(userId, 31);
+
+    if (!permissions.approvalItManager.includes("2001")) {
+      throw new ForbiddenException("Not allowed to approve as IT Manager");
+    }
+
     const existing = await this.requestRepo.findOne({
       where: { id_request },
       relations: ['approval_it_hod_by', 'approval_lead_it_by', 'approval_hod_by'],
@@ -731,6 +755,30 @@ export class RequestService {
 
     return this.requestRepo.save(existing);
   }
+
+  async getById(id: number) {
+    return await this.requestRepo.findOne({
+      where: { id_request: id },
+      relations: [
+        'created_by_user',
+        'approval_hod_by',
+        'approval_it_hod_by',
+        'approval_lead_it_by'
+      ],
+    });
+  }
+
+  // async checkPermission(userId: number, appId: number, permissionKey: string) {
+  //   const permission = await this.portalPermissionRepo
+  //     .createQueryBuilder('p')
+  //     .leftJoin('p.userPermissions', 'up')
+  //     .where('up.userId = :userId', { userId })
+  //     .andWhere('p.idApplication = :appId', { appId })
+  //     .andWhere('p.permissionKey = :permissionKey', { permissionKey })
+  //     .getOne();
+
+  //   return !!permission;
+  // }
 
   async cancelRequest(
     id_request: number,

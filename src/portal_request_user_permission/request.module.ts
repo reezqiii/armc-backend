@@ -13,14 +13,22 @@ import { Role } from 'portal_master_role_permission_db/role.entity';
 import { EmailModule } from 'email/email.module';
 import { Company } from 'portal_company/company.entity';
 import { NavMenu } from 'portal_nav_menu/menu.entity';
-
+import { PortalPermissionModule } from 'portal_permission/permission.module';
+import { PortalUserPermissionModule } from 'portal_user_permission/user_permission.module';
+import { AesEcbService } from 'crypto/aes-ecb.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([RequestEntity, User, Role, Company, NavMenu]),
     TypeOrmModule.forFeature([IssProject, IssDept, Position, IssEmployee], 'db_iss'),
     EmailModule,
+    PortalPermissionModule,
+    PortalUserPermissionModule,
   ],
   controllers: [RequestController],
-  providers: [RequestService, UserService],
+  providers: [
+    RequestService,
+    UserService,
+    AesEcbService,
+  ],
 })
-export class RequestModule {}
+export class RequestModule { }

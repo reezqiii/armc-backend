@@ -1,16 +1,19 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, Query, Req, UseGuards, Patch, } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, Query, Req, UseGuards, Patch, BadRequestException } from '@nestjs/common';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { RequestService } from './request.service';
 import { RequestEntity } from './request.entity';
 import { ServerSideDTO } from 'DTO/dto.serverside';
 import { JwtAuthGuard } from 'jwt-auth.guard';
+import { AesEcbService } from '../crypto/aes-ecb.service';
 import { UserService } from '../portal_user_db/user.service';
+
 @Controller('requests')
 @ApiBearerAuth('access-token')
 export class RequestController {
   constructor(
     private readonly requestService: RequestService,
     private readonly userService: UserService,
+    private readonly aesEcb: AesEcbService,
   ) { }
 
   @Get('hods')
@@ -23,11 +26,30 @@ export class RequestController {
   async findAll(@Query() queryDto: ServerSideDTO) {
     return await this.requestService.findAll();
   }
-
+  
   @Get(':id')
-  findOne(@Param('id') id: number): Promise<RequestEntity> {
-    return this.requestService.findOne(id);
+  findOne(@Param('id') id: string) {
+    let decId: number;
+
+    // cek apakah ID numeric biasa (248)
+    if (/^\d+$/.test(id)) {
+      decId = Number(id);
+    } else {
+      // jika bukan angka, berarti encrypted → decrypt
+      try {
+        decId = Number(this.aesEcb.decryptBase64Url(id));
+      } catch (e) {
+        throw new BadRequestException('Invalid request ID format');
+      }
+    }
+
+    if (isNaN(decId)) {
+      throw new BadRequestException('Invalid request ID');
+    }
+
+    return this.requestService.findOne(decId);
   }
+
 
   @Get('employee/:badge')
   @UseGuards(JwtAuthGuard)
@@ -44,15 +66,17 @@ export class RequestController {
 
   @Put(':id')
   async update(
-    @Param('id') id_request: number,
+    @Param('id') id: string,
     @Body() data: Partial<RequestEntity>,
     @Req() req
-  ): Promise<RequestEntity> {
+  ) {
+    const decId = Number(this.aesEcb.decryptBase64Url(id));
+
     if (data.status_active === 0) {
-      data.canceled_by = req.user?.id;
+      data.canceled_by = req.user?.id_user;
     }
 
-    return this.requestService.update(id_request, data);
+    return this.requestService.update(decId, data);
   }
 
   @Put('cancel/:id')
@@ -97,26 +121,53 @@ export class RequestController {
   }
 
   @Put(':id/lead-it-approval')
-  @UseGuards(JwtAuthGuard)
   async leadItApproval(
-    @Param('id') id_request: number,
-    @Body() body: { action: string; remarks?: string },
+    @Param('id') id: string,
+    @Body() body,
     @Req() req,
   ) {
+    const decId = Number(this.aesEcb.decryptBase64Url(id));
     const userId = req.user.id_user;
-    return this.requestService.leadItApproval(id_request, body.action, body.remarks, userId);
+
+    return this.requestService.leadItApproval(
+      decId,
+      body.action,
+      body.remarks,
+      userId,
+    );
   }
 
   @Put(':id/it-approval')
   @UseGuards(JwtAuthGuard)
   async itApproval(
-    @Param('id') id_request: number,
+    @Param('id') id: string,
     @Body() body: { action: string; remarks?: string },
     @Req() req
   ) {
+    const decId = Number(this.aesEcb.decryptBase64Url(id));
     const userId = req.user.id_user;
-    return this.requestService.itApproval(id_request, body.action, body.remarks, userId);
+
+    return this.requestService.itApproval(decId, body.action, body.remarks, userId);
   }
+
+  // @Post('assign-permission')
+  // @UseGuards(JwtAuthGuard)
+  // async assignPermission(
+  //   @Body() body: { id_user: number; permission_id: number; created_by: number }
+  // ) {
+  //   return this.requestService.assignPermissionToUser(
+  //     body.id_user,
+  //     body.permission_id,
+  //     body.created_by
+  //   );
+  // }
+
+  // @Get('permissions/:id_user')
+  // getAssignedPermission(
+  //   @Param('id_user') id_user: number,
+  // ) {
+  //   return this.requestService.getAssignedPermissions(id_user);
+  // }
 
   @Patch(':id/admin-status')
   @UseGuards(JwtAuthGuard)
