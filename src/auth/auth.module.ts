@@ -8,6 +8,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtStrategy } from '../jwt.strategy';
 import { User } from '../portal/user.entity';
 import { CryptoModule } from '../crypto/crypto.module';
+import { PortalUserPermissionModule } from 'portal_user_permission/user_permission.module';
 
 @Module({
   imports: [
@@ -26,9 +27,10 @@ import { CryptoModule } from '../crypto/crypto.module';
     }),
     TypeOrmModule.forFeature([User], 'portal'),
     CryptoModule,
+    PortalUserPermissionModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],
   exports: [AuthService],
 })
-export class AuthModule {}
+export class AuthModule { }

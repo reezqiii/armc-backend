@@ -63,11 +63,6 @@ export class EmailService {
         },
       });
 
-      console.log('✅ Email API responded:', res.status, res.statusText);
-      console.log('📤 Payload sent:', payload);
-      console.log('📨 Response body:', res.data);
-      console.log('📦 FINAL PAYLOAD:');
-
     } catch (error) {
       console.error('❌ Failed to send email:', error.message);
       if (error.response) {

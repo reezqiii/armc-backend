@@ -209,8 +209,20 @@ export class RequestService {
               : '-',
 
             request_admin: d.request_admin ?? 0,
+
+            approval_hod_by: d.approval_hod_by
+              ? {
+                id: d.approval_hod_by.id_user,
+                badge_no: d.approval_hod_by.badge_no,
+                full_name: d.approval_hod_by.full_name,
+              }
+              : null,
+
+            approval_hod_date_at: d.approval_hod_date_at || null,
+
+            rejected_hod_remarks: d.rejected_hod_remarks || null,
           };
-        }),
+        })
       );
 
       for (const { field, value } of manualSearchQueue) {

@@ -12,7 +12,6 @@ export class PortalUserPermissionController {
         @Query('appId') appId: number,
         @Req() req,
     ) {
-        console.log("USER FROM TOKEN:", req.user);
         const userId = req.user.id; 
         return this.service.getUserPermissionsForApp(userId, appId);
     }

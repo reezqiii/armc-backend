@@ -12,7 +12,6 @@ export class SftpService {
       username: process.env.FTP_SINOLOGI_USER,
       password: process.env.FTP_SINOLOGI_PASS,
     };
-    console.log(config);
     try {
       await this.sftp.connect(config);
       await this.sftp.put(localPath, remotePath);
