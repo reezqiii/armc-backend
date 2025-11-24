@@ -6,7 +6,6 @@ import { ServerSideDTO } from 'DTO/dto.serverside';
 import { JwtAuthGuard } from 'jwt-auth.guard';
 import { AesEcbService } from '../crypto/aes-ecb.service';
 import { UserService } from '../portal_user_db/user.service';
-
 @Controller('requests')
 @ApiBearerAuth('access-token')
 export class RequestController {
@@ -22,34 +21,17 @@ export class RequestController {
     return this.requestService.getAllHods();
   }
 
-  @Get()
-  async findAll(@Query() queryDto: ServerSideDTO) {
-    return await this.requestService.findAll();
-  }
-  
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    let decId: number;
-
-    // cek apakah ID numeric biasa (248)
-    if (/^\d+$/.test(id)) {
-      decId = Number(id);
-    } else {
-      // jika bukan angka, berarti encrypted → decrypt
-      try {
-        decId = Number(this.aesEcb.decryptBase64Url(id));
-      } catch (e) {
-        throw new BadRequestException('Invalid request ID format');
-      }
-    }
-
-    if (isNaN(decId)) {
+  async findOne(@Param('id') id: string) {
+    let numericId: number;
+    try {
+      numericId = Number(this.aesEcb.decryptBase64Url(id));
+      if (isNaN(numericId)) throw new Error();
+    } catch {
       throw new BadRequestException('Invalid request ID');
     }
-
-    return this.requestService.findOne(decId);
+    return this.requestService.findOne(numericId);
   }
-
 
   @Get('employee/:badge')
   @UseGuards(JwtAuthGuard)
@@ -65,6 +47,7 @@ export class RequestController {
   }
 
   @Put(':id')
+  @UseGuards(JwtAuthGuard)
   async update(
     @Param('id') id: string,
     @Body() data: Partial<RequestEntity>,
@@ -81,20 +64,24 @@ export class RequestController {
 
   @Put('cancel/:id')
   @UseGuards(JwtAuthGuard)
-  async cancelRequest(@Param('id') id_request: number, @Req() req) {
+  async cancelRequest(@Param('id') id: string, @Req() req) {
+    const decId = Number(this.aesEcb.decryptBase64Url(id));
     const userId = req.user.id_user;
-    return this.requestService.cancelRequest(id_request, userId);
+    return this.requestService.cancelRequest(decId, userId);
   }
 
   @Put(':id/hod-approval')
   @UseGuards(JwtAuthGuard)
   async hodApproval(
-    @Param('id') id_request: number,
+    @Param('id') id: string,
     @Body() body: { action: string; remarks?: string },
     @Req() req
   ) {
+    const decId = Number(this.aesEcb.decryptBase64Url(id));
+    if (isNaN(decId)) throw new BadRequestException('Invalid request ID');
+
     const userId = req.user.id_user;
-    return this.requestService.hodApproval(id_request, body.action, body.remarks, userId);
+    return this.requestService.hodApproval(decId, body.action, body.remarks, userId);
   }
 
   @Put('hod-approval/bulk')
@@ -186,14 +173,14 @@ export class RequestController {
 
   @Post('/serverside_list')
   async serverSideList(
-    @Query() query: any
+    @Query() query: any,
+    @Req() req: any
   ) {
     if (query.sort_by) {
       query.sort = `${query.sort_by},${(query.sort_order || 'ASC').toUpperCase()}`;
     }
 
     const dto: ServerSideDTO = query;
-
-    return this.requestService.serverSideList(dto);
+    return this.requestService.serverSideList(dto, req.user);
   }
 }

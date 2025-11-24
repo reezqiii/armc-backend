@@ -42,7 +42,7 @@ export class RequestService {
     private readonly mailService: EmailService,
   ) { }
 
-  async serverSideList(queryDto: ServerSideDTO) {
+  async serverSideList(queryDto: ServerSideDTO, user?: any) {
     try {
       const { page = 0, size = 10, search, sort } = queryDto;
       const take = size;
@@ -63,6 +63,7 @@ export class RequestService {
         full_name: 'request.full_name',
         badge_no: 'request.badge_no',
         email: 'request.email',
+        requestor_id: 'request.created_by',
         request_status: 'request.request_status',
         created_date: 'request.created_date',
         status_active: 'request.status_active',
@@ -129,6 +130,12 @@ export class RequestService {
         }
       } else {
         qb.orderBy('request.created_date', 'DESC');
+      }
+
+      if (user) {
+        if (user.isHod) {  
+          qb.andWhere('(approvalHod.id_user = :uid or request.created_by = :uid)', { uid: user.id_user });
+        }
       }
 
       const [data, total] = await qb.skip(skip).take(take).getManyAndCount();
