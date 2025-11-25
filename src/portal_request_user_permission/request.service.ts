@@ -57,7 +57,6 @@ export class RequestService {
         .leftJoinAndSelect('request.company', 'company')
         .where('request.status_active = :active', { active: 1 });
 
-
       const columnMap: Record<string, string> = {
         id_request: 'request.id_request',
         full_name: 'request.full_name',
@@ -67,6 +66,7 @@ export class RequestService {
         request_status: 'request.request_status',
         created_date: 'request.created_date',
         status_active: 'request.status_active',
+        request_admin: 'request.request_admin',
         requestor_name: 'requestor.full_name',
         company_name: 'company.company_name',
         approval_hod: 'approvalHod.full_name',
@@ -133,7 +133,7 @@ export class RequestService {
       }
 
       if (user) {
-        if (user.isHod) {  
+        if (user.isHod) {
           qb.andWhere('(approvalHod.id_user = :uid or request.created_by = :uid)', { uid: user.id_user });
         }
       }
@@ -763,6 +763,7 @@ export class RequestService {
       existing.request_status = 7;
       existing.approval_it_date_at = new Date();
       existing.approval_it_hod_by = await this.userRepo.findOne({ where: { id_user: userId } });
+      existing.request_admin = 0;
     } else if (action === 'reject') {
       existing.request_status = 6;
       existing.rejected_it_remarks = remarks;

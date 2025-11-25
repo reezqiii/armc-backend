@@ -13,6 +13,7 @@ export class PortalUserPermissionService {
     async getUserPermissionsForApp(userId: number, appId: number): Promise<{
         approvalLeadIt: string[];
         approvalItManager: string[];
+        itAction: string[];
     }> {
         const rows = await this.userPermRepo.find({
             where: {
@@ -22,6 +23,7 @@ export class PortalUserPermissionService {
         });
         const leadItPermissions = [];
         const itManagerPermissions = [];
+        const itActionPermissions = [];
 
         rows.forEach((item) => {
             if (item.index_key === '0') {
@@ -30,11 +32,15 @@ export class PortalUserPermissionService {
             if (item.index_key === '1') {
                 itManagerPermissions.push(item.id_portal_permission);
             }
+            if (item.index_key === '2') {
+                itActionPermissions.push(item.id_portal_permission);
+            }
         });
 
         return {
             approvalLeadIt: leadItPermissions,
             approvalItManager: itManagerPermissions,
+            itAction: itActionPermissions,
         };
     }
 
