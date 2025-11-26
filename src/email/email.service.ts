@@ -64,9 +64,9 @@ export class EmailService {
       });
 
     } catch (error) {
-      console.error('❌ Failed to send email:', error.message);
+      console.error('Failed to send email:', error.message);
       if (error.response) {
-        console.error('🔹 Response data:', error.response.data);
+        console.error('Response data:', error.response.data);
       }
       throw new HttpException({ success: false, message: 'Failed to send email' }, 500);
     }

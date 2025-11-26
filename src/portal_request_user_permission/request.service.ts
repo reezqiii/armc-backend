@@ -17,6 +17,8 @@ import { Company } from 'portal_company/company.entity';
 import { NavMenu } from 'portal_nav_menu/menu.entity';
 import { PortalPermission } from 'portal_permission/permission.entity';
 import { PortalUserPermissionService } from 'portal_user_permission/user_permission.service';
+
+
 @Injectable()
 export class RequestService {
   constructor(
@@ -100,7 +102,7 @@ export class RequestService {
           if (value === undefined || value === null) continue;
 
           if (manualFields.includes(key)) {
-            manualSearchQueue.push({ field: key, value }); // <-- aman, visible di luar
+            manualSearchQueue.push({ field: key, value });
             continue;
           }
 
@@ -132,12 +134,17 @@ export class RequestService {
         qb.orderBy('request.created_date', 'DESC');
       }
 
-      if (user) {
-        if (user.isHod) {
-          qb.andWhere('(approvalHod.id_user = :uid or request.created_by = :uid)', { uid: user.id_user });
-        }
-      }
+      // const perms = await this.permissionService.getUserPermissionsForApp(user.id_user, 31);
+      // const hasITAction = perms.itAction.length > 0;
 
+      // if (!hasITAction) {
+      //   qb.andWhere('request.created_by = :uid', { uid: user.id_user });
+      // }
+
+      if (user?.isHod) {
+        qb.andWhere('request.request_status = :status', { status: 1 });
+        qb.andWhere('approvalHod.id_user = :uid', { uid: user.id_user });
+      }
       const [data, total] = await qb.skip(skip).take(take).getManyAndCount();
 
       const statusMap: Record<number, string> = {

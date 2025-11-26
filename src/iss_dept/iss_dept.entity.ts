@@ -5,7 +5,7 @@ export class IssDept {
   @PrimaryGeneratedColumn({ name: 'dept_id', type: 'int' })
   dept_id: number;
 
-  @Column({ name: 'hod', type: 'varchar', length: 250, nullable: true })
+   @Column({ name: 'hod', type: 'varchar', length: 250, nullable: true })
   hod: string;
 
   @Column({ name: 'hod_mail', type: 'varchar', length: 250, nullable: true })
@@ -16,4 +16,11 @@ export class IssDept {
 
   @Column({ name: 'badge', type: 'varchar', length: 50, nullable: true })
   badge: string;
+
+  @Column({ name: 'badge_hod', type: 'int', nullable: true })
+  badge_hod: number;  
+
+  @Column({ name: 'dept_code', type: 'varchar', length: 50, nullable: true })
+  dept_code: string;
 }
+
