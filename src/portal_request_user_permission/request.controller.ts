@@ -6,6 +6,7 @@ import { ServerSideDTO } from 'DTO/dto.serverside';
 import { JwtAuthGuard } from 'jwt-auth.guard';
 import { AesEcbService } from '../crypto/aes-ecb.service';
 import { UserService } from '../portal_user_db/user.service';
+
 @Controller('requests')
 @ApiBearerAuth('access-token')
 export class RequestController {
@@ -104,7 +105,8 @@ export class RequestController {
     @Param('id') id: number,
     @Req() req: any
   ) {
-    return this.requestService.submitToHod(id);
+    const userId = req.user?.id;
+    return await this.requestService.submitToHod(id, userId);
   }
 
   @Put(':id/lead-it-approval')

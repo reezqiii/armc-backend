@@ -30,5 +30,6 @@ import { AesEcbService } from 'crypto/aes-ecb.service';
     UserService,
     AesEcbService,
   ],
+   exports: [RequestService],
 })
 export class RequestModule { }

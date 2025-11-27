@@ -1,74 +1,57 @@
-import { Injectable, HttpException } from '@nestjs/common';
-import axios from 'axios';
-import * as pug from 'pug';
+import { Injectable } from "@nestjs/common";
+import axios from "axios";
+import { ConfigService } from "@nestjs/config";
+import * as jwt from "jsonwebtoken";
+import { sendEmailDto } from "./dto/send-email.dto";
 import * as path from 'path';
-import * as jwt from 'jsonwebtoken';
+import * as ejs from 'ejs';
+import * as fs from 'fs';
 
 @Injectable()
 export class EmailService {
-  private readonly EMAIL_API_URL = 'http://10.5.255.166/api_email/public/api/email';
-  private readonly JWT_SECRET = '163f721bd2e3a61264244ae0bfd3a37e';
+  private EMAIL_API_URL: string;
+  private JWT_SECRET: string;
+  private JWT_EMAIL_TOKEN: string;
 
-  async sendHodApprovalEmail(data: {
-    to: string;
-    cc?: string;
-    bcc?: string;
-    requestNumber: string;
-    requestorName: string;
-    requestDate: string;
-    requestDescription: string;
-    publicLink: string;
-    smoeLink: string;
-    attachments?: {
-      filename: string;
-      content: Buffer | string;
-    }[];
-  }) {
+  constructor(private configService: ConfigService) {
+    this.EMAIL_API_URL = this.configService.get<string>("EMAIL_API");
+    this.JWT_SECRET = this.configService.get<string>("JWT_SECRET");
+    this.JWT_EMAIL_TOKEN = this.configService.get<string>("JWT_TOKEN_EMAIL");
+  }
+
+  private generateJwtToken(secret: string): string {
+    return jwt.sign({ app: secret }, this.JWT_SECRET, { expiresIn: "1h" });
+  }
+
+  async sendEmail(data: sendEmailDto) {
     try {
-      const templatePath = path.join(process.cwd(), 'src', 'templates', 'hod_approval.pug');
-      const htmlContent = pug.renderFile(templatePath, {
-        requestNumber: data.requestNumber,
-        requestorName: data.requestorName,
-        requestDate: data.requestDate,
-        requestDescription: data.requestDescription,
-        publicLink: data.publicLink,
-        smoeLink: data.smoeLink,
-        currentYear: new Date().getFullYear(),
-      });
-
-      const token = jwt.sign({ data: 'SEATRIUM EMAIL' }, this.JWT_SECRET, { algorithm: 'HS256' });
-
+      const jwtToken = this.generateJwtToken("SEATRIUM EMAIL");
       const payload: any = {
-        htmlContent,
-        subject: `New IT Request - ${data.requestNumber}`,
-        JWT_TOKEN: process.env.EMAIL_SECRET_KEY,
-        email_to: data.to,
+        htmlContent: data.content,
+        subject: data.subject,
+        JWT_TOKEN: this.JWT_EMAIL_TOKEN,
+        attachment_list: [],
+        email_to: data.email_to,
       };
+      if (data.email_cc) payload.email_cc = data.email_cc;
+      if (data.email_bcc) payload.email_bcc = data.email_bcc;
 
-      if (data.cc) payload.email_cc = data.cc;
-      if (data.bcc) payload.email_bcc = data.bcc;
-      if (data.attachments) {
-        payload.attachment_list = data.attachments.map(file => ({
-          attachment: Buffer.isBuffer(file.content)
-            ? file.content.toString('base64')
-            : file.content,
-          attachment_name: path.basename(file.filename),
-        }));
-      }
+      console.log(payload)
 
-      const res = await axios.post(this.EMAIL_API_URL, payload, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+      await axios.post(this.EMAIL_API_URL, payload, {
+        headers: { "Content-Type": "application/json" },
       });
 
+      return { success: true };
     } catch (error) {
-      console.error('Failed to send email:', error.message);
-      if (error.response) {
-        console.error('Response data:', error.response.data);
-      }
-      throw new HttpException({ success: false, message: 'Failed to send email' }, 500);
+      console.error("Email API Error:", error.message);
     }
   }
+
+  renderTemplate(filename: string, data: any) {
+    const filePath = path.join(process.cwd(), "src", "email", "views", filename);
+    const template = fs.readFileSync(filePath, "utf8");
+    return ejs.render(template, data);
+  }
 }
+

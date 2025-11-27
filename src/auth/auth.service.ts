@@ -12,7 +12,8 @@ import { PortalUserPermissionService } from 'portal_user_permission/user_permiss
 export class AuthService {
   constructor(
     private readonly jwtService: JwtService,
-    @InjectRepository(User, 'portal') private readonly _user: Repository<User>,
+    @InjectRepository(User, 'portal') 
+    private readonly _user: Repository<User>,
     private readonly aesEcb: AesEcbService,
     private readonly userPermService: PortalUserPermissionService,
   ) { }

@@ -17,6 +17,7 @@ import { Company } from 'portal_company/company.entity';
 import { NavMenu } from 'portal_nav_menu/menu.entity';
 import { PortalPermission } from 'portal_permission/permission.entity';
 import { PortalUserPermissionService } from 'portal_user_permission/user_permission.service';
+import { sendEmailDto } from 'email/dto/send-email.dto';
 
 
 @Injectable()
@@ -674,7 +675,7 @@ export class RequestService {
     };
   }
 
-  async submitToHod(id_request: number) {
+  async submitToHod(id_request: number, userId: number) {
     const existing = await this.requestRepo.findOne({
       where: { id_request },
       relations: ['approval_hod_by', 'created_by_user'],
@@ -688,15 +689,22 @@ export class RequestService {
     const saved = await this.requestRepo.save(existing);
 
     try {
-      await this.mailService.sendHodApprovalEmail({
-        to: existing.approval_hod_by.email,
+      const data_email = new sendEmailDto();
+      const view_data = {
+        approverName: existing.approval_hod_by.full_name,
         requestNumber: `ITF14-${String(existing.id_request).padStart(6, '0')}`,
-        requestorName: existing.created_by_user?.full_name || 'Unknown User',
+        requestorBy: existing.created_by_user?.full_name || 'Unknown User',
+        requestorName: existing.full_name || 'Unknown User',
         requestDate: existing.created_date?.toISOString().split('T')[0] || '',
         requestDescription: existing.request_reason || '-',
-        publicLink: `http://public.smoe.com/request/${existing.id_request}`,
-        smoeLink: `http://itportal.smoe.com/approval/${existing.id_request}`,
-      });
+        approvalLink: `https://example.com/approve/${existing.id_request}`,
+      };
+
+      data_email.content = this.mailService.renderTemplate('approval.ejs', view_data);
+      data_email.subject = `New Request Needs Your Approval: ITF14-${String(existing.id_request).padStart(6, '0')}`;
+      data_email.email_to = [existing.approval_hod_by.email];
+
+      await this.mailService.sendEmail(data_email);
     } catch (err) {
       console.error('Failed to send HOD email:', err);
     }
@@ -795,17 +803,20 @@ export class RequestService {
     });
   }
 
-  // async checkPermission(userId: number, appId: number, permissionKey: string) {
-  //   const permission = await this.portalPermissionRepo
-  //     .createQueryBuilder('p')
-  //     .leftJoin('p.userPermissions', 'up')
-  //     .where('up.userId = :userId', { userId })
-  //     .andWhere('p.idApplication = :appId', { appId })
-  //     .andWhere('p.permissionKey = :permissionKey', { permissionKey })
-  //     .getOne();
+  async exportList(filters: any, sort_by: string, sort_order: string) {
+    const qb = this.requestRepo
+      .createQueryBuilder('r')
+      .leftJoinAndSelect('r.requestor', 'requestor');
 
-  //   return !!permission;
-  // }
+    // Apply filters
+    Object.keys(filters).forEach(key => {
+      qb.andWhere(`r.${key} LIKE :${key}`, { [key]: `%${filters[key]}%` });
+    });
+
+    qb.orderBy(`r.${sort_by}`, sort_order as 'ASC' | 'DESC');
+
+    return qb.getMany();
+  }
 
   async cancelRequest(
     id_request: number,
