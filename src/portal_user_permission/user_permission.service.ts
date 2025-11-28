@@ -10,38 +10,16 @@ export class PortalUserPermissionService {
         private userPermRepo: Repository<PortalUserPermission>,
     ) { }
 
-    async getUserPermissionsForApp(userId: number, appId: number): Promise<{
-        approvalLeadIt: string[];
-        approvalItManager: string[];
-        itAction: string[];
-    }> {
+    async getUserPermissionsForApp(userId: number, appId: number) {
         const rows = await this.userPermRepo.find({
+            select: ['id_portal_app_permission', 'id_portal_permission', 'index_key'],
             where: {
                 id_user: userId,
                 id_portal_app_permission: appId.toString(),
             },
         });
-        const leadItPermissions = [];
-        const itManagerPermissions = [];
-        const itActionPermissions = [];
 
-        rows.forEach((item) => {
-            if (item.index_key === '0') {
-                leadItPermissions.push(item.id_portal_permission);
-            }
-            if (item.index_key === '1') {
-                itManagerPermissions.push(item.id_portal_permission);
-            }
-            if (item.index_key === '2') {
-                itActionPermissions.push(item.id_portal_permission);
-            }
-        });
-
-        return {
-            approvalLeadIt: leadItPermissions,
-            approvalItManager: itManagerPermissions,
-            itAction: itActionPermissions,
-        };
+        return rows;
     }
 
     findAll() {

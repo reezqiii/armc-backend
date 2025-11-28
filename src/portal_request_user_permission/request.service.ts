@@ -721,7 +721,11 @@ export class RequestService {
 
     const permissions = await this.permissionService.getUserPermissionsForApp(userId, 31);
 
-    if (!permissions.approvalLeadIt.includes("2000")) {
+    const leadItPermissions = permissions
+      .filter(p => p.index_key === '0')
+      .map(p => p.id_portal_permission);
+
+    if (!leadItPermissions.includes("2000")) {
       throw new ForbiddenException("Not allowed to approve as Lead IT");
     }
 
@@ -762,7 +766,11 @@ export class RequestService {
 
     const permissions = await this.permissionService.getUserPermissionsForApp(userId, 31);
 
-    if (!permissions.approvalItManager.includes("2001")) {
+    const itManagerPermissions = permissions
+      .filter(p => p.index_key === '1')
+      .map(p => p.id_portal_permission);
+
+    if (!itManagerPermissions.includes("2001")) {
       throw new ForbiddenException("Not allowed to approve as IT Manager");
     }
 
