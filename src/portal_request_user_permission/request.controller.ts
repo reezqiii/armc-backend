@@ -7,6 +7,7 @@ import { JwtAuthGuard } from 'jwt-auth.guard';
 import { AesEcbService } from '../crypto/aes-ecb.service';
 import { UserService } from '../portal_user_db/user.service';
 
+
 @Controller('requests')
 @ApiBearerAuth('access-token')
 export class RequestController {
@@ -174,6 +175,7 @@ export class RequestController {
   }
 
   @Post('/serverside_list')
+  @UseGuards(JwtAuthGuard)
   async serverSideList(
     @Query() query: any,
     @Req() req: any

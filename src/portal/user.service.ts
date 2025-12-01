@@ -6,7 +6,7 @@ import { Repository } from 'typeorm';
 @Injectable()
 export class UserService {
   constructor(
-    @InjectRepository(User, 'portal') private readonly _user: Repository<User>,
+    @InjectRepository(User) private readonly _user: Repository<User>,
   ) {}
 
   async findAll() {

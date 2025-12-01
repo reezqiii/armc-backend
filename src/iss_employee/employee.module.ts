@@ -14,7 +14,7 @@ import { Company } from '../portal_company/company.entity';
       [IssEmployee, IssDept, IssProject, Position],
       'db_iss'
     ),
-    TypeOrmModule.forFeature([Company], 'portal'), 
+    TypeOrmModule.forFeature([Company]), 
   ],
   providers: [IssEmployeeService],
   controllers: [IssEmployeeController],

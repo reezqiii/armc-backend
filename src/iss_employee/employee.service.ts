@@ -9,7 +9,7 @@ export class IssEmployeeService {
   constructor(
     @InjectRepository(IssEmployee, 'db_iss')
     private readonly employeeRepo: Repository<IssEmployee>,
-    @InjectRepository(Company, 'portal')
+    @InjectRepository(Company)
     private readonly companyRepo: Repository<Company>,
   ) { }
 

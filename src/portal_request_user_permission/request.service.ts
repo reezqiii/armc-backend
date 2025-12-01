@@ -119,12 +119,15 @@ export class RequestService {
         }
       }
 
+      if (!user.permissions.includes(2)) {
+        qb.andWhere('(request.created_by = :uid OR request.approval_hod_by = :uid)', { uid: user.id_user });
+      }
+
       if (sort) {
         const [sortField, sortDirRaw] = sort.split(',');
         const sortDir = sortDirRaw?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
 
         if (manualSortFields.includes(sortField)) {
-          // ⬅️ SIMPAN instruksi manual sort (JANGAN DIJALANKAN DI SINI)
           manualSortField = sortField;
           manualSortDir = sortDir;
         } else {
@@ -135,17 +138,10 @@ export class RequestService {
         qb.orderBy('request.created_date', 'DESC');
       }
 
-      // const perms = await this.permissionService.getUserPermissionsForApp(user.id_user, 31);
-      // const hasITAction = perms.itAction.length > 0;
-
-      // if (!hasITAction) {
-      //   qb.andWhere('request.created_by = :uid', { uid: user.id_user });
+      // if (user?.isHod) {
+      //   // qb.andWhere('request.request_status = :status', { status: 1 });
+      //   // qb.andWhere('approvalHod.id_user = :uid', { uid: user.id_user });
       // }
-
-      if (user?.isHod) {
-        qb.andWhere('request.request_status = :status', { status: 1 });
-        qb.andWhere('approvalHod.id_user = :uid', { uid: user.id_user });
-      }
       const [data, total] = await qb.skip(skip).take(take).getManyAndCount();
 
       const statusMap: Record<number, string> = {
@@ -195,6 +191,10 @@ export class RequestService {
             requestorName = user?.full_name || requestorName;
           }
 
+          // const btnCancel = [0, 1, 2].includes(d.request_status) || user.permissions.includes(2);
+          // const btnEdit = [0, 1, 2].includes(d.request_status) || user.permissions.includes(2);
+
+
           return {
             id_request: d.id_request,
             no_request: runningNumber,
@@ -236,6 +236,8 @@ export class RequestService {
             approval_hod_date_at: d.approval_hod_date_at || null,
 
             rejected_hod_remarks: d.rejected_hod_remarks || null,
+            // btn_cancel: btnCancel,
+            // btn_edit: btnEdit,
           };
         })
       );
@@ -350,15 +352,16 @@ export class RequestService {
         .filter(Boolean);
 
       navMenus = await Promise.all(
-        ids.map(async id => {
-          const menu = await this.navMenuRepo.findOne({
-            where: { id_application: Number(id) },
-          });
-          return {
-            id,
-            application_name: menu?.application_name || `Unknown (${id})`,
-          };
-        }),
+        ids
+          .map(id => Number(id))
+          .filter(id => !isNaN(id))
+          .map(async id => {
+            const menu = await this.navMenuRepo.findOne({ where: { id_application: id } });
+            return {
+              id,
+              application_name: menu?.application_name || `Unknown (${id})`,
+            };
+          }),
       );
     }
 

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { PortalUserPermissionService } from 'portal_user_permission/user_permission.service';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -25,7 +26,7 @@ import { PortalUserPermissionModule } from 'portal_user_permission/user_permissi
         signOptions: { expiresIn: '24h' },
       }),
     }),
-    TypeOrmModule.forFeature([User], 'portal'),
+    TypeOrmModule.forFeature([User]),
     CryptoModule,
     PortalUserPermissionModule,
   ],
