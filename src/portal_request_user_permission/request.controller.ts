@@ -22,19 +22,7 @@ export class RequestController {
   async getAllHods() {
     return this.requestService.getAllHods();
   }
-
-  @Get(':id')
-  async findOne(@Param('id') id: string) {
-    let numericId: number;
-    try {
-      numericId = Number(this.aesEcb.decryptBase64Url(id));
-      if (isNaN(numericId)) throw new Error();
-    } catch {
-      throw new BadRequestException('Invalid request ID');
-    }
-    return this.requestService.findOne(numericId);
-  }
-
+  
   @Get('employee/:badge')
   @UseGuards(JwtAuthGuard)
   async getEmployeeByBadge(@Param('badge') badge: number) {
@@ -56,7 +44,7 @@ export class RequestController {
     @Req() req
   ) {
     const decId = Number(this.aesEcb.decryptBase64Url(id));
-
+    
     if (data.status_active === 0) {
       data.canceled_by = req.user?.id_user;
     }
@@ -81,7 +69,7 @@ export class RequestController {
   ) {
     const decId = Number(this.aesEcb.decryptBase64Url(id));
     if (isNaN(decId)) throw new BadRequestException('Invalid request ID');
-
+    
     const userId = req.user.id_user;
     return this.requestService.hodApproval(decId, body.action, body.remarks, userId);
   }
@@ -100,14 +88,14 @@ export class RequestController {
     const userId = req.user.id_user;
     return this.requestService.hodApprovalBulk(body.ids, body.action, body.remarks, userId);
   }
-
+  
   @Put(':id/submit-to-hod')
   async submitToHodRequest(
-    @Param('id') id: number,
+    @Param('id') encryptedId: string,
     @Req() req: any
   ) {
     const userId = req.user?.id;
-    return await this.requestService.submitToHod(id, userId);
+    return await this.requestService.submitToHod(encryptedId, userId);
   }
 
   @Put(':id/lead-it-approval')
@@ -154,11 +142,11 @@ export class RequestController {
 
   // @Get('permissions/:id_user')
   // getAssignedPermission(
-  //   @Param('id_user') id_user: number,
+    //   @Param('id_user') id_user: number,
   // ) {
-  //   return this.requestService.getAssignedPermissions(id_user);
-  // }
-
+    //   return this.requestService.getAssignedPermissions(id_user);
+    // }
+    
   @Patch(':id/admin-status')
   @UseGuards(JwtAuthGuard)
   async updateAdminStatus(
@@ -168,10 +156,22 @@ export class RequestController {
     await this.requestService.updateAdminStatus(id_request, request_admin);
     return { message: 'Admin status updated successfully' };
   }
-
+  
   @Delete(':id')
   remove(@Param('id') id: number): Promise<void> {
     return this.requestService.remove(id);
+  }
+
+  @Get(':id')
+  async findOne(@Param('id') id: string) {
+    let numericId: number;
+    try {
+      numericId = Number(this.aesEcb.decryptBase64Url(id));
+      if (isNaN(numericId)) throw new Error();
+    } catch {
+      throw new BadRequestException('Invalid request ID');
+    }
+    return this.requestService.findOne(numericId);
   }
 
   @Post('/serverside_list')

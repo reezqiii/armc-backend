@@ -1,7 +1,4 @@
 import { Entity, PrimaryGeneratedColumn, Column, JoinColumn, ManyToOne } from 'typeorm';
-import { Role } from '../portal_master_role_permission_db/role.entity';
-import { Department } from 'portal_department/department.entity';
-import { Project } from 'portal_project/project.entity';
 
 @Entity({ name: 'portal_user_db' })
 export class User {
@@ -26,8 +23,8 @@ export class User {
   @Column({ name: 'company', type: 'int', nullable: true })
   company: number;
 
-  @Column({ name: 'id_role', type: 'int', nullable: true })
-  id_role: number;
+  // @Column({ name: 'id_role', type: 'int', nullable: true })
+  // id_role: number;
 
   @Column({ name: 'department', type: 'int', nullable: true })
   departmentId: number;
@@ -41,16 +38,16 @@ export class User {
   @Column({ name: 'update_by', type: 'int', nullable: true })
   update_by: number;
 
-  @ManyToOne(() => Role)
-  @JoinColumn({ name: 'id_role' })
-  role: Role;
+  // @ManyToOne(() => Role)
+  // @JoinColumn({ name: 'id_role' })
+  // role: Role;
 
-  @ManyToOne(() => Project)
-  @JoinColumn({ name: 'project_id', referencedColumnName: 'id' })
-  project: Project;
+  // @ManyToOne(() => Project)
+  // @JoinColumn({ name: 'project_id', referencedColumnName: 'id' })
+  // project: Project;
 
-  @ManyToOne(() => Department)
-  @JoinColumn({ name: 'department', referencedColumnName: 'id_department' })
-  department: Department;
+  // @ManyToOne(() => Department)
+  // @JoinColumn({ name: 'department', referencedColumnName: 'id_department' })
+  // department: Department;
 
 }

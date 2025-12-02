@@ -1,7 +1,9 @@
 import {
   Injectable,
   InternalServerErrorException,
-  NotFoundException, ForbiddenException
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -18,11 +20,14 @@ import { NavMenu } from 'portal_nav_menu/menu.entity';
 import { PortalPermission } from 'portal_permission/permission.entity';
 import { PortalUserPermissionService } from 'portal_user_permission/user_permission.service';
 import { sendEmailDto } from 'email/dto/send-email.dto';
-
+import { AesEcbService } from 'crypto/aes-ecb.service';
+import { ConfigService } from "@nestjs/config";
 
 @Injectable()
 export class RequestService {
+  private PORTAL_LINK: string
   constructor(
+    private readonly aesEcbService: AesEcbService,
     @InjectRepository(RequestEntity)
     private readonly requestRepo: Repository<RequestEntity>,
     @InjectRepository(IssProject, 'db_iss')
@@ -43,7 +48,10 @@ export class RequestService {
     @InjectRepository(IssEmployee, 'db_iss')
     private readonly employeeRepo: Repository<IssEmployee>,
     private readonly mailService: EmailService,
-  ) { }
+    private configService: ConfigService
+  ) {
+    this.PORTAL_LINK = this.configService.get<string>("LINK_PORTAL");
+  }
 
   async serverSideList(queryDto: ServerSideDTO, user?: any) {
     try {
@@ -138,10 +146,6 @@ export class RequestService {
         qb.orderBy('request.created_date', 'DESC');
       }
 
-      // if (user?.isHod) {
-      //   // qb.andWhere('request.request_status = :status', { status: 1 });
-      //   // qb.andWhere('approvalHod.id_user = :uid', { uid: user.id_user });
-      // }
       const [data, total] = await qb.skip(skip).take(take).getManyAndCount();
 
       const statusMap: Record<number, string> = {
@@ -234,10 +238,30 @@ export class RequestService {
               : null,
 
             approval_hod_date_at: d.approval_hod_date_at || null,
-
             rejected_hod_remarks: d.rejected_hod_remarks || null,
-            // btn_cancel: btnCancel,
-            // btn_edit: btnEdit,
+
+            approval_lead_it_by: d.approval_lead_it_by
+              ? {
+                id: d.approval_lead_it_by.id_user,
+                badge_no: d.approval_lead_it_by.badge_no,
+                full_name: d.approval_lead_it_by.full_name,
+              }
+              : null,
+
+            approval_lead_date_at: d.approval_lead_date_at || null,
+            rejected_lead_remarks: d.rejected_lead_remarks || null,
+
+            approval_it_hod_by: d.approval_it_hod_by
+              ? {
+                id: d.approval_it_hod_by.id_user,
+                badge_no: d.approval_it_hod_by.badge_no,
+                full_name: d.approval_it_hod_by.full_name,
+              }
+              : null,
+
+            approval_it_date_at: d.approval_it_date_at || null,
+            rejected_it_remarks: d.rejected_it_remarks || null,
+
           };
         })
       );
@@ -678,42 +702,57 @@ export class RequestService {
     };
   }
 
-  async submitToHod(id_request: number, userId: number) {
-    const existing = await this.requestRepo.findOne({
-      where: { id_request },
-      relations: ['approval_hod_by', 'created_by_user'],
-    });
+  async submitToHod(encryptedId: string, userId: number) {
+  // Dekripsi ID request
+  const decrypted = this.aesEcbService.decryptBase64Url(encryptedId);
+  const id_request = Number(decrypted);
 
-    if (!existing) throw new NotFoundException(`Request with ID ${id_request} not found`);
-    if (!existing.approval_hod_by)
-      throw new InternalServerErrorException('HOD not assigned for this request');
-
-    existing.request_status = 1;
-    const saved = await this.requestRepo.save(existing);
-
-    try {
-      const data_email = new sendEmailDto();
-      const view_data = {
-        approverName: existing.approval_hod_by.full_name,
-        requestNumber: `ITF14-${String(existing.id_request).padStart(6, '0')}`,
-        requestorBy: existing.created_by_user?.full_name || 'Unknown User',
-        requestorName: existing.full_name || 'Unknown User',
-        requestDate: existing.created_date?.toISOString().split('T')[0] || '',
-        requestDescription: existing.request_reason || '-',
-        approvalLink: `https://example.com/approve/${existing.id_request}`,
-      };
-
-      data_email.content = this.mailService.renderTemplate('approval.ejs', view_data);
-      data_email.subject = `New Request Needs Your Approval: ITF14-${String(existing.id_request).padStart(6, '0')}`;
-      data_email.email_to = [existing.approval_hod_by.email];
-
-      await this.mailService.sendEmail(data_email);
-    } catch (err) {
-      console.error('Failed to send HOD email:', err);
-    }
-
-    return saved;
+  if (!decrypted || isNaN(id_request)) {
+    throw new BadRequestException("Invalid encrypted request ID");
   }
+
+  // Cari request yang ada di database
+  const existing = await this.requestRepo.findOne({
+    where: { id_request },
+    relations: ['approval_hod_by', 'created_by_user'],
+  });
+
+  if (!existing) throw new NotFoundException(`Request with ID ${id_request} not found`);
+  if (!existing.approval_hod_by)
+    throw new InternalServerErrorException('HOD not assigned for this request');
+
+  // Update status request menjadi pending HOD
+  existing.request_status = 1;
+  const saved = await this.requestRepo.save(existing);
+
+  try {
+    // Link email langsung ke halaman HOD pending
+    const jump_url = `${this.PORTAL_LINK}/user_request/hod_pending/`;
+
+    // Siapkan data email
+    const data_email = new sendEmailDto();
+    const view_data = {
+      approverName: existing.approval_hod_by.full_name,
+      requestNumber: `ITF14-${String(existing.id_request).padStart(6, '0')}`,
+      requestorBy: existing.created_by_user?.full_name || 'Unknown User',
+      requestorName: existing.full_name || 'Unknown User',
+      requestDate: existing.created_date?.toISOString().split('T')[0] || '',
+      requestDescription: existing.request_reason || '-',
+      approvalLink: jump_url,
+    };
+
+    data_email.content = this.mailService.renderTemplate('approval.ejs', view_data);
+    data_email.subject = `New Request Needs Your Approval: ITF14-${String(existing.id_request).padStart(6, '0')}`;
+    data_email.email_to = [existing.approval_hod_by.email];
+
+    // Kirim email
+    await this.mailService.sendEmail(data_email);
+  } catch (err) {
+    console.error('Failed to send HOD email:', err);
+  }
+
+  return saved;
+}
 
   async leadItApproval(
     id_request: number,

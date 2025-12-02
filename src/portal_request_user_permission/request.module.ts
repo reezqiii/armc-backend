@@ -9,7 +9,6 @@ import { IssDept } from '../iss_dept/iss_dept.entity';
 import { Position } from '../iss_design_new/position.entity';
 import { User } from '../portal_user_db/user.entity';
 import { IssEmployee } from 'iss_employee/employee.entity';
-import { Role } from 'portal_master_role_permission_db/role.entity';
 import { EmailModule } from 'email/email.module';
 import { Company } from 'portal_company/company.entity';
 import { NavMenu } from 'portal_nav_menu/menu.entity';
@@ -18,7 +17,7 @@ import { PortalUserPermissionModule } from 'portal_user_permission/user_permissi
 import { AesEcbService } from 'crypto/aes-ecb.service';
 @Module({
   imports: [
-    TypeOrmModule.forFeature([RequestEntity, User, Role, Company, NavMenu]),
+    TypeOrmModule.forFeature([RequestEntity, User, Company, NavMenu]),
     TypeOrmModule.forFeature([IssProject, IssDept, Position, IssEmployee], 'db_iss'),
     EmailModule,
     PortalPermissionModule,

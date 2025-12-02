@@ -9,11 +9,7 @@ import { UserModule } from './portal/user.module';
 import { BookingModule } from './bookings/booking.module';
 import { CryptoModule } from './crypto/crypto.module'; 
 import { RequestModule } from './portal_request_user_permission/request.module';
-import { ProjectModule } from './portal_project/project.module';
-import { DepartmentModule } from './portal_department/department.module';
-import { RoleModule } from './portal_master_role_permission_db/role.module';
 import { UserModule as UserDBModule } from './portal_user_db/user.module';
-import { RolePermissionModule } from './portal_role_permission/role_permission.module';
 import { PositionModule } from 'iss_design_new/position.module';
 import { IssEmployeeModule } from 'iss_employee/employee.module';
 import { IssProjectModule } from 'iss_project/iss_project.module';
@@ -82,11 +78,7 @@ import { PortalUserPermissionModule } from 'portal_user_permission/user_permissi
     AuthModule,
     CryptoModule,
     RequestModule,
-    ProjectModule,
-    DepartmentModule,
-    RoleModule,
     UserDBModule,
-    RolePermissionModule,
     PortalUserPermissionModule,
     PositionModule,
     IssEmployeeModule,
