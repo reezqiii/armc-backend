@@ -1,11 +1,18 @@
 import { Controller, Get, Post, Put, Delete, Body, Param } from '@nestjs/common';
 import { CompanyService } from './company.service';
 import { Company } from './company.entity';
+import { Public } from 'auth/public.decorator';
 
 @Controller('portal_company')
 export class CompanyController {
   constructor(private readonly companyService: CompanyService) { }
 
+  // @Get('list')
+  // async getAll(): Promise<Company[]> {
+  //   return this.companyService.findAll();
+  // }
+
+  @Public()
   @Get('list')
   async getAll(): Promise<Company[]> {
     return this.companyService.findAll();

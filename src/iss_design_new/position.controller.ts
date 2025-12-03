@@ -1,11 +1,18 @@
 import { Controller, Get, Param, Post, Body, Put, Delete } from '@nestjs/common';
 import { PositionService } from './position.service';
 import { Position } from './position.entity';
+import { Public } from 'auth/public.decorator';
 
 @Controller('position')
 export class PositionController {
-  constructor(private readonly positionService: PositionService) {}
+  constructor(private readonly positionService: PositionService) { }
 
+  // @Get()
+  // async findAll(): Promise<Position[]> {
+  //   return this.positionService.findAll();
+  // }
+
+  @Public()
   @Get()
   async findAll(): Promise<Position[]> {
     return this.positionService.findAll();

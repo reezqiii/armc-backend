@@ -1,11 +1,18 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body, ParseIntPipe } from '@nestjs/common';
 import { IssDeptService } from './iss_dept.service';
 import { IssDept } from './iss_dept.entity';
+import { Public } from 'auth/public.decorator';
 
-@Controller('iss-dept')
+@Controller('iss_dept')
 export class IssDeptController {
-  constructor(private readonly deptService: IssDeptService) {}
+  constructor(private readonly deptService: IssDeptService) { }
 
+  // @Get()
+  // async getAll(): Promise<IssDept[]> {
+  //   return this.deptService.findAll();
+  // }
+
+  @Public()
   @Get()
   async getAll(): Promise<IssDept[]> {
     return this.deptService.findAll();

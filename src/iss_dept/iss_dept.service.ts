@@ -6,12 +6,16 @@ import { IssDept } from './iss_dept.entity';
 @Injectable()
 export class IssDeptService {
   constructor(
-    @InjectRepository(IssDept)
+    @InjectRepository(IssDept, 'db_iss')
     private readonly deptRepo: Repository<IssDept>,
-  ) {}
+  ) { }
 
   async findAll(): Promise<IssDept[]> {
-    return await this.deptRepo.find();
+    return this.deptRepo.find({
+      order: {
+        dept: 'ASC',
+      },
+    });
   }
 
   async findOne(id: number): Promise<IssDept> {

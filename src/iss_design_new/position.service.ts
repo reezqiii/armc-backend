@@ -1,4 +1,3 @@
-// src/portal_position_db/position.service.ts
 import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -7,7 +6,7 @@ import { Position } from './position.entity';
 @Injectable()
 export class PositionService {
   constructor(
-    @InjectRepository(Position)
+    @InjectRepository(Position, 'db_iss')
     private readonly _positionRepo: Repository<Position>,
   ) {}
 

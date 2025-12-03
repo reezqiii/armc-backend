@@ -515,6 +515,54 @@ export class RequestService {
     };
   }
 
+  async createPublic(data: Partial<RequestEntity>): Promise<RequestEntity> {
+    const company = await this.companyRepo.findOne({
+      where: { id_company: data.id_company || null },
+    });
+
+    const accessYardValue = Array.isArray(data.access_yard_company)
+      ? data.access_yard_company.join(',')
+      : data.access_yard_company || null;
+
+    const accessNavMenuValue = Array.isArray(data.access_nav_menu)
+      ? data.access_nav_menu.join(',')
+      : data.access_nav_menu || null;
+
+    // Ambil User entity jika ada approval_lead_it_by
+    let approvalLeadItUser: User | null = null;
+    if (data.approval_lead_it_by) {
+      approvalLeadItUser = await this.userRepo.findOne({
+        where: { id_user: Number(data.approval_lead_it_by) }
+      });
+    }
+
+    const newRequest = this.requestRepo.create({
+      full_name: data.full_name,
+      request_reason: data.request_reason,
+      email: data.email,
+      badge_no: data.badge_no ? String(data.badge_no) : null,
+      project_id: data.project_id ? Number(data.project_id) : null,
+      dept_id: data.dept_id ? Number(data.dept_id) : null,
+      design_id: data.design_id ? Number(data.design_id) : null,
+      id_company: data.id_company ? Number(data.id_company) : null,
+      company: company || null,
+      access_yard_company: accessYardValue,
+      access_nav_menu: accessNavMenuValue,
+      request_type: data.request_type ?? 1,
+      request_status: data.request_status ?? 0,
+      status_active: data.status_active ?? 1,
+      created_date: new Date(),
+      created_by: null, // publik
+      remarks: data.remarks,
+      approval_hod_by: null,
+      approval_it_hod_by: null,
+      approval_lead_it_by: approvalLeadItUser,
+    });
+
+    return this.requestRepo.save(newRequest);
+
+  }
+
   async getEmployeeByBadge(badge: number) {
     const employee = await this.employeeRepo.findOne({
       where: { badge },
@@ -703,56 +751,50 @@ export class RequestService {
   }
 
   async submitToHod(encryptedId: string, userId: number) {
-  // Dekripsi ID request
-  const decrypted = this.aesEcbService.decryptBase64Url(encryptedId);
-  const id_request = Number(decrypted);
+    const decrypted = this.aesEcbService.decryptBase64Url(encryptedId);
+    const id_request = Number(decrypted);
 
-  if (!decrypted || isNaN(id_request)) {
-    throw new BadRequestException("Invalid encrypted request ID");
+    if (!decrypted || isNaN(id_request)) {
+      throw new BadRequestException("Invalid encrypted request ID");
+    }
+
+    const existing = await this.requestRepo.findOne({
+      where: { id_request },
+      relations: ['approval_hod_by', 'created_by_user'],
+    });
+
+    if (!existing) throw new NotFoundException(`Request with ID ${id_request} not found`);
+    if (!existing.approval_hod_by)
+      throw new InternalServerErrorException('HOD not assigned for this request');
+
+    existing.request_status = 1;
+    const saved = await this.requestRepo.save(existing);
+
+    try {
+      const jump_url = `http://localhost:3001/user_request/detail_req/${encryptedId}`;
+
+      const data_email = new sendEmailDto();
+      const view_data = {
+        approverName: existing.approval_hod_by.full_name,
+        requestNumber: `ITF14-${String(existing.id_request).padStart(6, '0')}`,
+        requestorBy: existing.created_by_user?.full_name || 'Unknown User',
+        requestorName: existing.full_name || 'Unknown User',
+        requestDate: existing.created_date?.toISOString().split('T')[0] || '',
+        requestDescription: existing.request_reason || '-',
+        approvalLink: jump_url,
+      };
+
+      data_email.content = this.mailService.renderTemplate('approval.ejs', view_data);
+      data_email.subject = `New Request Needs Your Approval: ITF14-${String(existing.id_request).padStart(6, '0')}`;
+      data_email.email_to = [existing.approval_hod_by.email];
+
+      await this.mailService.sendEmail(data_email);
+    } catch (err) {
+      console.error('Failed to send HOD email:', err);
+    }
+
+    return saved;
   }
-
-  // Cari request yang ada di database
-  const existing = await this.requestRepo.findOne({
-    where: { id_request },
-    relations: ['approval_hod_by', 'created_by_user'],
-  });
-
-  if (!existing) throw new NotFoundException(`Request with ID ${id_request} not found`);
-  if (!existing.approval_hod_by)
-    throw new InternalServerErrorException('HOD not assigned for this request');
-
-  // Update status request menjadi pending HOD
-  existing.request_status = 1;
-  const saved = await this.requestRepo.save(existing);
-
-  try {
-    // Link email langsung ke halaman HOD pending
-    const jump_url = `${this.PORTAL_LINK}/user_request/hod_pending/`;
-
-    // Siapkan data email
-    const data_email = new sendEmailDto();
-    const view_data = {
-      approverName: existing.approval_hod_by.full_name,
-      requestNumber: `ITF14-${String(existing.id_request).padStart(6, '0')}`,
-      requestorBy: existing.created_by_user?.full_name || 'Unknown User',
-      requestorName: existing.full_name || 'Unknown User',
-      requestDate: existing.created_date?.toISOString().split('T')[0] || '',
-      requestDescription: existing.request_reason || '-',
-      approvalLink: jump_url,
-    };
-
-    data_email.content = this.mailService.renderTemplate('approval.ejs', view_data);
-    data_email.subject = `New Request Needs Your Approval: ITF14-${String(existing.id_request).padStart(6, '0')}`;
-    data_email.email_to = [existing.approval_hod_by.email];
-
-    // Kirim email
-    await this.mailService.sendEmail(data_email);
-  } catch (err) {
-    console.error('Failed to send HOD email:', err);
-  }
-
-  return saved;
-}
 
   async leadItApproval(
     id_request: number,
@@ -856,16 +898,48 @@ export class RequestService {
   async exportList(filters: any, sort_by: string, sort_order: string) {
     const qb = this.requestRepo
       .createQueryBuilder('r')
-      .leftJoinAndSelect('r.requestor', 'requestor');
+      .leftJoin('portal_user_db', 'u', 'u.id_user = r.created_by')
+      .addSelect(['u.full_name'])
+      .leftJoin('portal_company', 'c', 'c.id_company = r.id_company')
+      .addSelect(['c.company_name']);
 
-    // Apply filters
-    Object.keys(filters).forEach(key => {
-      qb.andWhere(`r.${key} LIKE :${key}`, { [key]: `%${filters[key]}%` });
+    Object.keys(filters || {}).forEach(key => {
+      const value = filters[key];
+
+      if (value !== undefined && value !== null && value !== '') {
+
+        if (!isNaN(Number(value))) {
+          qb.andWhere(`r.${key} = :${key}`, { [key]: Number(value) });
+        }
+
+        else {
+          qb.andWhere(`r.${key} ILIKE :${key}`, {
+            [key]: `%${value}%`,
+          });
+        }
+      }
     });
 
-    qb.orderBy(`r.${sort_by}`, sort_order as 'ASC' | 'DESC');
+    qb.orderBy(`r.${sort_by || 'id_request'}`, (sort_order || 'ASC') as 'ASC' | 'DESC');
 
-    return qb.getMany();
+    const requests = await qb.getRawMany();
+
+    const [depts, positions, projects] = await Promise.all([
+      this.departmentRepo.find(),
+      this.positionRepo.find(),
+      this.projectRepo.find(),
+    ]);
+
+    const deptMap = new Map(depts.map(d => [d.dept_id, d.dept]));
+    const positionMap = new Map(positions.map(p => [p.design_id, p.design_desc]));
+    const projectMap = new Map(projects.map(p => [p.project_id, p.project_desc]));
+
+    return requests.map(r => ({
+      ...r,
+      department_name: deptMap.get(r.r_dept_id) || '-',
+      position_name: positionMap.get(r.r_design_id) || '-',
+      project_name: projectMap.get(r.r_project_id) || '-',
+    }));
   }
 
   async cancelRequest(

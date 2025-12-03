@@ -19,7 +19,7 @@ export class CompanyService {
 
   async findOne(id: number): Promise<Company> {
     return this.companyRepository.findOne({
-      where: { id_company: id, status_delete: 1 }, 
+      where: { id_company: id, status_delete: 1 },
     });
   }
 

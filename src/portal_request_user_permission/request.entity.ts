@@ -11,6 +11,7 @@ import { NavMenu } from 'portal_nav_menu/menu.entity';
 import { IssDept } from 'iss_dept/iss_dept.entity';
 import { Position } from 'iss_design_new/position.entity';
 import { IssProject } from 'iss_project/iss_project.entity';
+
 @Entity('portal_request_user_permission')
 export class RequestEntity {
   @PrimaryGeneratedColumn({ name: 'id_request' })

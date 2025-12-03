@@ -6,12 +6,14 @@ import { IssProject } from './iss_project.entity';
 @Injectable()
 export class IssProjectService {
   constructor(
-    @InjectRepository(IssProject, 'db_iss') 
+    @InjectRepository(IssProject, 'db_iss')
     private readonly projectRepo: Repository<IssProject>,
-  ) {}
+  ) { }
 
   async findAll(): Promise<IssProject[]> {
-    return await this.projectRepo.find();
+    return await this.projectRepo.find({
+      order: { project_desc: 'ASC' } 
+    });
   }
 
   async findOne(id: number): Promise<IssProject> {

@@ -6,7 +6,7 @@ import { PositionService } from './position.service';
 import { PositionController } from './position.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Position])],
+  imports: [TypeOrmModule.forFeature([Position], 'db_iss'),],
   controllers: [PositionController],
   providers: [PositionService],
   exports: [PositionService, TypeOrmModule],

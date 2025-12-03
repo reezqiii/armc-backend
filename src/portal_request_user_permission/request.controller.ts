@@ -6,7 +6,7 @@ import { ServerSideDTO } from 'DTO/dto.serverside';
 import { JwtAuthGuard } from 'jwt-auth.guard';
 import { AesEcbService } from '../crypto/aes-ecb.service';
 import { UserService } from '../portal_user_db/user.service';
-
+import { Public } from 'auth/public.decorator';
 
 @Controller('requests')
 @ApiBearerAuth('access-token')
@@ -22,7 +22,7 @@ export class RequestController {
   async getAllHods() {
     return this.requestService.getAllHods();
   }
-  
+
   @Get('employee/:badge')
   @UseGuards(JwtAuthGuard)
   async getEmployeeByBadge(@Param('badge') badge: number) {
@@ -36,6 +36,12 @@ export class RequestController {
     return this.requestService.create(data, userId);
   }
 
+  @Public()
+  @Post('public/create')
+  async createPublic(@Body() data: Partial<RequestEntity>) {
+    return this.requestService.createPublic(data);
+  }
+
   @Put(':id')
   @UseGuards(JwtAuthGuard)
   async update(
@@ -44,7 +50,7 @@ export class RequestController {
     @Req() req
   ) {
     const decId = Number(this.aesEcb.decryptBase64Url(id));
-    
+
     if (data.status_active === 0) {
       data.canceled_by = req.user?.id_user;
     }
@@ -69,7 +75,7 @@ export class RequestController {
   ) {
     const decId = Number(this.aesEcb.decryptBase64Url(id));
     if (isNaN(decId)) throw new BadRequestException('Invalid request ID');
-    
+
     const userId = req.user.id_user;
     return this.requestService.hodApproval(decId, body.action, body.remarks, userId);
   }
@@ -88,7 +94,7 @@ export class RequestController {
     const userId = req.user.id_user;
     return this.requestService.hodApprovalBulk(body.ids, body.action, body.remarks, userId);
   }
-  
+
   @Put(':id/submit-to-hod')
   async submitToHodRequest(
     @Param('id') encryptedId: string,
@@ -142,11 +148,11 @@ export class RequestController {
 
   // @Get('permissions/:id_user')
   // getAssignedPermission(
-    //   @Param('id_user') id_user: number,
+  //   @Param('id_user') id_user: number,
   // ) {
-    //   return this.requestService.getAssignedPermissions(id_user);
-    // }
-    
+  //   return this.requestService.getAssignedPermissions(id_user);
+  // }
+
   @Patch(':id/admin-status')
   @UseGuards(JwtAuthGuard)
   async updateAdminStatus(
@@ -156,7 +162,7 @@ export class RequestController {
     await this.requestService.updateAdminStatus(id_request, request_admin);
     return { message: 'Admin status updated successfully' };
   }
-  
+
   @Delete(':id')
   remove(@Param('id') id: number): Promise<void> {
     return this.requestService.remove(id);
