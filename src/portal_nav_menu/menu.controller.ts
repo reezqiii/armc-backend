@@ -9,11 +9,19 @@ import {
 } from '@nestjs/common';
 import { NavMenuService } from './menu.service';
 import { NavMenu } from './menu.entity';
+import { Public } from 'public.decorator';
+
 
 @Controller('portal_nav_menu')
 export class NavMenuController {
   constructor(private readonly navMenuService: NavMenuService) { }
 
+  // @Get('list')
+  // async findAll() {
+  //   return this.navMenuService.findAll();
+  // }
+
+  @Public()
   @Get('list')
   async findAll() {
     return this.navMenuService.findAll();
