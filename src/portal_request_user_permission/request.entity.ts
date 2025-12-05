@@ -104,6 +104,9 @@ export class RequestEntity {
   @Column({ name: 'type', type: 'int', nullable: true, default: 0 })
   type: number; // 0 = login, 1 = public
 
+  @Column({ name: 'previous_status', type: 'int', nullable: true })
+  previous_status: number;
+
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'approval_hod_by' })
   approval_hod_by: User;

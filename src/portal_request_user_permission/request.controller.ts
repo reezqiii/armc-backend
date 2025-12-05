@@ -7,6 +7,7 @@ import { JwtAuthGuard } from 'jwt-auth.guard';
 import { AesEcbService } from '../crypto/aes-ecb.service';
 import { UserService } from '../portal_user_db/user.service';
 import { Public } from 'auth/public.decorator';
+import { UpdateReturnedRequestDto } from './DTO/update-returned-request.dto';
 
 @Controller('requests')
 @ApiBearerAuth('access-token')
@@ -37,12 +38,21 @@ export class RequestController {
   }
 
   @Post(':id/return')
-  async returnToDraftRoute(
+  async return(
     @Param('id') encryptedId: string,
     @Req() req: any
   ) {
     const id = Number(this.aesEcb.decryptBase64Url(encryptedId));
-    return this.requestService.returnToDraft(id, req.user);
+    return this.requestService.return(id, req.user);
+  }
+
+  @Put(':id/return')
+  async updateReturned(
+    @Param('id') encryptedId: string,
+    @Body() dto: UpdateReturnedRequestDto
+  ) {
+    const id = Number(this.aesEcb.decryptBase64Url(encryptedId));
+    return this.requestService.updateReturnedRequest(id, dto);
   }
 
   @Public()

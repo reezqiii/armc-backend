@@ -23,6 +23,7 @@ import { PortalUserPermissionService } from 'portal_user_permission/user_permiss
 import { sendEmailDto } from 'email/dto/send-email.dto';
 import { AesEcbService } from 'crypto/aes-ecb.service';
 import { ConfigService } from "@nestjs/config";
+import { UpdateReturnedRequestDto } from './DTO/update-returned-request.dto';
 
 @Injectable()
 export class RequestService {
@@ -158,6 +159,7 @@ export class RequestService {
         5: 'Pending by IT Manager',
         6: 'Rejected by IT Manager',
         7: 'Completed',
+        8: 'Returned',
       };
 
       let mappedData = await Promise.all(
@@ -887,19 +889,7 @@ export class RequestService {
     return this.requestRepo.save(existing);
   }
 
-  // async getById(id: number) {
-  //   return await this.requestRepo.findOne({
-  //     where: { id_request: id },
-  //     relations: [
-  //       'created_by_user',
-  //       'approval_hod_by',
-  //       'approval_it_hod_by',
-  //       'approval_lead_it_by'
-  //     ],
-  //   });
-  // }
-
-  async returnToDraft(id_request: number, user: any) {
+  async return(id_request: number, user: any) {
     if (!user.permissions.includes(2)) {
       throw new UnauthorizedException('Forbidden');
     }
@@ -912,18 +902,35 @@ export class RequestService {
       throw new NotFoundException('Request not found');
     }
 
-    // hanya boleh return jika status 3, 5, atau 7
     if (![3, 5, 7].includes(request.request_status)) {
-      throw new BadRequestException('Request cannot be returned to draft');
+      throw new BadRequestException('Request cannot be returned');
     }
 
-    console.log("Before:", request.request_status);
-    request.request_status = 0;
-    console.log("After:", request.request_status);
+    request.previous_status = request.request_status;
+
+    request.request_status = 8;
 
     return this.requestRepo.save(request);
   }
 
+  async updateReturnedRequest(id: number, dto: UpdateReturnedRequestDto) {
+    const req = await this.requestRepo.findOne({
+      where: { id_request: id }
+    });
+
+    if (!req) throw new NotFoundException("Request not found");
+
+    if (req.request_status !== 8)
+      throw new BadRequestException("Request must be in Returned state");
+
+    // Update field yang diperbolehkan
+    Object.assign(req, dto);
+
+    // WAJIB → Kembalikan status ke previous_status
+    req.request_status = req.previous_status;
+
+    return this.requestRepo.save(req);
+  }
 
   async exportList(filters: any, sort_by: string, sort_order: string) {
     const qb = this.requestRepo
