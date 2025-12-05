@@ -36,6 +36,15 @@ export class RequestController {
     return this.requestService.create(data, userId);
   }
 
+  @Post(':id/return')
+  async returnToDraftRoute(
+    @Param('id') encryptedId: string,
+    @Req() req: any
+  ) {
+    const id = Number(this.aesEcb.decryptBase64Url(encryptedId));
+    return this.requestService.returnToDraft(id, req.user);
+  }
+
   @Public()
   @Post('public/create')
   async createPublic(@Body() data: Partial<RequestEntity>) {

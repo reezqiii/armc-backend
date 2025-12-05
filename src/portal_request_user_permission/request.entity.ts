@@ -101,6 +101,9 @@ export class RequestEntity {
   @Column({ name: 'access_nav_menu', type: 'varchar', nullable: true })
   access_nav_menu: string;
 
+  @Column({ name: 'type', type: 'int', nullable: true, default: 0 })
+  type: number; // 0 = login, 1 = public
+
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'approval_hod_by' })
   approval_hod_by: User;

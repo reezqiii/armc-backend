@@ -16,6 +16,7 @@ export async function buildCompletedExcelTemplate(requests) {
         { header: 'Project', key: 'project', width: 20 },
         { header: 'Company', key: 'company', width: 25 },
         { header: 'Email', key: 'email', width: 30 },
+        { header: 'Type', key: 'type', width: 30 },
         // { header: 'Status', key: 'status', width: 15 },
         // { header: 'Admin Status', key: 'admin_status', width: 15 },
     ];
@@ -58,6 +59,7 @@ export async function buildCompletedExcelTemplate(requests) {
 
             company: req.c_company_name || '-',
             email: req.r_email || '-',
+            type: req.r_type === 1 ? 'Public' : 'Login',
 
             // status: req.status_name,
             // admin_status: req.admin_status_name,

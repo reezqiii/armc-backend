@@ -3,7 +3,8 @@ import {
   InternalServerErrorException,
   NotFoundException,
   ForbiddenException,
-  BadRequestException
+  BadRequestException,
+  UnauthorizedException
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -207,6 +208,7 @@ export class RequestService {
             full_name: d.full_name,
             badge_no: d.badge_no,
             email: d.email,
+            type: d.type,
             company_name: company?.company_name || '-',
             project_name: project?.project_desc || '-',
             department_name: department?.dept || '-',
@@ -498,6 +500,7 @@ export class RequestService {
       status_active: data.status_active ?? 1,
       created_date: new Date(),
       created_by: userId,
+      type: 0,
       remarks: data.remarks,
       approval_hod_by: approvalHodUser,
       approval_it_hod_by: approvalItUser,
@@ -553,6 +556,7 @@ export class RequestService {
       status_active: data.status_active ?? 1,
       created_date: new Date(),
       created_by: null, // publik
+      type: 1,
       remarks: data.remarks,
       approval_hod_by: null,
       approval_it_hod_by: null,
@@ -883,17 +887,43 @@ export class RequestService {
     return this.requestRepo.save(existing);
   }
 
-  async getById(id: number) {
-    return await this.requestRepo.findOne({
-      where: { id_request: id },
-      relations: [
-        'created_by_user',
-        'approval_hod_by',
-        'approval_it_hod_by',
-        'approval_lead_it_by'
-      ],
+  // async getById(id: number) {
+  //   return await this.requestRepo.findOne({
+  //     where: { id_request: id },
+  //     relations: [
+  //       'created_by_user',
+  //       'approval_hod_by',
+  //       'approval_it_hod_by',
+  //       'approval_lead_it_by'
+  //     ],
+  //   });
+  // }
+
+  async returnToDraft(id_request: number, user: any) {
+    if (!user.permissions.includes(2)) {
+      throw new UnauthorizedException('Forbidden');
+    }
+
+    const request = await this.requestRepo.findOne({
+      where: { id_request },
     });
+
+    if (!request) {
+      throw new NotFoundException('Request not found');
+    }
+
+    // hanya boleh return jika status 3, 5, atau 7
+    if (![3, 5, 7].includes(request.request_status)) {
+      throw new BadRequestException('Request cannot be returned to draft');
+    }
+
+    console.log("Before:", request.request_status);
+    request.request_status = 0;
+    console.log("After:", request.request_status);
+
+    return this.requestRepo.save(request);
   }
+
 
   async exportList(filters: any, sort_by: string, sort_order: string) {
     const qb = this.requestRepo
