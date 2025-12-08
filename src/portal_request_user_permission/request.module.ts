@@ -15,10 +15,13 @@ import { NavMenu } from 'portal_nav_menu/menu.entity';
 import { PortalPermissionModule } from 'portal_permission/permission.module';
 import { PortalUserPermissionModule } from 'portal_user_permission/user_permission.module';
 import { AesEcbService } from 'crypto/aes-ecb.service';
+import { LogPortalEntity } from 'log_portal/log_portal.entity';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([RequestEntity, User, Company, NavMenu]),
     TypeOrmModule.forFeature([IssProject, IssDept, Position, IssEmployee], 'db_iss'),
+    TypeOrmModule.forFeature([LogPortalEntity], 'alms'),
     EmailModule,
     PortalPermissionModule,
     PortalUserPermissionModule,

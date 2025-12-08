@@ -23,7 +23,6 @@ import { PortalUserPermissionService } from 'portal_user_permission/user_permiss
 import { sendEmailDto } from 'email/dto/send-email.dto';
 import { AesEcbService } from 'crypto/aes-ecb.service';
 import { ConfigService } from "@nestjs/config";
-import { UpdateReturnedRequestDto } from './DTO/update-returned-request.dto';
 
 @Injectable()
 export class RequestService {
@@ -218,6 +217,7 @@ export class RequestService {
             request_status: {
               name: statusMap[d.request_status] ?? 'Unknown',
             },
+            previous_status: d.previous_status,
 
             approval_hod: d.approval_hod_by
               ? `${d.approval_hod_by.id_user} - ${d.approval_hod_by.full_name}`
@@ -913,24 +913,24 @@ export class RequestService {
     return this.requestRepo.save(request);
   }
 
-  async updateReturnedRequest(id: number, dto: UpdateReturnedRequestDto) {
-    const req = await this.requestRepo.findOne({
-      where: { id_request: id }
-    });
+  async submitReturn(id: number, userId: number) {
+    const request = await this.requestRepo.findOneBy({ id_request: id });
+    if (!request) throw new NotFoundException('Request not found');
 
-    if (!req) throw new NotFoundException("Request not found");
+    if (request.request_status !== 8) {
+      throw new BadRequestException('Request is not in Returned status');
+    }
 
-    if (req.request_status !== 8)
-      throw new BadRequestException("Request must be in Returned state");
+    if (request.created_by !== userId) {
+      throw new ForbiddenException('You are not allowed to submit this return request');
+    }
 
-    // Update field yang diperbolehkan
-    Object.assign(req, dto);
+    request.request_status = request.previous_status ?? request.request_status;
+    await this.requestRepo.save(request);
 
-    // WAJIB → Kembalikan status ke previous_status
-    req.request_status = req.previous_status;
-
-    return this.requestRepo.save(req);
+    return { message: 'Return request submitted successfully', request_status: request.request_status };
   }
+
 
   async exportList(filters: any, sort_by: string, sort_order: string) {
     const qb = this.requestRepo

@@ -7,7 +7,6 @@ import { JwtAuthGuard } from 'jwt-auth.guard';
 import { AesEcbService } from '../crypto/aes-ecb.service';
 import { UserService } from '../portal_user_db/user.service';
 import { Public } from 'auth/public.decorator';
-import { UpdateReturnedRequestDto } from './DTO/update-returned-request.dto';
 
 @Controller('requests')
 @ApiBearerAuth('access-token')
@@ -46,13 +45,18 @@ export class RequestController {
     return this.requestService.return(id, req.user);
   }
 
-  @Put(':id/return')
-  async updateReturned(
+  @Put(':id/submit-return')
+  @UseGuards(JwtAuthGuard)
+  async submitReturn(
     @Param('id') encryptedId: string,
-    @Body() dto: UpdateReturnedRequestDto
+    @Req() req: any
   ) {
     const id = Number(this.aesEcb.decryptBase64Url(encryptedId));
-    return this.requestService.updateReturnedRequest(id, dto);
+    if (isNaN(id)) throw new BadRequestException('Invalid request ID');
+
+    const userId = req.user.id_user;
+
+    return this.requestService.submitReturn(id, userId);
   }
 
   @Public()
@@ -152,25 +156,6 @@ export class RequestController {
 
     return this.requestService.itApproval(decId, body.action, body.remarks, userId);
   }
-
-  // @Post('assign-permission')
-  // @UseGuards(JwtAuthGuard)
-  // async assignPermission(
-  //   @Body() body: { id_user: number; permission_id: number; created_by: number }
-  // ) {
-  //   return this.requestService.assignPermissionToUser(
-  //     body.id_user,
-  //     body.permission_id,
-  //     body.created_by
-  //   );
-  // }
-
-  // @Get('permissions/:id_user')
-  // getAssignedPermission(
-  //   @Param('id_user') id_user: number,
-  // ) {
-  //   return this.requestService.getAssignedPermissions(id_user);
-  // }
 
   @Patch(':id/admin-status')
   @UseGuards(JwtAuthGuard)

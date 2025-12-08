@@ -7,7 +7,7 @@ import { PdfModule } from './pdf/pdf.module';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './portal/user.module';
 import { BookingModule } from './bookings/booking.module';
-import { CryptoModule } from './crypto/crypto.module'; 
+import { CryptoModule } from './crypto/crypto.module';
 import { RequestModule } from './portal_request_user_permission/request.module';
 import { UserModule as UserDBModule } from './portal_user_db/user.module';
 import { PositionModule } from 'iss_design_new/position.module';
@@ -18,14 +18,15 @@ import { CompanyModule } from 'portal_company/company.module';
 import { NavMenuModule } from 'portal_nav_menu/menu.module';
 import { EmailModule } from 'email/email.module';
 import { PortalUserPermissionModule } from 'portal_user_permission/user_permission.module';
+import { LogPortalModule } from 'log_portal/log_portal.module';
 
 @Module({
   imports: [
     SftpModule,
     ConfigModule.forRoot({
-  isGlobal: true,
-  envFilePath: `.env.${process.env.NODE_ENV || 'development'}`,
-}),
+      isGlobal: true,
+      envFilePath: `.env.${process.env.NODE_ENV || 'development'}`,
+    }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -70,7 +71,22 @@ import { PortalUserPermissionModule } from 'portal_user_permission/user_permissi
         synchronize: false,
       }),
     }),
-    
+    TypeOrmModule.forRootAsync({
+      name: 'alms',
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        type: 'postgres',
+        host: config.get('DB_ALMS_HOST'),
+        port: config.get('DB_ALMS_PORT'),
+        username: config.get('DB_ALMS_USERNAME'),
+        password: config.get('DB_ALMS_PASSWORD'),
+        database: config.get('DB_ALMS_NAME'),
+        autoLoadEntities: true,
+        synchronize: false,
+      }),
+    }),
+
     BookingModule,
     UserModule,
     PdfModule,
@@ -87,6 +103,7 @@ import { PortalUserPermissionModule } from 'portal_user_permission/user_permissi
     EmailModule,
     CompanyModule,
     NavMenuModule,
+    LogPortalModule,
   ],
 })
-export class AppModule {} 
+export class AppModule { } 
