@@ -21,19 +21,19 @@ export class UserController {
     return await this._user.findOneById(id);
   }
 
-  @Post()
-  async createUser(@Body() data: Partial<User>) {
-    return await this._user.createUser(data);
-  }
+  // @Post()
+  // async createUser(@Body() data: Partial<User>) {
+  //   return await this._user.createUser(data);
+  // }
 
-  @Put('/:id')
-  async updateUser(@Param('id') id: number, @Body() data: Partial<User>) {
-    return await this._user.updateUser(id, data);
-  }
+  // @Put('/:id')
+  // async updateUser(@Param('id') id: number, @Body() data: Partial<User>) {
+  //   return await this._user.updateUser(id, data);
+  // }
 
-  @Delete('/:id')
-  async deleteUser(@Param('id') id: number) {
-    return await this._user.deleteUser(id);
-  }
+  // @Delete('/:id')
+  // async deleteUser(@Param('id') id: number) {
+  //   return await this._user.deleteUser(id);
+  // }
 
 }

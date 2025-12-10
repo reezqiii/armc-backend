@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import { PortalUserPermissionService } from 'portal_user_permission/user_permission.service';
 import { User } from 'portal/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
+import { requestStorage } from 'portal_request_user_permission/subscribers/async_local_storage';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -26,6 +27,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
 
     if (!user) return null;
+
+    // simpan di ALS
+    const store = requestStorage.getStore();
+    if (store) {
+      store.userId = user.id_user;
+    }
 
     const rawPermissions = await this.userPermService.getUserPermissionsForApp(
       user.id_user,

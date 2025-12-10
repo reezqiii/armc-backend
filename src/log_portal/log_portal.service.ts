@@ -1,81 +1,66 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { LogPortalEntity } from './log_portal.entity';
-import { ServerSideLogDTO } from './DTO/ServerSideLogDTO';
-import { PortalAppPermission } from 'portal_app_permission/app_permission.entity';
 
 @Injectable()
 export class LogPortalService {
     constructor(
-        @InjectRepository(LogPortalEntity, 'alms')
-        private readonly logPortalRepo: Repository<LogPortalEntity>,
-        @InjectRepository(PortalAppPermission) // default connection
-        private readonly permissionRepo: Repository<PortalAppPermission>,
+        @InjectDataSource('alms')
+        private readonly almsDataSource: DataSource,
+
+        @InjectDataSource()
+        private readonly defaultDataSource: DataSource,
     ) { }
 
-    async saveLog(data: {
-        table: string;
-        index: number;
-        before?: any;
-        after?: any;
-        user: number;
-        type: number; // 1=update, 2=insert, 3=delete
-        id_application: number;
-    }) {
-        const log = this.logPortalRepo.create({
-            table: data.table,
-            index: data.index,
-            before: data.before !== undefined ? JSON.stringify(data.before) : null,
-            after: data.after !== undefined ? JSON.stringify(data.after) : null,
-            user: data.user,
-            date: new Date(),
-            type: data.type,
-            id_application: data.id_application,
-        });
+    async getLogs(filters: any, sortBy = 'date', sortOrder: 'ASC' | 'DESC' = 'DESC', page = 0, size = 10) {
 
-        return await this.logPortalRepo.save(log);
-    }
+        const logRepo = this.almsDataSource.getRepository(LogPortalEntity);
 
-    async getHistoryByApplication(id_application: number) {
-        const logs = await this.logPortalRepo.find({
-            where: { id_application },
-            order: { date: 'DESC' },
-        });
+        const query = logRepo.createQueryBuilder('log');
 
-        // ambil aplikasi dari koneksi default
-        const app = await this.permissionRepo.findOne({ where: { id_application } });
-
-        return logs.map(log => ({
-            ...log,
-            app_name: app?.app_name || null,
-        }));
-    }
-
-    async getServersideList(filters: any, sortBy: string, sortOrder: 'ASC' | 'DESC', page: number, size: number) {
-        const query = this.logPortalRepo.createQueryBuilder('log');
-
-        // Filter id_application
         if (filters.id_application) {
-            query.andWhere('log.id_application = :id', { id: filters.id_application });
+            query.andWhere('log.id_application = :id', { id: Number(filters.id_application) });
         }
 
-        // Filter by table/index/user if ada
-        if (filters.table) query.andWhere('log.table ILIKE :table', { table: `%${filters.table}%` });
-        if (filters.index) query.andWhere('log.index = :index', { index: filters.index });
-        if (filters.user) query.andWhere('log.user = :user', { user: filters.user });
+        Object.keys(filters).forEach(key => {
+            if (key !== 'id_application' && filters[key]) {
+                query.andWhere(`log.${key} LIKE :value`, { value: `%${filters[key]}%` });
+            }
+        });
 
         const total = await query.getCount();
 
-        // Sorting
-        query.orderBy(`log.${sortBy}`, sortOrder);
+        const logs = await query
+            .orderBy(`log.${sortBy}`, sortOrder)
+            .skip(page * size)
+            .take(size)
+            .getMany();
 
-        // Pagination
-        query.skip(page * size).take(size);
+        const userIdList = [...new Set(logs.map(l => l.user))];
 
-        const data = await query.getMany();
+        const users = await this.defaultDataSource.query(
+            `SELECT id_user, full_name 
+     FROM portal_user_db 
+     WHERE id_user = ANY($1)`,
+            [userIdList]
+        );
+
+        const userMap = Object.fromEntries(
+            users.map(u => [u.id_user, u.full_name])
+        );
+
+        const data = logs.map(l => ({
+            ...l,
+            full_name: userMap[l.user] || null,
+        }));
 
         return { data, total_pages: Math.ceil(total / size) };
     }
 
+    async getLogById(id: number) {
+        return await this.almsDataSource.getRepository(LogPortalEntity).findOne({
+            where: { id },
+        });
+    }
 }

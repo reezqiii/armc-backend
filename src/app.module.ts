@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { SftpModule } from './sftp/sftp.module';
@@ -19,7 +19,7 @@ import { NavMenuModule } from 'portal_nav_menu/menu.module';
 import { EmailModule } from 'email/email.module';
 import { PortalUserPermissionModule } from 'portal_user_permission/user_permission.module';
 import { LogPortalModule } from 'log_portal/log_portal.module';
-import { GenericLogSubscriber } from 'subscribers/generic_log.subscriber';
+import { RequestSubscriber } from 'portal_request_user_permission/subscribers/generic_log.subscriber';
 
 @Module({
   imports: [
@@ -106,6 +106,6 @@ import { GenericLogSubscriber } from 'subscribers/generic_log.subscriber';
     NavMenuModule,
     LogPortalModule,
   ],
-  providers: [GenericLogSubscriber],
+  providers: [RequestSubscriber],
 })
-export class AppModule { } 
+export class AppModule { }
