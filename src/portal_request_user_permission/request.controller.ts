@@ -157,6 +157,18 @@ export class RequestController {
     return this.requestService.itApproval(decId, body.action, body.remarks, userId);
   }
 
+  // @Put(':id/update')
+  // @UseGuards(JwtAuthGuard)
+  // async updateRequest(
+  //   @Param('id') id: number,
+  //   @Body() body: any,
+  //   @Req() req: any
+  // ) {
+  //   const userId = req.user.id;
+  //   const id_application = body.id_application || 31;
+  //   return await this.requestService.updateRequest(id, body, userId, id_application);
+  // }
+
   @Patch(':id/admin-status')
   @UseGuards(JwtAuthGuard)
   async updateAdminStatus(

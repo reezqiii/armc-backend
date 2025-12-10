@@ -23,6 +23,7 @@ import { PortalUserPermissionService } from 'portal_user_permission/user_permiss
 import { sendEmailDto } from 'email/dto/send-email.dto';
 import { AesEcbService } from 'crypto/aes-ecb.service';
 import { ConfigService } from "@nestjs/config";
+import { LogPortalService } from 'log_portal/log_portal.service';
 
 @Injectable()
 export class RequestService {
@@ -49,7 +50,8 @@ export class RequestService {
     @InjectRepository(IssEmployee, 'db_iss')
     private readonly employeeRepo: Repository<IssEmployee>,
     private readonly mailService: EmailService,
-    private configService: ConfigService
+    private configService: ConfigService,
+    private readonly logPortalService: LogPortalService,
   ) {
     this.PORTAL_LINK = this.configService.get<string>("LINK_PORTAL");
   }
@@ -362,13 +364,16 @@ export class RequestService {
     if (typeof data.access_yard_company === 'string') {
       const ids = data.access_yard_company.split(',').map(id => id.trim());
       yardCompanies = await Promise.all(
-        ids.map(async id => {
-          const company = await this.companyRepo.findOne({ where: { id_company: Number(id) } });
-          return {
-            id,
-            company_name: company?.company_name || id,
-          };
-        }),
+        ids
+          .map(id => Number(id))
+          .filter(id => !isNaN(id)) 
+          .map(async id => {
+            const company = await this.companyRepo.findOne({ where: { id_company: id } });
+            return {
+              id,
+              company_name: company?.company_name || `Unknown (${id})`,
+            };
+          }),
       );
     }
 
@@ -931,6 +936,29 @@ export class RequestService {
     return { message: 'Return request submitted successfully', request_status: request.request_status };
   }
 
+  // async updateRequest(id: number, data: any, userId: number, id_application: number) {
+  //   const oldData = await this.requestRepo.findOne({ where: { id_request: id } });
+  //   if (!oldData) throw new Error('Request not found');
+
+  //   await this.requestRepo.update(id, data);
+  //   const updatedData = await this.requestRepo.findOne({ where: { id_request: id } });
+
+  //   try {
+  //     await this.logPortalService.saveLog({
+  //       table: 'portal_request_user_permission',
+  //       index: id,
+  //       before: oldData,
+  //       after: updatedData,
+  //       user: userId,
+  //       type: 1,
+  //       id_application: id_application,
+  //     });
+  //   } catch (err) {
+  //     console.error('Log failed:', err);
+  //   }
+
+  //   return updatedData;
+  // }
 
   async exportList(filters: any, sort_by: string, sort_order: string) {
     const qb = this.requestRepo

@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import { PortalAppPermission } from 'portal_app_permission/app_permission.entity';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 
 @Entity('log_portal')
 export class LogPortalEntity {
@@ -23,15 +24,12 @@ export class LogPortalEntity {
   @Column({ type: 'timestamp', nullable: true })
   date: Date;
 
-  @Column({ type: 'varchar', nullable: true })
-  column: string;
-
   @Column({ type: 'int', nullable: true })
-  type: number; 
-  // 1 = UPDATE
-  // 2 = INSERT
-  // 3 = DELETE (opsional)
+  type: number;
+  // 1 = Update; 2 = Insert; 3 = Delete;
 
   @Column({ type: 'int', nullable: true })
   id_application: number;
+
+
 }

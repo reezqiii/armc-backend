@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './user.entity';
 import { Repository, ILike, FindOptionsWhere } from 'typeorm';
@@ -23,11 +23,11 @@ export class UserService {
         ? { full_name: ILike(`%${query}%`) }
         : {};
 
-     const users = await this._user.find({
-      where,
-      relations: ['department', 'project'], 
-      order: { full_name: 'ASC' }, 
-    });
+      const users = await this._user.find({
+        where,
+        relations: ['department', 'project'],
+        order: { full_name: 'ASC' },
+      });
 
       return users;
     } catch (error) {
@@ -44,16 +44,26 @@ export class UserService {
     }
   }
 
-  // async findByRole(roleName: string): Promise<User[]> {
-  //   try {
-  //     return await this._user
-  //       .createQueryBuilder('user')
-  //       .leftJoinAndSelect('user.role', 'role')
-  //       .where('role.role_name = :roleName', { roleName })
-  //       .orderBy('user.full_name', 'ASC')
-  //       .getMany();
-  //   } catch (error) {
-  //     throw new InternalServerErrorException(error);
-  //   }
-  // }
+  async updateUser(id: number, data: Partial<User>): Promise<User> {
+    const user = await this._user.findOne({ where: { id_user: id } });
+    if (!user) throw new NotFoundException('User not found');
+
+    Object.assign(user, data);
+    return await this._user.save(user);
+  }
+
+  // Insert
+  async createUser(data: Partial<User>): Promise<User> {
+    const newUser = this._user.create(data);
+    return await this._user.save(newUser); // log type = 2 (insert)
+  }
+
+  // Delete
+  async deleteUser(id: number): Promise<void> {
+    const user = await this._user.findOne({ where: { id_user: id } });
+    if (!user) throw new NotFoundException('User not found');
+
+    await this._user.remove(user); // log type = 3 (delete)
+  }
+
 }

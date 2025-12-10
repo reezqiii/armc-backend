@@ -19,6 +19,7 @@ import { NavMenuModule } from 'portal_nav_menu/menu.module';
 import { EmailModule } from 'email/email.module';
 import { PortalUserPermissionModule } from 'portal_user_permission/user_permission.module';
 import { LogPortalModule } from 'log_portal/log_portal.module';
+import { GenericLogSubscriber } from 'subscribers/generic_log.subscriber';
 
 @Module({
   imports: [
@@ -105,5 +106,6 @@ import { LogPortalModule } from 'log_portal/log_portal.module';
     NavMenuModule,
     LogPortalModule,
   ],
+  providers: [GenericLogSubscriber],
 })
 export class AppModule { } 

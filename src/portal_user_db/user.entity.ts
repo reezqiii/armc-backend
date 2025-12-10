@@ -37,17 +37,4 @@ export class User {
 
   @Column({ name: 'update_by', type: 'int', nullable: true })
   update_by: number;
-
-  // @ManyToOne(() => Role)
-  // @JoinColumn({ name: 'id_role' })
-  // role: Role;
-
-  // @ManyToOne(() => Project)
-  // @JoinColumn({ name: 'project_id', referencedColumnName: 'id' })
-  // project: Project;
-
-  // @ManyToOne(() => Department)
-  // @JoinColumn({ name: 'department', referencedColumnName: 'id_department' })
-  // department: Department;
-
 }
