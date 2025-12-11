@@ -17,7 +17,6 @@ import { PortalUserPermissionModule } from 'portal_user_permission/user_permissi
 import { AesEcbService } from 'crypto/aes-ecb.service';
 import { LogPortalEntity } from 'log_portal/log_portal.entity';
 import { LogPortalService } from 'log_portal/log_portal.service';
-import { PortalAppPermissionModule } from 'portal_app_permission/app_permission.module';
 
 @Module({
   imports: [
@@ -27,7 +26,6 @@ import { PortalAppPermissionModule } from 'portal_app_permission/app_permission.
     EmailModule,
     PortalPermissionModule,
     PortalUserPermissionModule,
-    PortalAppPermissionModule,
   ],
   controllers: [RequestController],
   providers: [

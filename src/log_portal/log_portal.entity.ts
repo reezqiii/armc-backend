@@ -1,4 +1,3 @@
-import { PortalAppPermission } from 'portal_app_permission/app_permission.entity';
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 
 @Entity('log_portal')
@@ -12,11 +11,11 @@ export class LogPortalEntity {
   @Column({ type: 'int', nullable: true })
   index: number;
 
-  @Column({ type: 'text', nullable: true })
-  before: string;
+  @Column({ type: 'jsonb', nullable: true })
+  before: any;
 
-  @Column({ type: 'text', nullable: true })
-  after: string;
+  @Column({ type: 'jsonb', nullable: true })
+  after: any;
 
   @Column({ type: 'int', nullable: true })
   user: number;

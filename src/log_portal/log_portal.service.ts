@@ -63,4 +63,6 @@ export class LogPortalService {
             where: { id },
         });
     }
+
+    
 }

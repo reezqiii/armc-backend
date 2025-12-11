@@ -8,9 +8,9 @@ export class LogPortalController {
     constructor(private readonly logService: LogPortalService) { }
 
     @Get(':id')
-async getLogById(@Param('id') id: number) {
-  return this.logService.getLogById(id);
-}
+    async getLogById(@Param('id') id: number) {
+        return this.logService.getLogById(id);
+    }
 
     @Post('/serverside_list')
     async getLogs(@Query('search') searchStr: string,

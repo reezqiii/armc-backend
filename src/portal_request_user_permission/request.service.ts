@@ -191,12 +191,10 @@ export class RequestService {
             })
             : null;
 
-          let requestorName = d.created_by?.toString();
+          let requestorName = null;
           if (d.created_by) {
-            const user = await this.userRepo.findOne({
-              where: { id_user: d.created_by },
-            });
-            requestorName = user?.full_name || requestorName;
+            const user = await this.userRepo.findOne({ where: { id_user: d.created_by } });
+            requestorName = user?.full_name || null;
           }
 
           // const btnCancel = [0, 1, 2].includes(d.request_status) || user.permissions.includes(2);
@@ -360,85 +358,83 @@ export class RequestService {
       ? await this.userRepo.findOne({ where: { id_user: data.created_by } })
       : null;
 
-    let yardCompanies = [];
-    if (typeof data.access_yard_company === 'string') {
-      const ids = data.access_yard_company.split(',').map(id => id.trim());
-      yardCompanies = await Promise.all(
-        ids
-          .map(id => Number(id))
-          .filter(id => !isNaN(id)) 
-          .map(async id => {
-            const company = await this.companyRepo.findOne({ where: { id_company: id } });
-            return {
-              id,
-              company_name: company?.company_name || `Unknown (${id})`,
-            };
-          }),
-      );
-    }
-
-    let navMenus = [];
-    if (data.access_nav_menu) {
-      const ids = String(data.access_nav_menu)
-        .split(',')
-        .map(id => id.trim())
-        .filter(Boolean);
-
-      navMenus = await Promise.all(
-        ids
-          .map(id => Number(id))
-          .filter(id => !isNaN(id))
-          .map(async id => {
-            const menu = await this.navMenuRepo.findOne({ where: { id_application: id } });
-            return {
-              id,
-              application_name: menu?.application_name || `Unknown (${id})`,
-            };
-          }),
-      );
-    }
-
     return {
       ...data,
-      project_name: project?.project_desc || '-',
-      department_name: department?.dept || '-',
-      position_name: position?.design_desc || '-',
-      created_by_name: createdByUser?.full_name || '-',
 
-      company: data.company
-        ? {
-          id_company: data.company.id_company,
-          company_name: data.company.company_name,
-        }
-        : null,
-
+      project: project ? project.project_desc : null,
+      project_name: project ? project.project_desc : null,
+      department: department ? department.dept : null,
+      department_name: department ? department.dept : null,
+      position: position ? position.design_desc : null,
+      position_name: position ? position.design_desc : null,
+      created_by_name: createdByUser ? createdByUser.full_name : null,
+      company: data.company ? {
+        id_company: data.company.id_company,
+        company_name: data.company.company_name
+      } : null,
       approval_hod_by: data.approval_hod_by
         ? {
           id: data.approval_hod_by.id_user,
-          badge_no: data.approval_hod_by.badge_no,
           full_name: data.approval_hod_by.full_name,
+          badge_no: data.approval_hod_by.badge_no,
         }
         : null,
-
       approval_it_hod_by: data.approval_it_hod_by
         ? {
           id: data.approval_it_hod_by.id_user,
-          badge_no: data.approval_it_hod_by.badge_no,
           full_name: data.approval_it_hod_by.full_name,
+          badge_no: data.approval_it_hod_by.badge_no,
         }
         : null,
-
       approval_lead_it_by: data.approval_lead_it_by
         ? {
           id: data.approval_lead_it_by.id_user,
-          badge_no: data.approval_lead_it_by.badge_no,
           full_name: data.approval_lead_it_by.full_name,
+          badge_no: data.approval_lead_it_by.badge_no,
         }
         : null,
+      access_yard_company: await this.getYardCompanyList(data.access_yard_company),
+      access_nav_menu: await this.getNavMenuList(data.access_nav_menu),
 
-      access_yard_company: yardCompanies,
-      access_nav_menu: navMenus,
     };
+  }
+
+  private async getNavMenuList(access: string): Promise<any[]> {
+    if (!access) return [];
+
+    const ids = String(access)
+      .split(',')
+      .map(id => Number(id.trim()))
+      .filter(id => !isNaN(id));
+
+    return Promise.all(
+      ids.map(async id => {
+        const menu = await this.navMenuRepo.findOne({ where: { id_application: id } });
+        return {
+          id,
+          application_name: menu?.application_name || `Unknown (${id})`,
+        };
+      }),
+    );
+  }
+
+  private async getYardCompanyList(access: string): Promise<any[]> {
+    if (!access) return [];
+
+    const ids = String(access)
+      .split(',')
+      .map(id => Number(id.trim()))
+      .filter(id => !isNaN(id));
+
+    return Promise.all(
+      ids.map(async id => {
+        const company = await this.companyRepo.findOne({ where: { id_company: id } });
+        return {
+          id,
+          company_name: company?.company_name || `Unknown (${id})`,
+        };
+      }),
+    );
   }
 
   async create(
@@ -625,60 +621,81 @@ export class RequestService {
     if (!existing)
       throw new NotFoundException(`Request with ID ${id_request} not found`);
 
+    // handle yard company
     if (data.access_yard_company !== undefined) {
       existing.access_yard_company = Array.isArray(data.access_yard_company)
         ? data.access_yard_company.join(',')
         : data.access_yard_company;
     }
 
+    // handle nav menu
     if (data.access_nav_menu !== undefined) {
       existing.access_nav_menu = Array.isArray(data.access_nav_menu)
         ? data.access_nav_menu.join(',')
         : data.access_nav_menu;
     }
 
+    // approval HOD
     if (data.approval_hod_by) {
       const hodId = typeof data.approval_hod_by === 'object'
         ? data.approval_hod_by.id_user
         : data.approval_hod_by;
 
-      const userHod = await this.userRepo.findOne({
-        where: { id_user: Number(hodId) },
-      });
-      if (userHod) {
-        existing.approval_hod_by = userHod;
-        existing.approval_hod_date_at = new Date();
+      const parsedId = Number(hodId);
+
+      if (!parsedId || isNaN(parsedId)) {
+
+      } else {
+        const userHod = await this.userRepo.findOne({ where: { id_user: parsedId } });
+        if (userHod) {
+          existing.approval_hod_by = userHod;
+          existing.approval_hod_date_at = new Date();
+        }
       }
     }
 
+    // approval Lead IT
     if (data.approval_lead_it_by) {
       const leadItId = typeof data.approval_lead_it_by === 'object'
         ? data.approval_lead_it_by.id_user
         : data.approval_lead_it_by;
 
-      const userLeadIt = await this.userRepo.findOne({
-        where: { id_user: Number(leadItId) },
-      });
-      if (userLeadIt) {
-        existing.approval_lead_it_by = userLeadIt;
-        existing.approval_lead_date_at = new Date();
+      const parsedId = Number(leadItId);
+
+      if (!parsedId || isNaN(parsedId)) {
+
+      } else {
+        const userLeadIt = await this.userRepo.findOne({ where: { id_user: parsedId } });
+        if (userLeadIt) {
+          existing.approval_lead_it_by = userLeadIt;
+          existing.approval_lead_date_at = new Date();
+        }
       }
     }
 
+    // approval IT HOD
     if (data.approval_it_hod_by) {
       const itId = typeof data.approval_it_hod_by === 'object'
         ? data.approval_it_hod_by.id_user
         : data.approval_it_hod_by;
 
-      const userIt = await this.userRepo.findOne({
-        where: { id_user: Number(itId) },
-      });
-      if (userIt) {
-        existing.approval_it_hod_by = userIt;
-        existing.approval_it_date_at = new Date();
+      const parsedId = Number(itId);
+
+      if (!parsedId || isNaN(parsedId)) {
+
+      } else {
+        const userIt = await this.userRepo.findOne({
+          where: { id_user: parsedId },
+        });
+
+        if (userIt) {
+          existing.approval_it_hod_by = userIt;
+          existing.approval_it_date_at = new Date();
+        }
       }
     }
 
+    // rejected notes
     if (data.rejected_hod_remarks) {
       existing.rejected_hod_remarks = data.rejected_hod_remarks;
       existing.approval_hod_date_at = new Date();
@@ -694,13 +711,21 @@ export class RequestService {
       existing.approval_it_date_at = new Date();
     }
 
-    delete data.approval_hod_by;
-    delete data.approval_lead_it_by;
-    delete data.approval_it_hod_by;
-    delete data.access_yard_company;
-    delete data.access_nav_menu;
+    const { design_id, ...rest } = data;
 
-    Object.assign(existing, data);
+    if (design_id !== undefined) {
+      existing.design_id = Number(design_id);
+    }
+
+    // hapus field yg tidak boleh assign langsung
+    delete rest.approval_hod_by;
+    delete rest.approval_lead_it_by;
+    delete rest.approval_it_hod_by;
+    delete rest.access_yard_company;
+    delete rest.access_nav_menu;
+
+    // assign sisa tanpa menimpa design_id
+    Object.assign(existing, rest);
 
     return this.requestRepo.save(existing);
   }
@@ -935,30 +960,6 @@ export class RequestService {
 
     return { message: 'Return request submitted successfully', request_status: request.request_status };
   }
-
-  // async updateRequest(id: number, data: any, userId: number, id_application: number) {
-  //   const oldData = await this.requestRepo.findOne({ where: { id_request: id } });
-  //   if (!oldData) throw new Error('Request not found');
-
-  //   await this.requestRepo.update(id, data);
-  //   const updatedData = await this.requestRepo.findOne({ where: { id_request: id } });
-
-  //   try {
-  //     await this.logPortalService.saveLog({
-  //       table: 'portal_request_user_permission',
-  //       index: id,
-  //       before: oldData,
-  //       after: updatedData,
-  //       user: userId,
-  //       type: 1,
-  //       id_application: id_application,
-  //     });
-  //   } catch (err) {
-  //     console.error('Log failed:', err);
-  //   }
-
-  //   return updatedData;
-  // }
 
   async exportList(filters: any, sort_by: string, sort_order: string) {
     const qb = this.requestRepo

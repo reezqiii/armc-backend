@@ -42,8 +42,7 @@ import { RequestSubscriber } from 'portal_request_user_permission/subscribers/ge
         synchronize: false,
       }),
     }),
-    // TypeOrmModule.forRootAsync({
-    //   name: 'portal',
+    
     //   imports: [ConfigModule],
     //   inject: [ConfigService],
     //   useFactory: (config: ConfigService) => ({
@@ -106,6 +105,8 @@ import { RequestSubscriber } from 'portal_request_user_permission/subscribers/ge
     NavMenuModule,
     LogPortalModule,
   ],
+
   providers: [RequestSubscriber],
 })
+
 export class AppModule { }
