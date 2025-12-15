@@ -24,7 +24,11 @@ export class LogPortalService {
         }
 
         Object.keys(filters).forEach(key => {
-            if (key !== 'id_application' && filters[key]) {
+            if (!filters[key]) return;
+
+            if (key === 'index') {
+                query.andWhere(`log.index = :idx`, { idx: Number(filters[key]) });
+            } else {
                 query.andWhere(`log.${key} LIKE :value`, { value: `%${filters[key]}%` });
             }
         });
@@ -64,5 +68,5 @@ export class LogPortalService {
         });
     }
 
-    
+
 }

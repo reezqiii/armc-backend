@@ -649,7 +649,7 @@ export class RequestService {
         const userHod = await this.userRepo.findOne({ where: { id_user: parsedId } });
         if (userHod) {
           existing.approval_hod_by = userHod;
-          existing.approval_hod_date_at = new Date();
+          // existing.approval_hod_date_at = new Date();
         }
       }
     }

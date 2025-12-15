@@ -86,14 +86,8 @@ export class RequestEntity {
   @Column({ name: 'id_company', type: 'int', nullable: true })
   id_company: number;
 
-  // @Column({ name: 'approval_hod_by', type: 'int', nullable: true })
-  // approval_hod_by_id: number;
-
   @Column({ name: 'approval_it_hod_by', type: 'int', nullable: true })
   approval_it_hod_by_id: number;
-
-  // @Column({ name: 'approval_lead_it_by', type: 'int', nullable: true })
-  // approval_lead_it_by_id: number;
 
   @Column({ name: 'access_yard_company', type: 'varchar', nullable: true })
   access_yard_company: string;

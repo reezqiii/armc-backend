@@ -5,11 +5,13 @@ import { LogPortalService } from './log_portal.service';
 import { LogPortalController } from './log_portal.controller';
 import { RequestSubscriber } from 'portal_request_user_permission/subscribers/generic_log.subscriber';
 import { UserModule } from 'portal_user_db/user.module';
+import { RequestModule } from 'portal_request_user_permission/request.module';
 
 @Module({
   imports:
     [TypeOrmModule.forFeature([LogPortalEntity], 'alms'),
       UserModule,
+      RequestModule,
     ],
   controllers: [LogPortalController],
   providers: [LogPortalService],

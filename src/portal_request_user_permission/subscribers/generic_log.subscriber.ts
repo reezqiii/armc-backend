@@ -14,11 +14,9 @@ export class RequestSubscriber implements EntitySubscriberInterface<RequestEntit
     private readonly almsDataSource: DataSource,
     @InjectDataSource('db_iss')
     private readonly issDataSource: DataSource,
-
-    @InjectDataSource() // default DB
+    @InjectDataSource()
     private readonly defaultDataSource: DataSource,
   ) {
-
     this.defaultDataSource.subscribers.push(this);
   }
 
@@ -34,21 +32,27 @@ export class RequestSubscriber implements EntitySubscriberInterface<RequestEntit
 
     if (!dbEntity || !newEntity) return;
 
-    const ignoreKeys = [
-      'created_date',
-      'updated_date',
+    const keysToLog = [
+      'email',
+      'badge_no',
+      'full_name',
+      'request_reason',
+      'remarks',
       'approval_hod_by',
-      'approval_lead_it_by',
       'approval_it_hod_by',
+      'approval_lead_it_by',
+      'access_nav_menu',
+      'access_yard_company',
+      'id_company',
+      'dept_id',
+      'design_id',
+      'project_id'
     ];
 
-    for (const key of Object.keys(newEntity)) {
-      if (ignoreKeys.includes(key)) continue;
-
+    for (const key of keysToLog) {
       const oldValue = await this.mapValueByColumn(key, dbEntity[key]);
       const newValue = await this.mapValueByColumn(key, newEntity[key]);
 
-      // skip jika sama
       if (JSON.stringify(oldValue) === JSON.stringify(newValue)) continue;
 
       // SAVE LOG
@@ -70,18 +74,46 @@ export class RequestSubscriber implements EntitySubscriberInterface<RequestEntit
 
   async afterInsert(event: InsertEvent<RequestEntity>) {
     const userId = requestStorage.getStore()?.userId || null;
+    const entity = event.entity;
 
-    const log = new LogPortalEntity();
-    log.table = 'portal_request_user_permission';
-    log.index = event.entity?.id_request;
-    log.before = null;
-    log.after = event.entity; // SAVE AS JSON
-    log.user = userId;
-    log.date = new Date();
-    log.type = 2;
-    log.id_application = 31;
+    if (!entity) return;
 
-    await this.almsDataSource.manager.save(LogPortalEntity, log);
+    const keysToLog = [
+      'email',
+      'badge_no',
+      'full_name',
+      'request_reason',
+      'remarks',
+      'approval_hod_by',
+      'approval_it_hod_by',
+      'approval_lead_it_by',
+      'access_nav_menu',
+      'access_yard_company',
+      'id_company',
+      'dept_id',
+      'design_id',
+      'project_id'
+    ];
+
+    for (const key of keysToLog) {
+      if (!(key in entity)) continue;
+
+      const newValue = await this.mapValueByColumn(key, entity[key]);
+
+      if (newValue === null || newValue === undefined || newValue === '') continue;
+
+      const log = new LogPortalEntity();
+      log.table = 'portal_request_user_permission';
+      log.index = entity.id_request;
+      log.before = null;
+      log.after = newValue;
+      log.user = userId;
+      log.date = new Date();
+      log.type = 2; // insert
+      log.id_application = 31;
+
+      await this.almsDataSource.manager.save(LogPortalEntity, log);
+    }
   }
 
   async afterRemove(event: RemoveEvent<RequestEntity>) {
@@ -103,13 +135,17 @@ export class RequestSubscriber implements EntitySubscriberInterface<RequestEntit
   private async mapValueByColumn(key: string, value: any): Promise<any> {
     if (value === null || value === undefined) return value;
 
-    // USER
+    // USER RELATION
     if (['approval_hod_by', 'approval_it_hod_by', 'approval_lead_it_by', 'created_by'].includes(key)) {
+      let userId = typeof value === 'object' ? value.id_user : value;
+      if (!userId) return null;
+
       const res = await this.defaultDataSource.query(
         `SELECT full_name FROM portal_user_db WHERE id_user = $1 LIMIT 1`,
-        [value]
+        [userId]
       );
-      return res?.[0]?.full_name || value;
+
+      return res?.[0]?.full_name || null;
     }
 
     // COMPANY
@@ -160,11 +196,24 @@ export class RequestSubscriber implements EntitySubscriberInterface<RequestEntit
         [ids]
       );
 
-      return res.map(r => r.  application_name).join(', ') || value;
+      return res.map(r => r.application_name).join(', ') || value;
+    }
+
+    // YARD COMPANY 
+    if (key === 'access_yard_company') {
+      if (!value) return value;
+
+      const ids = value.split(',').map(v => Number(v.trim())).filter(Boolean);
+      if (ids.length === 0) return value;
+
+      const res = await this.defaultDataSource.query(
+        `SELECT company_name FROM portal_company WHERE id_company = ANY($1)`,
+        [ids]
+      );
+
+      return res.map(r => r.company_name).join(', ') || value;
     }
 
     return value;
   }
-
-
 }
