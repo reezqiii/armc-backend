@@ -5,8 +5,6 @@ import { DataSource, EntitySubscriberInterface, UpdateEvent, InsertEvent, Remove
 import { requestStorage } from './async_local_storage';
 import { InjectDataSource } from '@nestjs/typeorm';
 
-
-
 @Injectable()
 export class RequestSubscriber implements EntitySubscriberInterface<RequestEntity> {
   constructor(
@@ -188,11 +186,17 @@ export class RequestSubscriber implements EntitySubscriberInterface<RequestEntit
     if (key === 'access_nav_menu') {
       if (!value) return value;
 
-      const ids = value.split(',').map(v => Number(v.trim())).filter(Boolean);
+      let ids: number[] = [];
+      if (Array.isArray(value)) {
+        ids = value.map(v => Number(v)).filter(Boolean);
+      } else if (typeof value === 'string') {
+        ids = value.split(',').map(v => Number(v.trim())).filter(Boolean);
+      }
+
       if (ids.length === 0) return value;
 
       const res = await this.defaultDataSource.query(
-        `SELECT   application_name FROM portal_nav_menu WHERE id_application = ANY($1)`,
+        `SELECT application_name FROM portal_nav_menu WHERE id_application = ANY($1)`,
         [ids]
       );
 
@@ -203,7 +207,13 @@ export class RequestSubscriber implements EntitySubscriberInterface<RequestEntit
     if (key === 'access_yard_company') {
       if (!value) return value;
 
-      const ids = value.split(',').map(v => Number(v.trim())).filter(Boolean);
+      let ids: number[] = [];
+      if (Array.isArray(value)) {
+        ids = value.map(v => Number(v)).filter(Boolean);
+      } else if (typeof value === 'string') {
+        ids = value.split(',').map(v => Number(v.trim())).filter(Boolean);
+      }
+
       if (ids.length === 0) return value;
 
       const res = await this.defaultDataSource.query(

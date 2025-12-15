@@ -6,7 +6,6 @@ import { sendEmailDto } from "./dto/send-email.dto";
 import * as path from 'path';
 import * as ejs from 'ejs';
 import * as fs from 'fs';
-
 @Injectable()
 export class EmailService {
   private EMAIL_API_URL: string;
@@ -35,8 +34,6 @@ export class EmailService {
       };
       if (data.email_cc) payload.email_cc = data.email_cc;
       if (data.email_bcc) payload.email_bcc = data.email_bcc;
-
-      console.log(payload)
 
       await axios.post(this.EMAIL_API_URL, payload, {
         headers: { "Content-Type": "application/json" },

@@ -16,22 +16,72 @@ export class LogPortalService {
     async getLogs(filters: any, sortBy = 'date', sortOrder: 'ASC' | 'DESC' = 'DESC', page = 0, size = 10) {
 
         const logRepo = this.almsDataSource.getRepository(LogPortalEntity);
-
         const query = logRepo.createQueryBuilder('log');
 
-        if (filters.id_application) {
-            query.andWhere('log.id_application = :id', { id: Number(filters.id_application) });
+        for (const [key, value] of Object.entries(filters)) {
+            if (!value) continue;
+
+            switch (key) {
+                case 'index':
+                    query.andWhere('log.index = :idx', { idx: Number(value) });
+                    break;
+
+                case 'before':
+                case 'after':
+                    query.andWhere(`CAST(log.${key} AS TEXT) ILIKE :val`, {
+                        val: `%${value}%`,
+                    });
+                    break;
+
+                case 'date':
+                    query.andWhere(`CAST(log.date AS TEXT) ILIKE :val`, {
+                        val: `%${value}%`,
+                    });
+                    break;
+
+                case 'full_name': {
+                    const users = await this.defaultDataSource.query(
+                        `
+        SELECT id_user
+        FROM portal_user_db
+        WHERE full_name ILIKE $1
+        `,
+                        [`%${value}%`],
+                    );
+
+                    const userIds = users.map(u => u.id_user);
+
+                    if (userIds.length === 0) {
+                        query.andWhere('1 = 0');
+                    } else {
+                        query.andWhere('log.user = ANY(:userIds)', { userIds });
+                    }
+                    break;
+                }
+
+                default:
+                    query.andWhere(`log.${key} ILIKE :val`, {
+                        val: `%${value}%`,
+                    });
+                    break;
+            }
         }
 
-        Object.keys(filters).forEach(key => {
-            if (!filters[key]) return;
+        const allowedSortColumns = [
+            'id',
+            'table',
+            'index',
+            'date',
+            'type',
+            'user',
+            'id_application',
+        ];
 
-            if (key === 'index') {
-                query.andWhere(`log.index = :idx`, { idx: Number(filters[key]) });
-            } else {
-                query.andWhere(`log.${key} LIKE :value`, { value: `%${filters[key]}%` });
-            }
-        });
+        const isSortByName = sortBy === 'full_name';
+
+        if (!allowedSortColumns.includes(sortBy)) {
+            sortBy = 'date';
+        }
 
         const total = await query.getCount();
 
@@ -41,25 +91,45 @@ export class LogPortalService {
             .take(size)
             .getMany();
 
-        const userIdList = [...new Set(logs.map(l => l.user))];
+        const userIdList = [
+            ...new Set(logs.map(l => l.user).filter(Boolean)),
+        ];
 
-        const users = await this.defaultDataSource.query(
-            `SELECT id_user, full_name 
-     FROM portal_user_db 
-     WHERE id_user = ANY($1)`,
-            [userIdList]
-        );
+        let userMap: Record<number, string> = {};
 
-        const userMap = Object.fromEntries(
-            users.map(u => [u.id_user, u.full_name])
-        );
+        if (userIdList.length > 0) {
+            const users = await this.defaultDataSource.query(
+                `
+        SELECT id_user, full_name
+        FROM portal_user_db
+        WHERE id_user = ANY($1)
+        `,
+                [userIdList],
+            );
 
-        const data = logs.map(l => ({
+            userMap = Object.fromEntries(
+                users.map(u => [u.id_user, u.full_name]),
+            );
+        }
+
+        let data = logs.map(l => ({
             ...l,
             full_name: userMap[l.user] || null,
         }));
 
-        return { data, total_pages: Math.ceil(total / size) };
+        if (isSortByName) {
+            data.sort((a, b) =>
+                (a.full_name || '').localeCompare(b.full_name || ''),
+            );
+
+            if (sortOrder === 'DESC') data.reverse();
+        }
+
+        return {
+            data,
+            total_pages: Math.ceil(total / size),
+            total,
+        };
     }
 
     async getLogById(id: number) {
@@ -67,6 +137,4 @@ export class LogPortalService {
             where: { id },
         });
     }
-
-
 }

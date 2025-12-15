@@ -17,6 +17,12 @@ export async function buildCompletedExcelTemplate(requests) {
         { header: 'Company', key: 'company', width: 25 },
         { header: 'Email', key: 'email', width: 30 },
         { header: 'Type', key: 'type', width: 30 },
+        // { header: 'HOD Approval By', key: 'hod_by', width: 25 },
+        // { header: 'HOD Approval Date', key: 'hod_date', width: 20 },
+        // { header: 'Lead IT Approval By', key: 'lead_it_by', width: 25 },
+        // { header: 'Lead IT Approval Date', key: 'lead_it_date', width: 20 },
+        // { header: 'IT Manager Approval By', key: 'it_manager_by', width: 25 },
+        // { header: 'IT Manager Approval Date', key: 'it_manager_date', width: 20 },
         // { header: 'Status', key: 'status', width: 15 },
         // { header: 'Admin Status', key: 'admin_status', width: 15 },
     ];
@@ -61,8 +67,19 @@ export async function buildCompletedExcelTemplate(requests) {
             email: req.r_email || '-',
             type: req.r_type === 1 ? 'Public' : 'Login',
 
-            // status: req.status_name,
-            // admin_status: req.admin_status_name,
+            // approval_hod_by: req.approval_hod_by?.full_name || '-',
+            // approval_hod_date_at: req.approval_hod_date_at
+            //     ? new Date(req.approval_hod_date_at).toLocaleString()
+            //     : '-',
+
+            // approval_lead_it_by: req.approval_lead_it_by?.full_name || '-',
+            // approval_lead_it_date_at: req.approval_lead_it_date_at
+            //     ? new Date(req.approval_lead_it_date_at).toLocaleString()
+            //     : '-',
+            // approval_it_hod_by: req.approval_it_hod_by?.full_name || '-',
+            // approval_it_hod_date_at: req.approval_it_hod_date_at
+            //     ? new Date(req.approval_it_hod_date_at).toLocaleString()
+            //     : '-',
         });
     });
 
