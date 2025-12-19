@@ -399,67 +399,61 @@ export class RequestService {
     };
   }
 
-  async findPublicRequest(id_request: number): Promise<any> {
-  const data = await this.requestRepo.findOne({
-    where: { id_request, type: 1, status_active: 1 },
-    relations: ['approval_hod_by', 'approval_lead_it_by', 'approval_it_hod_by', 'company'],
-  });
+  async findPublicTrack(id_request: number) {
+    const data = await this.requestRepo.findOne({
+      where: {
+        id_request,
+        type: 1,
+        created_by: null,
+        status_active: 1,
+      },
+      relations: ['company'],
+    });
 
-  if (!data) throw new NotFoundException(`Public Request with ID ${id_request} not found`);
+    if (!data) {
+      throw new NotFoundException('Public request not found');
+    }
 
-  const project = data.project_id
-    ? await this.projectRepo.findOne({ where: { project_id: data.project_id } })
-    : null;
+    const department = data.dept_id
+      ? await this.departmentRepo.findOne({
+        where: { dept_id: data.dept_id },
+      })
+      : null;
 
-  const department = data.dept_id
-    ? await this.departmentRepo.findOne({ where: { dept_id: data.dept_id } })
-    : null;
+    const project = data.project_id
+      ? await this.projectRepo.findOne({
+        where: { project_id: data.project_id },
+      })
+      : null;
 
-  const position = data.design_id
-    ? await this.positionRepo.findOne({ where: { design_id: data.design_id } })
-    : null;
+    const position = data.design_id
+      ? await this.positionRepo.findOne({
+        where: { design_id: data.design_id },
+      })
+      : null;
 
-  return {
-    ...data,
+    const statusMap: Record<number, string> = {
+      0: 'Draft',
+      1: 'Pending by HOD Req',
+      2: 'Rejected by HOD Req',
+      3: 'Pending by Lead IT',
+      4: 'Rejected by Lead IT',
+      5: 'Pending by IT Manager',
+      6: 'Rejected by IT Manager',
+      7: 'Completed',
+      8: 'Returned',
+    };
 
-    project: project ? project.project_desc : null,
-    project_name: project ? project.project_desc : null,
-    department: department ? department.dept : null,
-    department_name: department ? department.dept : null,
-    position: position ? position.design_desc : null,
-    position_name: position ? position.design_desc : null,
-    company: data.company
-      ? {
-          id_company: data.company.id_company,
-          company_name: data.company.company_name,
-        }
-      : null,
-    approval_hod_by: data.approval_hod_by
-      ? {
-          id: data.approval_hod_by.id_user,
-          full_name: data.approval_hod_by.full_name,
-          badge_no: data.approval_hod_by.badge_no,
-        }
-      : null,
-    approval_it_hod_by: data.approval_it_hod_by
-      ? {
-          id: data.approval_it_hod_by.id_user,
-          full_name: data.approval_it_hod_by.full_name,
-          badge_no: data.approval_it_hod_by.badge_no,
-        }
-      : null,
-    approval_lead_it_by: data.approval_lead_it_by
-      ? {
-          id: data.approval_lead_it_by.id_user,
-          full_name: data.approval_lead_it_by.full_name,
-          badge_no: data.approval_lead_it_by.badge_no,
-        }
-      : null,
-    access_yard_company: await this.getYardCompanyList(data.access_yard_company),
-    access_nav_menu: await this.getNavMenuList(data.access_nav_menu),
-  };
-}
-
+    return {
+      ...data,
+      request_status: {
+        name: statusMap[data.request_status] ?? 'Unknown',
+      },
+      department_name: department?.dept ?? '-',
+      project_name: project?.project_desc ?? '-',
+      position_name: position?.design_desc ?? '-',
+    };
+  }
 
   private async getNavMenuList(access: string): Promise<any[]> {
     if (!access) return [];
@@ -869,12 +863,12 @@ export class RequestService {
     const saved = await this.requestRepo.save(existing);
 
     try {
-    const targetUrl = `http://localhost:3001/user_request/detail_req/${encryptedId}`;
-    const encryptedTarget =
-      this.aesEcbService.encryptToBase64Url(targetUrl);
+      const targetUrl = `http://localhost:3001/user_request/detail_req/${encryptedId}`;
+      const encryptedTarget =
+        this.aesEcbService.encryptToBase64Url(targetUrl);
 
-    const jump_url =
-      `${process.env.LINK_PORTAL}/jump_url/redirect_v2/${encryptedTarget}`;
+      const jump_url =
+        `${process.env.LINK_PORTAL}/jump_url/redirect_v2/${encryptedTarget}`;
 
       const data_email = new sendEmailDto();
       const view_data = {

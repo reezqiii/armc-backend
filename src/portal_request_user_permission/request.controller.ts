@@ -45,6 +45,16 @@ export class RequestController {
     return this.requestService.return(id, req.user);
   }
 
+  @Public()
+  @Get('public/track/:id')
+  async trackPublic(@Param('id') id: number) {
+    if (isNaN(id)) {
+      throw new BadRequestException('Invalid request ID');
+    }
+
+    return this.requestService.findPublicTrack(id);
+  }
+
   @Put(':id/submit-return')
   @UseGuards(JwtAuthGuard)
   async submitReturn(
@@ -63,19 +73,6 @@ export class RequestController {
   @Post('public/create')
   async createPublic(@Body() data: Partial<RequestEntity>) {
     return this.requestService.createPublic(data);
-  }
-
-  @Public()
-  @Get('public/:id')
-  async findPublicRequest(@Param('id') encryptedId: string) {
-    let numericId: number;
-    try {
-      numericId = Number(this.aesEcb.decryptBase64Url(encryptedId));
-      if (isNaN(numericId)) throw new Error();
-    } catch {
-      throw new BadRequestException('Invalid request ID');
-    }
-    return this.requestService.findPublicRequest(numericId);
   }
 
   @Put(':id')
@@ -169,18 +166,6 @@ export class RequestController {
 
     return this.requestService.itApproval(decId, body.action, body.remarks, userId);
   }
-
-  // @Put(':id/update')
-  // @UseGuards(JwtAuthGuard)
-  // async updateRequest(
-  //   @Param('id') id: number,
-  //   @Body() body: any,
-  //   @Req() req: any
-  // ) {
-  //   const userId = req.user.id;
-  //   const id_application = body.id_application || 31;
-  //   return await this.requestService.updateRequest(id, body, userId, id_application);
-  // }
 
   @Patch(':id/admin-status')
   @UseGuards(JwtAuthGuard)
