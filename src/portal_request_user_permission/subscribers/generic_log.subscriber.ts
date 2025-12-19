@@ -72,6 +72,7 @@ export class RequestSubscriber implements EntitySubscriberInterface<RequestEntit
 
   async afterInsert(event: InsertEvent<RequestEntity>) {
     const userId = requestStorage.getStore()?.userId || null;
+    if (!userId) return
     const entity = event.entity;
 
     if (!entity) return;

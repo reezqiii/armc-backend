@@ -65,6 +65,19 @@ export class RequestController {
     return this.requestService.createPublic(data);
   }
 
+  @Public()
+  @Get('public/:id')
+  async findPublicRequest(@Param('id') encryptedId: string) {
+    let numericId: number;
+    try {
+      numericId = Number(this.aesEcb.decryptBase64Url(encryptedId));
+      if (isNaN(numericId)) throw new Error();
+    } catch {
+      throw new BadRequestException('Invalid request ID');
+    }
+    return this.requestService.findPublicRequest(numericId);
+  }
+
   @Put(':id')
   @UseGuards(JwtAuthGuard)
   async update(
