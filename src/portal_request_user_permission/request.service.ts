@@ -850,47 +850,161 @@ export class RequestService {
       throw new BadRequestException("Invalid encrypted request ID");
     }
 
-    const existing = await this.requestRepo.findOne({
-      where: { id_request },
-      relations: ['approval_hod_by', 'created_by_user'],
-    });
+    const saved = await this.submitToHodInternal(id_request, userId);
 
-    if (!existing) throw new NotFoundException(`Request with ID ${id_request} not found`);
-    if (!existing.approval_hod_by)
-      throw new InternalServerErrorException('HOD not assigned for this request');
-
-    existing.request_status = 1;
-    const saved = await this.requestRepo.save(existing);
-
+    // tetap kirim email SINGLE
     try {
-      const targetUrl = `http://localhost:3001/user_request/detail_req/${encryptedId}`;
-      const encryptedTarget =
-        this.aesEcbService.encryptToBase64Url(targetUrl);
-
-      const jump_url =
-        `${process.env.LINK_PORTAL}/jump_url/redirect_v2/${encryptedTarget}`;
-
-      const data_email = new sendEmailDto();
-      const view_data = {
-        approverName: existing.approval_hod_by.full_name,
-        requestNumber: `ITF14-${String(existing.id_request).padStart(6, '0')}`,
-        requestorBy: existing.created_by_user?.full_name || 'Unknown User',
-        requestorName: existing.full_name || 'Unknown User',
-        requestDate: existing.created_date?.toISOString().split('T')[0] || '',
-        requestDescription: existing.request_reason || '-',
-        approvalLink: jump_url,
-      };
-
-      data_email.content = this.mailService.renderTemplate('approval.ejs', view_data);
-      data_email.subject = `New Request Needs Your Approval: ITF14-${String(existing.id_request).padStart(6, '0')}`;
-      data_email.email_to = [existing.approval_hod_by.email];
-
-      await this.mailService.sendEmail(data_email);
+      await this.notifyHodBulk([saved]);
     } catch (err) {
       console.error('Failed to send HOD email:', err);
     }
 
     return saved;
+  }
+
+  private async submitToHodInternal(id_request: number, userId: number) {
+    const existing = await this.requestRepo.findOne({
+      where: { id_request },
+      relations: ['approval_hod_by', 'created_by_user'],
+    });
+
+    if (!existing)
+      throw new NotFoundException(`Request with ID ${id_request} not found`);
+
+    if (!existing.approval_hod_by)
+      throw new InternalServerErrorException('HOD not assigned for this request');
+
+    // hanya update status, TANPA email
+    existing.request_status = 1;
+
+    return this.requestRepo.save(existing);
+  }
+
+  private async notifyHodBulk(
+    requests: any[],
+  ) {
+    if (!requests.length) return;
+
+    const mode: 'single' | 'bulk' =
+      requests.length === 1 ? 'single' : 'bulk';
+
+    const hod = requests[0].approval_hod_by;
+
+    let viewData: any = {
+      approverName: hod.full_name,
+      mode,
+    };
+
+    if (mode === 'bulk') {
+      const targetUrl =
+        'http://localhost:3001/user_request/hod_pending';
+
+      const encryptedTarget =
+        this.aesEcbService.encryptToBase64Url(targetUrl);
+
+      viewData.hodPendingLink =
+        `${process.env.LINK_PORTAL}/jump_url/redirect_v2/${encryptedTarget}`;
+
+      viewData.total = requests.length;
+      viewData.requests = requests.map(r => {
+        const encryptedId = this.aesEcbService.encryptToBase64Url(
+          String(r.id_request)
+        );
+
+        const detailTarget =
+          `http://localhost:3001/user_request/detail_req/${encryptedId}`;
+
+        const encryptedTarget =
+          this.aesEcbService.encryptToBase64Url(detailTarget);
+
+        return {
+          requestNumber: `ITF14-${String(r.id_request).padStart(6, '0')}`,
+          requestor: r.created_by_user?.full_name || '-',
+          purpose: r.request_reason || '-',
+          requestDate: r.created_date
+            ? new Date(r.created_date).toLocaleDateString('en-GB')
+            : '-',
+          detailLink:
+            `${process.env.LINK_PORTAL}/jump_url/redirect_v2/${encryptedTarget}`,
+        };
+      });
+
+    }
+
+    if (mode === 'single') {
+      const r = requests[0];
+
+      const encryptedId = this.aesEcbService.encryptToBase64Url(
+        String(r.id_request)
+      );
+
+      const targetUrl =
+        `http://localhost:3001/user_request/detail_req/${encryptedId}`;
+      const encryptedTarget =
+        this.aesEcbService.encryptToBase64Url(targetUrl);
+
+      viewData.requestNumber = `ITF14-${String(r.id_request).padStart(6, '0')}`;
+      viewData.requestorBy = r.created_by_user?.username || '-';
+      viewData.requestorName = r.created_by_user?.full_name || '-';
+      viewData.requestDate = r.created_date
+        ? new Date(r.created_date).toLocaleDateString('en-GB')
+        : '-';
+      viewData.requestDescription = r.request_reason || '-';
+      viewData.approvalLink =
+        `${process.env.LINK_PORTAL}/jump_url/redirect_v2/${encryptedTarget}`;
+    }
+
+    const email = new sendEmailDto();
+    email.subject =
+      mode === 'bulk'
+        ? `(${requests.length}) Requests Need Your Approval`
+        : `Request Need Your Approval`;
+
+    email.email_to = [hod.email];
+    email.content = this.mailService.renderTemplate(
+      'approval.ejs',
+      viewData
+    );
+
+    await this.mailService.sendEmail(email);
+  }
+
+  async submitBulkToHod(encryptedIds: string[], userId: number) {
+    return this.requestRepo.manager.transaction(async manager => {
+      const results = [];
+      const hodMap = new Map<number, any[]>();
+
+      for (const encId of encryptedIds) {
+        const decrypted = this.aesEcbService.decryptBase64Url(encId);
+        const id_request = Number(decrypted);
+        if (isNaN(id_request)) continue;
+
+        const existing = await manager.findOne(RequestEntity, {
+          where: { id_request },
+          relations: ['approval_hod_by', 'created_by_user'],
+        });
+
+        if (!existing || !existing.approval_hod_by) continue;
+
+        existing.request_status = 1;
+        const saved = await manager.save(existing);
+        results.push(saved);
+
+        const hodId = saved.approval_hod_by.id_user;
+        if (!hodMap.has(hodId)) hodMap.set(hodId, []);
+        hodMap.get(hodId).push(saved);
+      }
+
+      // email AFTER all saved
+      for (const [, requests] of hodMap) {
+        await this.notifyHodBulk(requests);
+      }
+
+      return {
+        success: true,
+        count: results.length,
+      };
+    });
   }
 
   async leadItApproval(

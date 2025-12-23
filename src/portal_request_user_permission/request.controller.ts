@@ -129,12 +129,26 @@ export class RequestController {
   }
 
   @Put(':id/submit-to-hod')
+  @UseGuards(JwtAuthGuard)
   async submitToHodRequest(
     @Param('id') encryptedId: string,
     @Req() req: any
   ) {
     const userId = req.user?.id;
     return await this.requestService.submitToHod(encryptedId, userId);
+  }
+
+  @Put('submit-to-hod/bulk')
+  @UseGuards(JwtAuthGuard)
+  async submitBulkToHod(
+    @Body() body: { encryptedIds: string[] },
+    @Req() req: any
+  ) {
+    const userId = req.user.id_user;
+    return this.requestService.submitBulkToHod(
+      body.encryptedIds,
+      userId
+    );
   }
 
   @Put(':id/lead-it-approval')
