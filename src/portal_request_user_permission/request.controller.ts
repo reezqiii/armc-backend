@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, Query, Req, UseGuards, Patch, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, Query, Req, UseGuards, Patch, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { RequestService } from './request.service';
 import { RequestEntity } from './request.entity';
@@ -144,7 +144,11 @@ export class RequestController {
     @Body() body: { encryptedIds: string[] },
     @Req() req: any
   ) {
-    const userId = req.user.id_user;
+    const userId = req.user?.id_user; // sesuai JWTStrategy
+    if (!userId) {
+      throw new UnauthorizedException('User not authenticated');
+    }
+
     return this.requestService.submitBulkToHod(
       body.encryptedIds,
       userId

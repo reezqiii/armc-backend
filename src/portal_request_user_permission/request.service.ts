@@ -919,11 +919,15 @@ export class RequestService {
 
         return {
           requestNumber: `ITF14-${String(r.id_request).padStart(6, '0')}`,
-          requestor: r.created_by_user?.full_name || '-',
-          purpose: r.request_reason || '-',
+          requestorBy: r.created_by_user?.username || '-',
+          requestorName: r.created_by_user?.full_name || '-',
           requestDate: r.created_date
             ? new Date(r.created_date).toLocaleDateString('en-GB')
             : '-',
+          purpose: r.request_reason || '-',
+          targetFullName: r.full_name || '-',
+          targetEmail: r.email || '-',
+          targetBadgeNo: r.badge_no || '-',
           detailLink:
             `${process.env.LINK_PORTAL}/jump_url/redirect_v2/${encryptedTarget}`,
         };
@@ -949,6 +953,10 @@ export class RequestService {
       viewData.requestDate = r.created_date
         ? new Date(r.created_date).toLocaleDateString('en-GB')
         : '-';
+      viewData.targetFullName = r.full_name || '-';
+      viewData.targetEmail = r.email || '-';
+      viewData.targetBadgeNo = r.badge_no || '-';
+
       viewData.requestDescription = r.request_reason || '-';
       viewData.approvalLink =
         `${process.env.LINK_PORTAL}/jump_url/redirect_v2/${encryptedTarget}`;
