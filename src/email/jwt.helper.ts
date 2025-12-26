@@ -3,7 +3,7 @@ import * as crypto from 'crypto';
 
 @Injectable()
 export class JwtHelper {
-  private readonly JWT_SECRET = '163f721bd2e3a61264244ae0bfd3a37e';
+  private readonly JWT_SECRET = 'e6afeaf611852ba14b377d6e532c2de7';
 
   // URL Safe Base64 Encode
   urlsafeB64Encode(input: string): string {

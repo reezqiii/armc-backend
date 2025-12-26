@@ -75,5 +75,6 @@ export class EmailService {
     const template = fs.readFileSync(filePath, "utf8");
     return ejs.render(template, data);
   }
+
 }
 

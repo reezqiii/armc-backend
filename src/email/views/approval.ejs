@@ -94,89 +94,43 @@
         <div class="content">
             <h2 class="title">New Request Account Notification</h2>
 
-            <p>Dear Mr/Ms. <strong>
-                    <%= approverName %>
-                </strong>,</p>
+            <p>
+                Dear
+                <strong>
+                    <%= approverName || 'Lead IT Approver' %>
+                </strong>
+            </p>
 
-            <% if (mode==='bulk' ) { %>
-
-                <p>You have <strong>
-                        <%= total %>
-                    </strong> pending requests requiring your approval.</p>
+                <p>You have a new pending request requiring your approval.</p>
 
                 <div class="info-box">
-                    <% requests.forEach(r=> { %>
-                        <div class="request-item">
-                            <p><strong>Request Number:</strong>
-                                <%= r.requestNumber %>
-                            </p>
-                            <p><strong>Request Date:</strong>
-                                <%= r.requestDate %>
-                            </p>
-                            <p><strong>Requestor:</strong>
-                                <%= r.requestor %>
-                            </p>
-                            <p><strong>Badge No:</strong>
-                                <%= r.targetBadgeNo %>
-                            </p>
-                            <p><strong>Full Name:</strong>
-                                <%= r.targetFullName %>
-                            </p>
-                            <p><strong>Email:</strong>
-                                <%= r.targetEmail %>
-                            </p>
-                            <p><strong>Purpose:</strong>
-                                <%= r.purpose %>
-                            </p>
-
-                            <a href="<%= r.detailLink %>" target="_blank"
-                                style="color:#0d6efd;text-decoration:underline;">
-                                View Detail
-                            </a>
-                        </div>
-                        <% }) %>
+                    <p><strong>Request Number:</strong>
+                        <%= requestNumber %>
+                    </p>
+                    <p><strong>Request Date:</strong>
+                        <%= requestDate %>
+                    </p>
+                    <p><strong>Requestor:</strong>
+                        <%= requestorName %>
+                    </p>
+                    <p><strong>Badge No:</strong>
+                        <%= targetBadgeNo %>
+                    </p>
+                    <p><strong>Full Name:</strong>
+                        <%= targetFullName %>
+                    </p>
+                    <p><strong>Email:</strong>
+                        <%= targetEmail %>
+                    </p>
+                    <p><strong>Purpose:</strong>
+                        <%= requestDescription %>
+                    </p>
                 </div>
 
-                <a class="button" href="<%= hodPendingLink %>">
+                <a class="button" href="<%= approvalLink %>">
                     Review & Approve Request
                 </a>
 
-                <% } %>
-
-
-                    <% if (mode==='single' ) { %>
-
-                        <p>You have a new pending request requiring your approval.</p>
-
-                        <div class="info-box">
-                            <p><strong>Request Number:</strong>
-                                <%= requestNumber %>
-                            </p>
-                            <p><strong>Request Date:</strong>
-                                <%= requestDate %>
-                            </p>
-                            <p><strong>Requestor:</strong>
-                                <%= requestorName %>
-                            </p>
-                            <p><strong>Badge No:</strong>
-                                <%= targetBadgeNo %>
-                            </p>
-                            <p><strong>Full Name:</strong>
-                                <%= targetFullName %>
-                            </p>
-                            <p><strong>Email:</strong>
-                                <%= targetEmail %>
-                            </p>
-                            <p><strong>Purpose:</strong>
-                                <%= requestDescription %>
-                            </p>
-                        </div>
-
-                        <a class="button" href="<%= approvalLink %>">
-                            Review & Approve Request
-                        </a>
-
-                        <% } %>
         </div>
 
         <div class="footer">

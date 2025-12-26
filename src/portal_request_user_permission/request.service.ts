@@ -803,42 +803,96 @@ export class RequestService {
   ) {
     const existing = await this.requestRepo.findOne({
       where: { id_request },
-      relations: ['approval_hod_by', 'approval_lead_it_by', 'approval_it_hod_by'],
+      relations: ['approval_hod_by', 'created_by_user'],
     });
 
-    if (!existing)
+    if (!existing) {
       throw new NotFoundException(`Request with ID ${id_request} not found`);
+    }
+
+    if (existing.request_status !== 1) {
+      throw new BadRequestException('Request is not pending HOD approval');
+    }
+
+    const hodUser = await this.userRepo.findOne({
+      where: { id_user: userId },
+    });
+
+    if (!hodUser) {
+      throw new BadRequestException('Invalid HOD user');
+    }
+
+    existing.previous_status = existing.request_status;
+    existing.approval_hod_by = hodUser;
+    existing.approval_hod_date_at = new Date();
 
     if (action === 'approve') {
       existing.request_status = 3;
-      existing.approval_hod_date_at = new Date();
-      existing.approval_hod_by = await this.userRepo.findOne({ where: { id_user: userId } });
+      await this.requestRepo.save(existing);
+
+      await this.notifyLeadItApproval(existing)
+
     } else if (action === 'reject') {
       existing.request_status = 2;
       existing.rejected_hod_remarks = remarks;
-      existing.approval_hod_date_at = new Date();
-      existing.approval_hod_by = await this.userRepo.findOne({ where: { id_user: userId } });
-    }
-    else {
+      await this.requestRepo.save(existing);
+
+    } else {
       throw new InternalServerErrorException('Invalid action');
     }
 
-    return this.requestRepo.save(existing);
+    return true;
   }
 
-  async hodApprovalBulk(ids: number[], action: string, remarks: string, userId: number) {
-    const results = [];
+  async hodApprovalBulk(
+    ids: number[],
+    action: string,
+    remarks: string,
+    userId: number
+  ) {
+    const approvedRequests = [];
 
     for (const id of ids) {
-      const res = await this.hodApproval(id, action, remarks, userId);
-      results.push(res);
+      const existing = await this.requestRepo.findOne({
+        where: { id_request: id },
+        relations: ['approval_hod_by', 'created_by_user'],
+      });
+
+      if (!existing) continue;
+      if (existing.request_status !== 1) continue;
+
+      const hodUser = await this.userRepo.findOne({
+        where: { id_user: userId },
+      });
+
+      if (!hodUser) {
+        throw new BadRequestException('Invalid HOD user');
+      }
+
+      existing.previous_status = existing.request_status;
+      existing.approval_hod_by = hodUser;
+      existing.approval_hod_date_at = new Date();
+
+      if (action === 'approve') {
+        existing.request_status = 3;
+        await this.requestRepo.save(existing);
+        approvedRequests.push(existing);
+
+      } else if (action === 'reject') {
+        existing.request_status = 2;
+        existing.rejected_hod_remarks = remarks;
+        await this.requestRepo.save(existing);
+      }
+    }
+
+    if (approvedRequests.length) {
+      await this.notifyLeadItApproval(approvedRequests);
     }
 
     return {
       success: true,
-      count: results.length,
-      message: `Processed ${results.length} requests`,
-      results,
+      count: approvedRequests.length,
+      message: `Processed ${approvedRequests.length} requests`,
     };
   }
 
@@ -852,9 +906,8 @@ export class RequestService {
 
     const saved = await this.submitToHodInternal(id_request, userId);
 
-    // tetap kirim email SINGLE
     try {
-      await this.notifyHodBulk([saved]);
+      await this.notifyHod(saved);
     } catch (err) {
       console.error('Failed to send HOD email:', err);
     }
@@ -880,99 +933,95 @@ export class RequestService {
     return this.requestRepo.save(existing);
   }
 
-  private async notifyHodBulk(
-    requests: any[],
-  ) {
-    if (!requests.length) return;
+  private async notifyHod(request: any) {
+    const hod = request.approval_hod_by;
 
-    const mode: 'single' | 'bulk' =
-      requests.length === 1 ? 'single' : 'bulk';
-
-    const hod = requests[0].approval_hod_by;
-
-    let viewData: any = {
-      approverName: hod.full_name,
-      mode,
-    };
-
-    if (mode === 'bulk') {
-      const targetUrl =
-        'http://localhost:3001/user_request/hod_pending';
-
-      const encryptedTarget =
-        this.aesEcbService.encryptToBase64Url(targetUrl);
-
-      viewData.hodPendingLink =
-        `${process.env.LINK_PORTAL}/jump_url/redirect_v2/${encryptedTarget}`;
-
-      viewData.total = requests.length;
-      viewData.requests = requests.map(r => {
-        const encryptedId = this.aesEcbService.encryptToBase64Url(
-          String(r.id_request)
-        );
-
-        const detailTarget =
-          `http://localhost:3001/user_request/detail_req/${encryptedId}`;
-
-        const encryptedTarget =
-          this.aesEcbService.encryptToBase64Url(detailTarget);
-
-        return {
-          requestNumber: `ITF14-${String(r.id_request).padStart(6, '0')}`,
-          requestorBy: r.created_by_user?.username || '-',
-          requestorName: r.created_by_user?.full_name || '-',
-          requestDate: r.created_date
-            ? new Date(r.created_date).toLocaleDateString('en-GB')
-            : '-',
-          purpose: r.request_reason || '-',
-          targetFullName: r.full_name || '-',
-          targetEmail: r.email || '-',
-          targetBadgeNo: r.badge_no || '-',
-          detailLink:
-            `${process.env.LINK_PORTAL}/jump_url/redirect_v2/${encryptedTarget}`,
-        };
-      });
-
-    }
-
-    if (mode === 'single') {
-      const r = requests[0];
-
-      const encryptedId = this.aesEcbService.encryptToBase64Url(
-        String(r.id_request)
+    const encryptedId =
+      this.aesEcbService.encryptToBase64Url(
+        String(request.id_request)
       );
 
-      const targetUrl =
-        `http://localhost:3001/user_request/detail_req/${encryptedId}`;
-      const encryptedTarget =
-        this.aesEcbService.encryptToBase64Url(targetUrl);
+    const targetUrl =
+      `http://localhost:3001/user_request/detail_req/${encryptedId}`;
 
-      viewData.requestNumber = `ITF14-${String(r.id_request).padStart(6, '0')}`;
-      viewData.requestorBy = r.created_by_user?.username || '-';
-      viewData.requestorName = r.created_by_user?.full_name || '-';
-      viewData.requestDate = r.created_date
-        ? new Date(r.created_date).toLocaleDateString('en-GB')
-        : '-';
-      viewData.targetFullName = r.full_name || '-';
-      viewData.targetEmail = r.email || '-';
-      viewData.targetBadgeNo = r.badge_no || '-';
+    const encryptedTarget =
+      this.aesEcbService.encryptToBase64Url(targetUrl);
 
-      viewData.requestDescription = r.request_reason || '-';
-      viewData.approvalLink =
-        `${process.env.LINK_PORTAL}/jump_url/redirect_v2/${encryptedTarget}`;
-    }
+    const approvalLink =
+      `${process.env.LINK_PORTAL}/jump_url/redirect_v2/${encryptedTarget}`;
+
+    const viewData = {
+      approverName: hod.full_name,
+      requestNumber: `ITF14-${String(request.id_request).padStart(6, '0')}`,
+      requestDate: request.created_date
+        ? new Date(request.created_date).toLocaleDateString('en-GB')
+        : '-',
+      requestorName: request.created_by_user?.full_name || '-',
+      targetBadgeNo: request.badge_no || '-',
+      targetFullName: request.full_name || '-',
+      targetEmail: request.email || '-',
+      requestDescription: request.request_reason || '-',
+      approvalLink,
+    };
 
     const email = new sendEmailDto();
-    email.subject =
-      mode === 'bulk'
-        ? `(${requests.length}) Requests Need Your Approval`
-        : `Request Need Your Approval`;
-
     email.email_to = [hod.email];
-    email.content = this.mailService.renderTemplate(
-      'approval.ejs',
-      viewData
-    );
+    email.subject = 'Request Need Your Approval';
+    email.content = this.mailService.renderTemplate('approval.ejs', viewData);
+
+    await this.mailService.sendEmail(email);
+  }
+
+  async notifyLeadItApproval(request: any) {
+    const portalEmails = await this.mailService.getPortalEmailList({
+      process: 'IT Lead Approval',
+    });
+
+    const encryptedId =
+      this.aesEcbService.encryptToBase64Url(
+        String(request.id_request)
+      );
+
+    const targetUrl =
+      `http://localhost:3001/user_request/detail_req/${encryptedId}`;
+
+    const encryptedTarget =
+      this.aesEcbService.encryptToBase64Url(targetUrl);
+
+    const approvalLink =
+      `${process.env.LINK_PORTAL}/jump_url/redirect_v2/${encryptedTarget}`;
+
+    const emailTo = [];
+    portalEmails.forEach(row => {
+      if (row.email_to) {
+        emailTo.push(
+          ...row.email_to
+            .split(",")
+            .map(v => v.trim())
+            .filter(v => v)
+        );
+      }
+    });
+
+    const viewData = {
+      approverName: 'Lead IT Approver',
+      requestNumber: `ITF14-${String(request.id_request).padStart(6, '0')}`,
+      requestDate: request.created_date
+        ? new Date(request.created_date).toLocaleDateString('en-GB')
+        : '-',
+      requestorName: request.created_by_user?.full_name || '-',
+      targetBadgeNo: request.badge_no || '-',
+      targetFullName: request.full_name || '-',
+      targetEmail: request.email || '-',
+      requestDescription: request.request_reason || '-',
+      approvalLink:
+        `${process.env.LINK_PORTAL}/jump_url/redirect_v2/${encryptedTarget}`
+    };
+
+    const email = new sendEmailDto();
+    email.email_to = [...new Set(emailTo)];
+    email.subject = 'Request Need Your Approval';
+    email.content = this.mailService.renderTemplate('approval.ejs', viewData);
 
     await this.mailService.sendEmail(email);
   }
@@ -1003,9 +1052,10 @@ export class RequestService {
         hodMap.get(hodId).push(saved);
       }
 
-      // email AFTER all saved
       for (const [, requests] of hodMap) {
-        await this.notifyHodBulk(requests);
+        for (const req of requests) {
+          await this.notifyHod(req);
+        }
       }
 
       return {
