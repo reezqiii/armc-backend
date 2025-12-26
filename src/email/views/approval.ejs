@@ -97,39 +97,39 @@
             <p>
                 Dear
                 <strong>
-                    <%= approverName || 'Lead IT Approver' %>
+                    <%= approverName %>
                 </strong>
             </p>
 
-                <p>You have a new pending request requiring your approval.</p>
+            <p>You have a new pending request requiring your approval.</p>
 
-                <div class="info-box">
-                    <p><strong>Request Number:</strong>
-                        <%= requestNumber %>
-                    </p>
-                    <p><strong>Request Date:</strong>
-                        <%= requestDate %>
-                    </p>
-                    <p><strong>Requestor:</strong>
-                        <%= requestorName %>
-                    </p>
-                    <p><strong>Badge No:</strong>
-                        <%= targetBadgeNo %>
-                    </p>
-                    <p><strong>Full Name:</strong>
-                        <%= targetFullName %>
-                    </p>
-                    <p><strong>Email:</strong>
-                        <%= targetEmail %>
-                    </p>
-                    <p><strong>Purpose:</strong>
-                        <%= requestDescription %>
-                    </p>
-                </div>
+            <div class="info-box">
+                <p><strong>Request Number:</strong>
+                    <%= requestNumber %>
+                </p>
+                <p><strong>Request Date:</strong>
+                    <%= requestDate %>
+                </p>
+                <p><strong>Requestor:</strong>
+                    <%= requestorName %>
+                </p>
+                <p><strong>Badge No:</strong>
+                    <%= targetBadgeNo %>
+                </p>
+                <p><strong>Full Name:</strong>
+                    <%= targetFullName %>
+                </p>
+                <p><strong>Email:</strong>
+                    <%= targetEmail %>
+                </p>
+                <p><strong>Purpose:</strong>
+                    <%= requestDescription %>
+                </p>
+            </div>
 
-                <a class="button" href="<%= approvalLink %>">
-                    Review & Approve Request
-                </a>
+            <a class="button" href="<%= approvalLink %>">
+                Review & Approve Request
+            </a>
 
         </div>
 

@@ -830,7 +830,7 @@ export class RequestService {
       existing.request_status = 3;
       await this.requestRepo.save(existing);
 
-      await this.notifyLeadItApproval(existing)
+      await this.notifyLeadItApproval(existing.id_request);
 
     } else if (action === 'reject') {
       existing.request_status = 2;
@@ -885,8 +885,8 @@ export class RequestService {
       }
     }
 
-    if (approvedRequests.length) {
-      await this.notifyLeadItApproval(approvedRequests);
+    for (const req of approvedRequests) {
+      await this.notifyLeadItApproval(req.id_request);
     }
 
     return {
@@ -972,7 +972,14 @@ export class RequestService {
     await this.mailService.sendEmail(email);
   }
 
-  async notifyLeadItApproval(request: any) {
+  async notifyLeadItApproval(id_request: number) {
+    const request = await this.requestRepo.findOne({
+      where: { id_request },
+      relations: ['created_by_user'],
+    });
+
+    if (!request) return;
+
     const portalEmails = await this.mailService.getPortalEmailList({
       process: 'IT Lead Approval',
     });
@@ -1020,8 +1027,74 @@ export class RequestService {
 
     const email = new sendEmailDto();
     email.email_to = [...new Set(emailTo)];
-    email.subject = 'Request Need Your Approval';
+    email.subject = 'Request Need Lead IT Approval';
     email.content = this.mailService.renderTemplate('approval.ejs', viewData);
+
+    await this.mailService.sendEmail(email);
+  }
+
+  async notifyItManagerApproval(id_request: number) {
+    const request = await this.requestRepo.findOne({
+      where: { id_request },
+      relations: ['created_by_user'],
+    });
+
+    if (!request) return;
+
+    const portalEmails = await this.mailService.getPortalEmailList({
+      process: 'IT Manager Approval',
+    });
+
+    const emailTo: string[] = [];
+    portalEmails.forEach(row => {
+      if (row.email_to) {
+        emailTo.push(
+          ...row.email_to
+            .split(',')
+            .map(v => v.trim())
+            .filter(v => v)
+        );
+      }
+    });
+
+    if (!emailTo.length) {
+      console.warn('No IT Manager email configured');
+      return;
+    }
+
+    const encryptedId =
+      this.aesEcbService.encryptToBase64Url(
+        String(request.id_request)
+      );
+
+    const targetUrl =
+      `http://localhost:3001/user_request/detail_req/${encryptedId}`;
+
+    const encryptedTarget =
+      this.aesEcbService.encryptToBase64Url(targetUrl);
+
+    const approvalLink =
+      `${process.env.LINK_PORTAL}/jump_url/redirect_v2/${encryptedTarget}`;
+
+    const viewData = {
+      approverName: 'IT Manager',
+      requestNumber: `ITF14-${String(request.id_request).padStart(6, '0')}`,
+      requestDate: request.created_date
+        ? new Date(request.created_date).toLocaleDateString('en-GB')
+        : '-',
+      requestorName: request.created_by_user?.full_name || '-',
+      targetBadgeNo: request.badge_no || '-',
+      targetFullName: request.full_name || '-',
+      targetEmail: request.email || '-',
+      requestDescription: request.request_reason || '-',
+      approvalLink,
+    };
+
+    const email = new sendEmailDto();
+    email.email_to = [...new Set(emailTo)];
+    email.subject = 'Request Need IT Manager Approval';
+    email.content =
+      this.mailService.renderTemplate('approval.ejs', viewData);
 
     await this.mailService.sendEmail(email);
   }
@@ -1071,8 +1144,8 @@ export class RequestService {
     remarks: string,
     userId: number
   ) {
-
-    const permissions = await this.permissionService.getUserPermissionsForApp(userId, 31);
+    const permissions =
+      await this.permissionService.getUserPermissionsForApp(userId, 31);
 
     const leadItPermissions = permissions
       .filter(p => p.index_key === '0')
@@ -1084,30 +1157,43 @@ export class RequestService {
 
     const existing = await this.requestRepo.findOne({
       where: { id_request },
-      relations: ['approval_hod_by', 'approval_lead_it_by', 'approval_it_hod_by'],
+      relations: ['created_by_user'],
     });
 
     if (!existing)
       throw new NotFoundException(`Request with ID ${id_request} not found`);
 
+    if (existing.request_status !== 3) {
+      throw new BadRequestException('Request is not pending Lead IT approval');
+    }
+
     if (action === 'approve') {
+      existing.previous_status = existing.request_status;
       existing.request_status = 5;
       existing.approval_lead_date_at = new Date();
       existing.approval_lead_it_by = await this.userRepo.findOne({
         where: { id_user: userId },
       });
+
+      await this.requestRepo.save(existing);
+
+      await this.notifyItManagerApproval(existing.id_request);
+
     } else if (action === 'reject') {
+      existing.previous_status = existing.request_status;
       existing.request_status = 4;
       existing.rejected_lead_remarks = remarks;
       existing.approval_lead_date_at = new Date();
       existing.approval_lead_it_by = await this.userRepo.findOne({
         where: { id_user: userId },
       });
+
+      await this.requestRepo.save(existing);
     } else {
       throw new InternalServerErrorException('Invalid action');
     }
 
-    return this.requestRepo.save(existing);
+    return true;
   }
 
   async itApproval(
@@ -1116,8 +1202,8 @@ export class RequestService {
     remarks: string,
     userId: number
   ) {
-
-    const permissions = await this.permissionService.getUserPermissionsForApp(userId, 31);
+    const permissions =
+      await this.permissionService.getUserPermissionsForApp(userId, 31);
 
     const itManagerPermissions = permissions
       .filter(p => p.index_key === '1')
@@ -1135,16 +1221,28 @@ export class RequestService {
     if (!existing)
       throw new NotFoundException(`Request with ID ${id_request} not found`);
 
+    if (existing.request_status !== 5) {
+      throw new BadRequestException(
+        'Request is not pending IT Manager approval'
+      );
+    }
+
     if (action === 'approve') {
+      existing.previous_status = existing.request_status;
       existing.request_status = 7;
       existing.approval_it_date_at = new Date();
-      existing.approval_it_hod_by = await this.userRepo.findOne({ where: { id_user: userId } });
+      existing.approval_it_hod_by =
+        await this.userRepo.findOne({ where: { id_user: userId } });
       existing.request_admin = 0;
+
     } else if (action === 'reject') {
-      existing.request_status = 6;
+      existing.previous_status = existing.request_status;
+      existing.request_status = 4;
       existing.rejected_it_remarks = remarks;
       existing.approval_it_date_at = new Date();
-      existing.approval_it_hod_by = await this.userRepo.findOne({ where: { id_user: userId } });
+      existing.approval_it_hod_by =
+        await this.userRepo.findOne({ where: { id_user: userId } });
+
     } else {
       throw new InternalServerErrorException('Invalid action');
     }
