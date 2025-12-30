@@ -151,18 +151,6 @@ export class RequestService {
 
       const [data, total] = await qb.skip(skip).take(take).getManyAndCount();
 
-      const statusMap: Record<number, string> = {
-        0: 'Draft',
-        1: 'Pending by HOD Req',
-        2: 'Rejected by HOD Req',
-        3: 'Pending by Lead IT',
-        4: 'Rejected by Lead IT',
-        5: 'Pending by IT Manager',
-        6: 'Rejected by IT Manager',
-        7: 'Completed',
-        8: 'Returned',
-      };
-
       let mappedData = await Promise.all(
         data.map(async (d, index) => {
           const runningNumber = total - (skip + index);
@@ -214,9 +202,7 @@ export class RequestService {
             project_name: project?.project_desc || '-',
             department_name: department?.dept || '-',
             position_name: position?.design_desc || '-',
-            request_status: {
-              name: statusMap[d.request_status] ?? 'Unknown',
-            },
+            request_status: d.request_status,
             previous_status: d.previous_status,
 
             approval_hod: d.approval_hod_by
@@ -432,23 +418,9 @@ export class RequestService {
       })
       : null;
 
-    const statusMap: Record<number, string> = {
-      0: 'Draft',
-      1: 'Pending by HOD Req',
-      2: 'Rejected by HOD Req',
-      3: 'Pending by Lead IT',
-      4: 'Rejected by Lead IT',
-      5: 'Pending by IT Manager',
-      6: 'Rejected by IT Manager',
-      7: 'Completed',
-      8: 'Returned',
-    };
-
     return {
       ...data,
-      request_status: {
-        name: statusMap[data.request_status] ?? 'Unknown',
-      },
+      request_status: data.request_status,
       department_name: department?.dept ?? '-',
       project_name: project?.project_desc ?? '-',
       position_name: position?.design_desc ?? '-',

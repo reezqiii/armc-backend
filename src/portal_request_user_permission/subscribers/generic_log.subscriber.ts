@@ -30,6 +30,8 @@ export class RequestSubscriber implements EntitySubscriberInterface<RequestEntit
 
     if (!dbEntity || !newEntity) return;
 
+    const updatedColumns = event.updatedColumns.map(c => c.propertyName);
+
     const keysToLog = [
       'email',
       'badge_no',
@@ -48,10 +50,20 @@ export class RequestSubscriber implements EntitySubscriberInterface<RequestEntit
     ];
 
     for (const key of keysToLog) {
-      const oldValue = await this.mapValueByColumn(key, dbEntity[key]);
-      const newValue = await this.mapValueByColumn(key, newEntity[key]);
+      if (!updatedColumns.includes(key)) continue;
 
-      if (JSON.stringify(oldValue) === JSON.stringify(newValue)) continue;
+      const oldRaw = dbEntity[key];
+      const newRaw = newEntity[key];
+
+      const oldValue = this.normalizeValue(
+        await this.mapValueByColumn(key, oldRaw)
+      );
+
+      const newValue = this.normalizeValue(
+        await this.mapValueByColumn(key, newRaw)
+      );
+
+      if (oldValue === newValue) continue;
 
       // SAVE LOG
       const log = new LogPortalEntity();
@@ -68,6 +80,16 @@ export class RequestSubscriber implements EntitySubscriberInterface<RequestEntit
 
       await this.almsDataSource.manager.save(LogPortalEntity, log);
     }
+  }
+
+  private normalizeValue(value: any): string | null {
+    if (value === null || value === undefined) return null;
+
+    if (Array.isArray(value)) {
+      return value.map(v => String(v).trim()).join(', ');
+    }
+
+    return String(value).trim();
   }
 
   async afterInsert(event: InsertEvent<RequestEntity>) {

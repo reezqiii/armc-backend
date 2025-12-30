@@ -43,7 +43,7 @@ export class ServerSideLogDTO {
   index?: number;
 
   @IsOptional()
-  @IsString()  // Date dikirim sebagai string (ISO date), nanti di service bisa di-convert ke Date
+  @IsString() 
   date?: string;
 
   @IsOptional()
