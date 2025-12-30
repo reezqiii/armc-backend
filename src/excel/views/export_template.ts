@@ -1,4 +1,5 @@
 import * as ExcelJS from "exceljs";
+import { getAdminStatusLabel, getStatusLabel } from "utils/status-helper";
 
 export async function buildCompletedExcelTemplate(requests) {
     const workbook = new ExcelJS.Workbook();
@@ -7,24 +8,18 @@ export async function buildCompletedExcelTemplate(requests) {
     sheet.columns = [
         { header: 'No', key: 'no', width: 5 },
         { header: 'No Request', key: 'no_request', width: 15 },
-        { header: 'Request Date', key: 'created_date', width: 20 },
-        { header: 'Requestor', key: 'requestor', width: 30 },
+        { header: 'Request Date', key: 'created_date', width: 30 },
+        { header: 'Requestor', key: 'requestor', width: 20 },
         { header: 'Badge ID', key: 'badge_no', width: 15 },
         { header: 'Full Name', key: 'full_name', width: 25 },
-        { header: 'Department', key: 'department', width: 20 },
-        { header: 'Position', key: 'position', width: 20 },
+        { header: 'Department', key: 'department', width: 30 },
+        { header: 'Position', key: 'position', width: 30 },
         { header: 'Project', key: 'project', width: 20 },
         { header: 'Company', key: 'company', width: 25 },
         { header: 'Email', key: 'email', width: 30 },
-        { header: 'Type', key: 'type', width: 30 },
-        // { header: 'HOD Approval By', key: 'hod_by', width: 25 },
-        // { header: 'HOD Approval Date', key: 'hod_date', width: 20 },
-        // { header: 'Lead IT Approval By', key: 'lead_it_by', width: 25 },
-        // { header: 'Lead IT Approval Date', key: 'lead_it_date', width: 20 },
-        // { header: 'IT Manager Approval By', key: 'it_manager_by', width: 25 },
-        // { header: 'IT Manager Approval Date', key: 'it_manager_date', width: 20 },
-        // { header: 'Status', key: 'status', width: 15 },
-        // { header: 'Admin Status', key: 'admin_status', width: 15 },
+        { header: 'Type', key: 'type', width: 10 },
+        { header: 'Status', key: 'status_label', width: 20 },
+        { header: 'Admin Status', key: 'admin_status', width: 20 },
     ];
 
     // style header
@@ -50,7 +45,7 @@ export async function buildCompletedExcelTemplate(requests) {
         sheet.addRow({
             no: no++,
 
-            no_request: req.r_id_request,
+            no_request: `ITF14-${String(req.r_id_request).padStart(6, '0')}`,
             created_date: req.r_created_date
                 ? new Date(req.r_created_date).toLocaleString()
                 : '-',
@@ -66,22 +61,9 @@ export async function buildCompletedExcelTemplate(requests) {
             company: req.c_company_name || '-',
             email: req.r_email || '-',
             type: req.r_type === 1 ? 'Public' : 'Login',
-
-            // approval_hod_by: req.approval_hod_by?.full_name || '-',
-            // approval_hod_date_at: req.approval_hod_date_at
-            //     ? new Date(req.approval_hod_date_at).toLocaleString()
-            //     : '-',
-
-            // approval_lead_it_by: req.approval_lead_it_by?.full_name || '-',
-            // approval_lead_it_date_at: req.approval_lead_it_date_at
-            //     ? new Date(req.approval_lead_it_date_at).toLocaleString()
-            //     : '-',
-            // approval_it_hod_by: req.approval_it_hod_by?.full_name || '-',
-            // approval_it_hod_date_at: req.approval_it_hod_date_at
-            //     ? new Date(req.approval_it_hod_date_at).toLocaleString()
-            //     : '-',
+            status_label: getStatusLabel(req.r_request_status), 
+            admin_status: getAdminStatusLabel(req.r_request_admin), 
         });
     });
-
     return workbook.xlsx.writeBuffer();
 }

@@ -1274,17 +1274,19 @@ export class RequestService {
 
     Object.keys(filters || {}).forEach(key => {
       const value = filters[key];
-
       if (value !== undefined && value !== null && value !== '') {
 
-        if (!isNaN(Number(value))) {
-          qb.andWhere(`r.${key} = :${key}`, { [key]: Number(value) });
+        if (key === 'request_status' || key === 'request_admin') {
+          const numValue = Number(value);
+          if (!isNaN(numValue)) {
+            qb.andWhere(`r.${key} = :${key}`, { [key]: numValue });
+          }
         }
-
+        else if (isNaN(Number(value))) {
+          qb.andWhere(`r.${key} ILIKE :${key}`, { [key]: `%${value}%` });
+        }
         else {
-          qb.andWhere(`r.${key} ILIKE :${key}`, {
-            [key]: `%${value}%`,
-          });
+          qb.andWhere(`r.${key} = :${key}`, { [key]: Number(value) });
         }
       }
     });
