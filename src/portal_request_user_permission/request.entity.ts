@@ -101,6 +101,9 @@ export class RequestEntity {
   @Column({ name: 'previous_status', type: 'int', nullable: true })
   previous_status: number;
 
+  @Column({ name: 'category_account', type: 'int', nullable: true })
+  category_account: number; // 0 = Creat New Account, 1 = Request Permission, 2 = Request Outside Access
+
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'approval_hod_by' })
   approval_hod_by: User;

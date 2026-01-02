@@ -87,6 +87,7 @@ export class RequestService {
         approval_hod_by: 'approvalHod.id_user',
         approval_it: 'approvalIt.full_name',
         approval_lead_it: 'approvalLeadIt.full_name',
+        category_account: 'request.category_account',
       };
 
       const manualSortFields = [
@@ -204,7 +205,7 @@ export class RequestService {
             position_name: position?.design_desc || '-',
             request_status: d.request_status,
             previous_status: d.previous_status,
-
+            category_account: d.category_account,
             approval_hod: d.approval_hod_by
               ? `${d.approval_hod_by.id_user} - ${d.approval_hod_by.full_name}`
               : '-',
@@ -354,6 +355,7 @@ export class RequestService {
       position: position ? position.design_desc : null,
       position_name: position ? position.design_desc : null,
       created_by_name: createdByUser ? createdByUser.full_name : null,
+      category_account: data.category_account,
       company: data.company ? {
         id_company: data.company.id_company,
         company_name: data.company.company_name
@@ -533,6 +535,7 @@ export class RequestService {
       created_by: userId,
       type: 0,
       remarks: data.remarks,
+      category_account: data.category_account,
       approval_hod_by: approvalHodUser,
       approval_it_hod_by: approvalItUser,
     });
@@ -743,6 +746,10 @@ export class RequestService {
 
     if (design_id !== undefined) {
       existing.design_id = Number(design_id);
+    }
+
+    if (data.category_account !== undefined) {
+      existing.category_account = data.category_account;
     }
 
     // hapus field yg tidak boleh assign langsung
@@ -1282,6 +1289,11 @@ export class RequestService {
             qb.andWhere(`r.${key} = :${key}`, { [key]: numValue });
           }
         }
+        if (key === 'category_account') {
+          qb.andWhere('r.category_account = :category_account', {
+            category_account: Number(value),
+          });
+        }
         else if (isNaN(Number(value))) {
           qb.andWhere(`r.${key} ILIKE :${key}`, { [key]: `%${value}%` });
         }
@@ -1310,6 +1322,7 @@ export class RequestService {
       department_name: deptMap.get(r.r_dept_id) || '-',
       position_name: positionMap.get(r.r_design_id) || '-',
       project_name: projectMap.get(r.r_project_id) || '-',
+      category_account: r.r_category_account,
     }));
   }
 

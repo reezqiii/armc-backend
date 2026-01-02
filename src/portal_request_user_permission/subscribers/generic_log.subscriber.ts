@@ -46,7 +46,8 @@ export class RequestSubscriber implements EntitySubscriberInterface<RequestEntit
       'id_company',
       'dept_id',
       'design_id',
-      'project_id'
+      'project_id',
+      'category_account'
     ];
 
     for (const key of keysToLog) {
@@ -113,7 +114,8 @@ export class RequestSubscriber implements EntitySubscriberInterface<RequestEntit
       'id_company',
       'dept_id',
       'design_id',
-      'project_id'
+      'project_id',
+      'category_account'
     ];
 
     for (const key of keysToLog) {
@@ -245,6 +247,16 @@ export class RequestSubscriber implements EntitySubscriberInterface<RequestEntit
       );
 
       return res.map(r => r.company_name).join(', ') || value;
+    }
+
+    if (key === 'category_account') {
+      const CATEGORY_ACCOUNT_MAP: Record<number, string> = {
+        0: "Create New Account",
+        1: "Request Permission",
+        2: "Request Outside Access",
+      };
+
+      return CATEGORY_ACCOUNT_MAP[value] ?? value;
     }
 
     return value;
