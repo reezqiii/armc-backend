@@ -1,5 +1,6 @@
 import * as ExcelJS from "exceljs";
-import { getAdminStatusLabel, getStatusLabel } from "utils/status-helper";
+import { get } from "http";
+import { getAdminStatusLabel, getCategoryAccountLabel, getStatusLabel } from "utils/status-helper";
 
 export async function buildCompletedExcelTemplate(requests) {
     const workbook = new ExcelJS.Workbook();
@@ -20,6 +21,7 @@ export async function buildCompletedExcelTemplate(requests) {
         { header: 'Type', key: 'type', width: 10 },
         { header: 'Status', key: 'status_label', width: 20 },
         { header: 'Admin Status', key: 'admin_status', width: 20 },
+        { header: 'Category Account', key: 'category_account', width: 20 },
     ];
 
     // style header
@@ -63,6 +65,7 @@ export async function buildCompletedExcelTemplate(requests) {
             type: req.r_type === 1 ? 'Public' : 'Login',
             status_label: getStatusLabel(req.r_request_status), 
             admin_status: getAdminStatusLabel(req.r_request_admin), 
+            category_account: getCategoryAccountLabel(req.r_category_account) || '-',
         });
     });
     return workbook.xlsx.writeBuffer();
