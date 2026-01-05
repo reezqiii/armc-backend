@@ -1,5 +1,7 @@
 stages:
   - ticket
+  - docker-build
+  - deploy
       
 ticket-job:
   stage: ticket
@@ -9,3 +11,54 @@ ticket-job:
     - |
       curl -k --data "{\"message\":\"$CI_COMMIT_SHA\", \"id_project\":\"$CI_PROJECT_ID\"}" -H 'Content-Type: application/json' -X POST $HOST_TICKET_API
     - echo "Compile complete."
+
+docker-build-job:
+  stage: docker-build
+  script:
+    - echo "Building Docker Image..."
+    - docker build -t $CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME:latest .  # Membangun Docker image
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "production" && $CI_PIPELINE_SOURCE == "push"'
+      when: always
+
+deploy-job:
+  stage: deploy
+  script:
+    - echo "Setup SSH..."
+    - cat $SSH_PRIVATE_KEY > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - ssh-keyscan -H 10.5.255.18 >> ~/.ssh/known_hosts
+
+    # Mengirimkan file variabel lingkungan ke server tujuan
+    - cat $ENV_PRODUCTION > /tmp/env_file
+    - scp /tmp/env_file root@10.5.255.18:/tmp/env_file
+
+    # Menyimpan image Docker ke file tar dan mengirimkannya ke server tujuan
+    - echo "Saving Docker image as a tar file..."
+    - docker save -o /tmp/$CI_PROJECT_NAME.tar $CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME:latest
+    
+    # Mengirimkan file tar ke server tujuan
+    - echo "Transferring Docker image to remote server..."
+    - scp /tmp/$CI_PROJECT_NAME.tar root@10.5.255.18:/tmp/$CI_PROJECT_NAME.tar
+
+    # Hapus image lama (termasuk yang bertag <none>)
+    - echo "Removing old images..."
+    - ssh root@10.5.255.18 "docker image prune -f"
+    
+    # Mengimpor image Docker di server tujuan
+    - echo "Loading Docker image on the remote server..."
+    - ssh root@10.5.255.18 "docker load -i /tmp/$CI_PROJECT_NAME.tar"
+
+    # Menyetop dan menghapus container yang lama
+    - echo "Stopping and removing old container..."
+    - ssh root@10.5.255.18 "docker stop $CI_PROJECT_NAME || true"
+    - ssh root@10.5.255.18 "docker rm $CI_PROJECT_NAME || true"
+
+    # Menjalankan container baru
+    - echo "Running new container..."
+    - ssh root@10.5.255.18 "docker run -d --name $CI_PROJECT_NAME -p $PORT:$PORT --env-file /tmp/env_file -v /root/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME/files:/app/files $CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME:latest"
+    
+    - echo "Deployment completed."
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "production" && $CI_PIPELINE_SOURCE == "push"'
+      when: always
