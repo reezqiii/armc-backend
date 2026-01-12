@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>PCMS Access Login Request Form</title>
+    <style>
+      body {
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 10px;
+        color: #000;
+        margin: 0;
+        padding: 15px;
+      }
+      /* Header Section */
+      .header-container {
+        width: 100%;
+        border: 2px solid #000;
+        border-collapse: collapse;
+      }
+      .header-container td {
+        border: 1px solid #000;
+        padding: 5px;
+      }
+      .logo-cell {
+        width: 35%;
+        text-align: center;
+      }
+      .logo-img {
+        height: 30px;
+      }
+
+      /* Title */
+      .title-box {
+        text-align: center;
+        font-weight: bold;
+        font-size: 14px;
+        border: 2px solid #000;
+        border-top: none;
+        padding: 8px;
+        background-color: #f2f2f2;
+      }
+
+      /* Info Section */
+      .info-table {
+        width: 100%;
+        margin-top: 10px;
+        border-collapse: collapse;
+      }
+      .info-table td {
+        padding: 2px 0;
+      }
+
+      /* Section Bar */
+      .section-title {
+        background-color: #000;
+        color: #fff;
+        font-weight: bold;
+        padding: 4px 8px;
+        margin-top: 15px;
+        text-transform: uppercase;
+      }
+
+      /* Data Display */
+      .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 5px;
+      }
+      .data-table td {
+        padding: 5px;
+        border: 1px solid #000;
+        vertical-align: top;
+      }
+      .label-col {
+        width: 25%;
+        font-weight: bold;
+        background-color: #fafafa;
+      }
+
+      /* Remarks */
+      .remarks-box {
+        width: 100%;
+        border: 1px solid #000;
+        min-height: 60px;
+        padding: 8px;
+        margin-top: 5px;
+      }
+
+      /* Signature Table */
+      .signature-table {
+        width: 100%;
+        margin-top: 20px;
+        border-collapse: collapse;
+      }
+      .signature-table th {
+        background-color: #f2f2f2;
+        border: 1px solid #000;
+        padding: 5px;
+        font-size: 9px;
+      }
+      .signature-table td {
+        width: 25%;
+        border: 1px solid #000;
+        text-align: center;
+        vertical-align: bottom;
+        padding: 5px;
+      }
+      .sig-space {
+        height: 60px;
+      }
+      .sig-img {
+        max-height: 50px;
+      }
+      .sig-name {
+        border-top: 1px dotted #000;
+        margin: 5px 10px 0 10px;
+        padding-top: 2px;
+        font-size: 9px;
+        font-weight: bold;
+      }
+
+      .footer-info {
+        margin-top: 15px;
+        font-size: 9px;
+      }
+    </style>
+  </head>
+  <body>
+    <table class="header-container">
+      <tr>
+        <td rowspan="2" class="logo-cell">
+          <img
+            class="logo-img"
+            src="https://www.smoebatam.com/smoe_portal/assets/seatrium/logo/logo_white.png"
+            alt="Logo"
+          />
+        </td>
+        <td
+          colspan="3"
+          style="text-align: center; font-weight: bold; font-size: 13px"
+        >
+          Information Technology
+        </td>
+      </tr>
+      <tr>
+        <td style="width: 25%; font-size: 8px">
+          Originated By:<br />IT Application Developer
+        </td>
+        <td style="width: 25%; font-size: 8px">
+          Revision Date:<br />-
+        </td>
+        <td style="width: 15%; font-size: 8px">Revision:<br />5.3</td>
+      </tr>
+    </table>
+
+    <div class="title-box">
+      PCMS ACCESS LOGIN REQUEST FORM<br />
+      <span style="font-size: 10px; font-weight: normal"
+        >(No Request: <%= requestId %>)</span
+      >
+    </div>
+
+    <table class="info-table">
+      <tr>
+        <td style="width: 15%">Requested Date</td>
+        <td style="width: 2%">:</td>
+        <td>Requested Date</td>
+        <td>:</td>
+        <td>-</td>
+      </tr>
+
+      <tr>
+        <td>Requested By</td>
+        <td>:</td>
+        <td><%= requestedBy %></td>
+      </tr>
+    </table>
+
+    <div class="section-title">Employee Description</div>
+    <table class="data-table">
+      <tr>
+        <td class="label-col">Category Account</td>
+        <td><%= categoryAccount %></td>
+      </tr>
+      <tr>
+        <td class="label-col">Badge ID</td>
+        <td><%= badge %></td>
+      </tr>
+      <tr>
+        <td class="label-col">Full Name</td>
+        <td><%= fullName %></td>
+      </tr>
+      <tr>
+        <td class="label-col">Dept</td>
+        <td><%= dept %></td>
+      </tr>
+      <tr>
+        <td class="label-col">Position</td>
+        <td><%= position %></td>
+      </tr>
+      <tr>
+        <td class="label-col">Project</td>
+        <td><%= project %></td>
+      </tr>
+      <tr>
+        <td class="label-col">Company</td>
+        <td><%= company %></td>
+      </tr>
+      <tr>
+        <td class="label-col">Email Address</td>
+        <td><%= email %></td>
+      </tr>
+    </table>
+
+    <div class="section-title">Access Permission</div>
+    <table class="data-table">
+      <tr>
+        <td class="label-col">Company Yard Access</td>
+        <td>
+          <% if (Array.isArray(yardAccess)) { %>
+          <ul>
+            <% yardAccess.forEach(item => { %>
+            <li><%= item %></li>
+            <% }) %>
+          </ul>
+          <% } else { %> <%= yardAccess || '-' %> <% } %>
+        </td>
+      </tr>
+      <tr>
+        <td class="label-col">Application Access</td>
+        <td>
+          <% if (Array.isArray(appAccess)) { %>
+          <ul>
+            <% appAccess.forEach(item => { %>
+            <li><%= item %></li>
+            <% }) %>
+          </ul>
+          <% } else { %> <%= appAccess || '-' %> <% } %>
+        </td>
+      </tr>
+    </table>
+
+    <div class="section-title">Remarks</div>
+    <div class="remarks-box">
+      <strong>Purpose:</strong><br />
+      <%= purpose || '-' %><br /><br />
+      <strong>Additional Remarks:</strong><br />
+      <%= remarks || '-' %>
+    </div>
+
+    <table class="signature-table">
+      <tr>
+        <th>REQUESTOR DEPARTMENT</th>
+        <th>REQUESTOR HOD</th>
+        <th>LEAD IT DEPARTMENT</th>
+        <th>IT MANAGER / ASST.</th>
+      </tr>
+      <tr>
+        <td class="sig-space">
+          <div class="sig-name">
+            Requested By:<br />
+            <%= requestedBy %>
+          </div>
+        </td>
+        <td class="sig-space">
+          <div class="sig-name">
+            Acknowledged By:<br />
+            <%= deptHeadName %>
+          </div>
+        </td>
+        <td class="sig-space">
+          <div class="sig-name">
+            Checked By:<br />
+            <%= leadItName %>
+          </div>
+        </td>
+        <td class="sig-space">
+          <div class="sig-name">
+            Approved By:<br />
+            <%= itManagerName %>
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <div class="footer-info">
+      Form No: F14-IT-PTSMOEI-A <span style="float: right">Page 1 of 1</span>
+    </div>
+  </body>
+</html>

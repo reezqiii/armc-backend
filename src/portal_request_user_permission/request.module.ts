@@ -17,6 +17,7 @@ import { PortalUserPermissionModule } from 'portal_user_permission/user_permissi
 import { AesEcbService } from 'crypto/aes-ecb.service';
 import { LogPortalEntity } from 'log_portal/log_portal.entity';
 import { LogPortalService } from 'log_portal/log_portal.service';
+import { PdfModule } from 'pdf/pdf.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { LogPortalService } from 'log_portal/log_portal.service';
     TypeOrmModule.forFeature([IssProject, IssDept, Position, IssEmployee], 'db_iss'),
     TypeOrmModule.forFeature([LogPortalEntity], 'alms'),
     EmailModule,
+    PdfModule,
     PortalPermissionModule,
     PortalUserPermissionModule,
   ],

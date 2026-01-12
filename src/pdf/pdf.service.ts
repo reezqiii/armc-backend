@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import * as path from 'path';
+import * as ejs from 'ejs';
 import * as puppeteer from 'puppeteer';
+import * as fs from 'fs';
 
 @Injectable()
 export class PdfService {
@@ -33,13 +36,41 @@ export class PdfService {
         </body>
       </html>
     `;
-    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+    await page.setContent(htmlContent, { waitUntil: "networkidle0" });
     const pdfUint8Array = await page.pdf({
-      format: 'A4',
+      format: "A4",
       printBackground: true,
     });
     const pdfBuffer = Buffer.from(pdfUint8Array);
     await browser.close();
     return pdfBuffer;
+  }
+
+  async generatePdf2(htmlContent: any): Promise<Buffer> {
+    const browser = await puppeteer.launch();
+
+    const page = await browser.newPage();
+    await page.setContent(htmlContent, { waitUntil: "networkidle0" });
+
+    const pdf = await page.pdf({
+      format: "A4",
+      printBackground: true,
+      margin: {
+        top: "5mm",
+        bottom: "20mm",
+        left: "20mm",
+        right: "20mm",
+      },
+    });
+
+    await browser.close();
+
+    return Buffer.from(pdf);
+  }
+
+  renderTemplate(filename: string, data: any) {
+    const filePath = path.join(process.cwd(), "src", "pdf", "views", filename);
+    const template = fs.readFileSync(filePath, "utf8");
+    return ejs.render(template, data);
   }
 }

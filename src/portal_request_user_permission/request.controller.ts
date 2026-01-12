@@ -1,68 +1,81 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, Query, Req, UseGuards, Patch, BadRequestException, UnauthorizedException } from '@nestjs/common';
-import { ApiBearerAuth } from '@nestjs/swagger';
-import { RequestService } from './request.service';
-import { RequestEntity } from './request.entity';
-import { ServerSideDTO } from 'DTO/dto.serverside';
-import { JwtAuthGuard } from 'jwt-auth.guard';
-import { AesEcbService } from '../crypto/aes-ecb.service';
-import { UserService } from '../portal_user_db/user.service';
-import { Public } from 'auth/public.decorator';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Param,
+  Body,
+  Query,
+  Req,
+  UseGuards,
+  Patch,
+  BadRequestException,
+  UnauthorizedException,
+  StreamableFile,
+} from "@nestjs/common";
+import { ApiBearerAuth } from "@nestjs/swagger";
+import { RequestService } from "./request.service";
+import { RequestEntity } from "./request.entity";
+import { ServerSideDTO } from "DTO/dto.serverside";
+import { JwtAuthGuard } from "jwt-auth.guard";
+import { AesEcbService } from "../crypto/aes-ecb.service";
+import { UserService } from "../portal_user_db/user.service";
+import { Public } from "auth/public.decorator";
+import { response } from "express";
 
-@Controller('requests')
-@ApiBearerAuth('access-token')
+@Controller("requests")
+@ApiBearerAuth("access-token")
 export class RequestController {
   constructor(
     private readonly requestService: RequestService,
     private readonly userService: UserService,
-    private readonly aesEcb: AesEcbService,
-  ) { }
+    private readonly aesEcb: AesEcbService
+  ) {}
 
-  @Get('hods')
+  @Get("hods")
   @UseGuards(JwtAuthGuard)
   async getAllHods() {
     return this.requestService.getAllHods();
   }
 
-  @Get('employee/:badge')
+  @Get("employee/:badge")
   @UseGuards(JwtAuthGuard)
-  async getEmployeeByBadge(@Param('badge') badge: number) {
+  async getEmployeeByBadge(@Param("badge") badge: number) {
     return this.requestService.getEmployeeByBadge(badge);
   }
 
-  @Post('/create')
+  @Post("/create")
   @UseGuards(JwtAuthGuard)
-  async create(@Body() data: Partial<RequestEntity>, @Req() req): Promise<RequestEntity> {
+  async create(
+    @Body() data: Partial<RequestEntity>,
+    @Req() req
+  ): Promise<RequestEntity> {
     const userId = req.user.id_user;
     return this.requestService.create(data, userId);
   }
 
-  @Post(':id/return')
-  async return(
-    @Param('id') encryptedId: string,
-    @Req() req: any
-  ) {
+  @Post(":id/return")
+  async return(@Param("id") encryptedId: string, @Req() req: any) {
     const id = Number(this.aesEcb.decryptBase64Url(encryptedId));
     return this.requestService.return(id, req.user);
   }
 
   @Public()
-  @Get('public/track/:id')
-  async trackPublic(@Param('id') id: number) {
+  @Get("public/track/:id")
+  async trackPublic(@Param("id") id: number) {
     if (isNaN(id)) {
-      throw new BadRequestException('Invalid request ID');
+      throw new BadRequestException("Invalid request ID");
     }
 
     return this.requestService.findPublicTrack(id);
   }
 
-  @Put(':id/submit-return')
+  @Put(":id/submit-return")
   @UseGuards(JwtAuthGuard)
-  async submitReturn(
-    @Param('id') encryptedId: string,
-    @Req() req: any
-  ) {
+  async submitReturn(@Param("id") encryptedId: string, @Req() req: any) {
     const id = Number(this.aesEcb.decryptBase64Url(encryptedId));
-    if (isNaN(id)) throw new BadRequestException('Invalid request ID');
+    if (isNaN(id)) throw new BadRequestException("Invalid request ID");
 
     const userId = req.user.id_user;
 
@@ -70,15 +83,15 @@ export class RequestController {
   }
 
   @Public()
-  @Post('public/create')
+  @Post("public/create")
   async createPublic(@Body() data: Partial<RequestEntity>) {
     return this.requestService.createPublic(data);
   }
 
-  @Put(':id')
+  @Put(":id")
   @UseGuards(JwtAuthGuard)
   async update(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() data: Partial<RequestEntity>,
     @Req() req
   ) {
@@ -91,29 +104,34 @@ export class RequestController {
     return this.requestService.update(decId, data);
   }
 
-  @Put('cancel/:id')
+  @Put("cancel/:id")
   @UseGuards(JwtAuthGuard)
-  async cancelRequest(@Param('id') id: string, @Req() req) {
+  async cancelRequest(@Param("id") id: string, @Req() req) {
     const decId = Number(this.aesEcb.decryptBase64Url(id));
     const userId = req.user.id_user;
     return this.requestService.cancelRequest(decId, userId);
   }
 
-  @Put(':id/hod-approval')
+  @Put(":id/hod-approval")
   @UseGuards(JwtAuthGuard)
   async hodApproval(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() body: { action: string; remarks?: string },
     @Req() req
   ) {
     const decId = Number(this.aesEcb.decryptBase64Url(id));
-    if (isNaN(decId)) throw new BadRequestException('Invalid request ID');
+    if (isNaN(decId)) throw new BadRequestException("Invalid request ID");
 
     const userId = req.user.id_user;
-    return this.requestService.hodApproval(decId, body.action, body.remarks, userId);
+    return this.requestService.hodApproval(
+      decId,
+      body.action,
+      body.remarks,
+      userId
+    );
   }
 
-  @Put('hod-approval/bulk')
+  @Put("hod-approval/bulk")
   @UseGuards(JwtAuthGuard)
   async hodApprovalBulk(
     @Body()
@@ -125,20 +143,22 @@ export class RequestController {
     @Req() req
   ) {
     const userId = req.user.id_user;
-    return this.requestService.hodApprovalBulk(body.ids, body.action, body.remarks, userId);
+    return this.requestService.hodApprovalBulk(
+      body.ids,
+      body.action,
+      body.remarks,
+      userId
+    );
   }
 
-  @Put(':id/submit-to-hod')
+  @Put(":id/submit-to-hod")
   @UseGuards(JwtAuthGuard)
-  async submitToHodRequest(
-    @Param('id') encryptedId: string,
-    @Req() req: any
-  ) {
+  async submitToHodRequest(@Param("id") encryptedId: string, @Req() req: any) {
     const userId = req.user?.id;
     return await this.requestService.submitToHod(encryptedId, userId);
   }
 
-  @Put('submit-to-hod/bulk')
+  @Put("submit-to-hod/bulk")
   @UseGuards(JwtAuthGuard)
   async submitBulkToHod(
     @Body() body: { encryptedIds: string[] },
@@ -146,21 +166,14 @@ export class RequestController {
   ) {
     const userId = req.user?.id_user; // sesuai JWTStrategy
     if (!userId) {
-      throw new UnauthorizedException('User not authenticated');
+      throw new UnauthorizedException("User not authenticated");
     }
 
-    return this.requestService.submitBulkToHod(
-      body.encryptedIds,
-      userId
-    );
+    return this.requestService.submitBulkToHod(body.encryptedIds, userId);
   }
 
-  @Put(':id/lead-it-approval')
-  async leadItApproval(
-    @Param('id') id: string,
-    @Body() body,
-    @Req() req,
-  ) {
+  @Put(":id/lead-it-approval")
+  async leadItApproval(@Param("id") id: string, @Body() body, @Req() req) {
     const decId = Number(this.aesEcb.decryptBase64Url(id));
     const userId = req.user.id_user;
 
@@ -168,58 +181,74 @@ export class RequestController {
       decId,
       body.action,
       body.remarks,
-      userId,
+      userId
     );
   }
 
-  @Put(':id/it-approval')
+  @Put(":id/it-approval")
   @UseGuards(JwtAuthGuard)
   async itApproval(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() body: { action: string; remarks?: string },
     @Req() req
   ) {
     const decId = Number(this.aesEcb.decryptBase64Url(id));
     const userId = req.user.id_user;
 
-    return this.requestService.itApproval(decId, body.action, body.remarks, userId);
+    return this.requestService.itApproval(
+      decId,
+      body.action,
+      body.remarks,
+      userId
+    );
   }
 
-  @Patch(':id/admin-status')
+  @Patch(":id/admin-status")
   @UseGuards(JwtAuthGuard)
   async updateAdminStatus(
-    @Param('id') id_request: number,
-    @Body('request_admin') request_admin: number,
+    @Param("id") id_request: number,
+    @Body("request_admin") request_admin: number
   ): Promise<{ message: string }> {
     await this.requestService.updateAdminStatus(id_request, request_admin);
-    return { message: 'Admin status updated successfully' };
+    return { message: "Admin status updated successfully" };
   }
 
-  @Delete(':id')
-  remove(@Param('id') id: number): Promise<void> {
+  @Get(":id/generate-pdf")
+  async generateRequestPdf(
+    @Param("id") enc_id: string
+  ): Promise<StreamableFile> {
+    const pdfBuffer = await this.requestService.generateRequestPdf(enc_id);
+
+    return new StreamableFile(pdfBuffer, {
+      type: "application/pdf",
+      disposition: 'attachment; filename="pcms_request.pdf"',
+    });
+  }
+
+  @Delete(":id")
+  remove(@Param("id") id: number): Promise<void> {
     return this.requestService.remove(id);
   }
 
-  @Get(':id')
-  async findOne(@Param('id') id: string) {
+  @Get(":id")
+  async findOne(@Param("id") id: string) {
     let numericId: number;
     try {
       numericId = Number(this.aesEcb.decryptBase64Url(id));
       if (isNaN(numericId)) throw new Error();
     } catch {
-      throw new BadRequestException('Invalid request ID');
+      throw new BadRequestException("Invalid request ID");
     }
     return this.requestService.findOne(numericId);
   }
 
-  @Post('/serverside_list')
+  @Post("/serverside_list")
   @UseGuards(JwtAuthGuard)
-  async serverSideList(
-    @Query() query: any,
-    @Req() req: any
-  ) {
+  async serverSideList(@Query() query: any, @Req() req: any) {
     if (query.sort_by) {
-      query.sort = `${query.sort_by},${(query.sort_order || 'ASC').toUpperCase()}`;
+      query.sort = `${query.sort_by},${(
+        query.sort_order || "ASC"
+      ).toUpperCase()}`;
     }
 
     const dto: ServerSideDTO = query;

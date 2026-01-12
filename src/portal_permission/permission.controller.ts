@@ -10,23 +10,23 @@ export class PortalPermissionController {
     return this.service.findAll();
   }
 
-  @Get(':id')
-  getOne(@Param('id') id: number) {
-    return this.service.findOne(id);
-  }
+//   @Get(':id')
+//   getOne(@Param('id') id: number) {
+//     return this.service.findOne(id);
+//   }
 
-  @Post()
-  create(@Body() body: any) {
-    return this.service.create(body);
-  }
+//   @Post()
+//   create(@Body() body: any) {
+//     return this.service.create(body);
+//   }
 
-  @Put(':id')
-  update(@Param('id') id: number, @Body() body: any) {
-    return this.service.update(id, body);
-  }
+//   @Put(':id')
+//   update(@Param('id') id: number, @Body() body: any) {
+//     return this.service.update(id, body);
+//   }
 
-  @Delete(':id')
-  delete(@Param('id') id: number) {
-    return this.service.delete(id);
-  }
+//   @Delete(':id')
+//   delete(@Param('id') id: number) {
+//     return this.service.delete(id);
+//   }
 }
