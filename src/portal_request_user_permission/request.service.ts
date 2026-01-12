@@ -24,6 +24,7 @@ import { sendEmailDto } from 'email/dto/send-email.dto';
 import { AesEcbService } from 'crypto/aes-ecb.service';
 import { ConfigService } from "@nestjs/config";
 import { LogPortalService } from 'log_portal/log_portal.service';
+import { getCategoryAccountLabel } from 'utils/status-helper';
 
 @Injectable()
 export class RequestService {
@@ -426,6 +427,7 @@ export class RequestService {
       department_name: department?.dept ?? '-',
       project_name: project?.project_desc ?? '-',
       position_name: position?.design_desc ?? '-',
+        category_account: data.category_account,
     };
   }
 
@@ -564,8 +566,6 @@ export class RequestService {
     const accessNavMenuValue = Array.isArray(data.access_nav_menu)
       ? data.access_nav_menu.join(',')
       : data.access_nav_menu || null;
-
-    // Ambil User entity jika ada approval_lead_it_by
     let approvalLeadItUser: User | null = null;
     if (data.approval_lead_it_by) {
       approvalLeadItUser = await this.userRepo.findOne({
@@ -588,6 +588,7 @@ export class RequestService {
       request_type: data.request_type ?? 1,
       request_status: data.request_status ?? 0,
       status_active: data.status_active ?? 1,
+      category_account: data.category_account ?? null,
       created_date: new Date(),
       created_by: null, // publik
       type: 1,
@@ -931,6 +932,9 @@ export class RequestService {
 
     const viewData = {
       approverName: hod.full_name,
+      categoryAccount: getCategoryAccountLabel(
+        request.category_account
+      ),
       requestNumber: `ITF14-${String(request.id_request).padStart(6, '0')}`,
       requestDate: request.created_date
         ? new Date(request.created_date).toLocaleDateString('en-GB')
@@ -991,6 +995,9 @@ export class RequestService {
 
     const viewData = {
       approverName: 'Lead IT Approver',
+      categoryAccount: getCategoryAccountLabel(
+        request.category_account
+      ),
       requestNumber: `ITF14-${String(request.id_request).padStart(6, '0')}`,
       requestDate: request.created_date
         ? new Date(request.created_date).toLocaleDateString('en-GB')
@@ -1057,6 +1064,9 @@ export class RequestService {
 
     const viewData = {
       approverName: 'IT Manager',
+      categoryAccount: getCategoryAccountLabel(
+        request.category_account
+      ),
       requestNumber: `ITF14-${String(request.id_request).padStart(6, '0')}`,
       requestDate: request.created_date
         ? new Date(request.created_date).toLocaleDateString('en-GB')
