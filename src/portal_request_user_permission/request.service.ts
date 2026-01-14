@@ -26,6 +26,8 @@ import { ConfigService } from "@nestjs/config";
 import { LogPortalService } from "log_portal/log_portal.service";
 import { getCategoryAccountLabel } from "utils/status-helper";
 import { PdfService } from "pdf/pdf.service";
+import { formatDate } from "utils/format-date";
+import * as path from "path";
 
 @Injectable()
 export class RequestService {
@@ -872,7 +874,6 @@ export class RequestService {
     }
 
     existing.previous_status = existing.request_status;
-    existing.approval_hod_by = hodUser;
     existing.approval_hod_date_at = new Date();
 
     if (action === "approve") {
@@ -892,14 +893,28 @@ export class RequestService {
   }
 
   async hodApprovalBulk(
-    ids: number[],
+    encryptedIds: string[],
     action: string,
     remarks: string,
     userId: number
   ) {
+    if (!Array.isArray(encryptedIds)) {
+      throw new BadRequestException("encryptedIds must be an array");
+    }
+
     const approvedRequests = [];
 
-    for (const id of ids) {
+    const hodUser = await this.userRepo.findOne({
+      where: { id_user: userId },
+    });
+
+    if (!hodUser) {
+      throw new BadRequestException("Invalid HOD user");
+    }
+
+    for (const encryptedId of encryptedIds) {
+      const id = Number(this.aesEcbService.decryptBase64Url(encryptedId));
+
       const existing = await this.requestRepo.findOne({
         where: { id_request: id },
         relations: ["approval_hod_by", "created_by_user"],
@@ -907,24 +922,16 @@ export class RequestService {
 
       if (!existing) continue;
       if (existing.request_status !== 1) continue;
-
-      const hodUser = await this.userRepo.findOne({
-        where: { id_user: userId },
-      });
-
-      if (!hodUser) {
-        throw new BadRequestException("Invalid HOD user");
-      }
-
       existing.previous_status = existing.request_status;
-      existing.approval_hod_by = hodUser;
       existing.approval_hod_date_at = new Date();
 
       if (action === "approve") {
         existing.request_status = 3;
         await this.requestRepo.save(existing);
         approvedRequests.push(existing);
-      } else if (action === "reject") {
+      }
+
+      if (action === "reject") {
         existing.request_status = 2;
         existing.rejected_hod_remarks = remarks;
         await this.requestRepo.save(existing);
@@ -1027,6 +1034,7 @@ export class RequestService {
 
     const portalEmails = await this.mailService.getPortalEmailList({
       process: "IT Lead Approval",
+      group_name: 24,
     });
 
     const encryptedId = this.aesEcbService.encryptToBase64Url(
@@ -1039,11 +1047,35 @@ export class RequestService {
 
     const approvalLink = `${process.env.LINK_PORTAL}/jump_url/redirect_v2/${encryptedTarget}`;
 
-    const emailTo = [];
+    const emailTo: string[] = [];
+    const emailCc: string[] = [];
+    const emailBcc: string[] = [];
+
     portalEmails.forEach((row) => {
+      // TO
       if (row.email_to) {
         emailTo.push(
           ...row.email_to
+            .split(",")
+            .map((v) => v.trim())
+            .filter((v) => v)
+        );
+      }
+
+      // CC
+      if (row.email_cc) {
+        emailCc.push(
+          ...row.email_cc
+            .split(",")
+            .map((v) => v.trim())
+            .filter((v) => v)
+        );
+      }
+
+      // BCC
+      if (row.email_bcc) {
+        emailBcc.push(
+          ...row.email_bcc
             .split(",")
             .map((v) => v.trim())
             .filter((v) => v)
@@ -1084,13 +1116,38 @@ export class RequestService {
 
     const portalEmails = await this.mailService.getPortalEmailList({
       process: "IT Manager Approval",
+      group_name: 24,
     });
 
     const emailTo: string[] = [];
+    const emailCc: string[] = [];
+    const emailBcc: string[] = [];
+
     portalEmails.forEach((row) => {
+      // TO
       if (row.email_to) {
         emailTo.push(
           ...row.email_to
+            .split(",")
+            .map((v) => v.trim())
+            .filter((v) => v)
+        );
+      }
+
+      // CC
+      if (row.email_cc) {
+        emailCc.push(
+          ...row.email_cc
+            .split(",")
+            .map((v) => v.trim())
+            .filter((v) => v)
+        );
+      }
+
+      // BCC
+      if (row.email_bcc) {
+        emailBcc.push(
+          ...row.email_bcc
             .split(",")
             .map((v) => v.trim())
             .filter((v) => v)
@@ -1234,6 +1291,81 @@ export class RequestService {
     return true;
   }
 
+  async leadItApprovalBulk(
+    encryptedIds: string[],
+    action: "approve" | "reject",
+    remarks: string,
+    userId: number
+  ) {
+    if (!Array.isArray(encryptedIds)) {
+      throw new BadRequestException("encryptedIds must be an array");
+    }
+
+    // cek permission Lead IT
+    const permissions = await this.permissionService.getUserPermissionsForApp(
+      userId,
+      31
+    );
+
+    const leadItPermissions = permissions
+      .filter((p) => p.index_key === "0")
+      .map((p) => p.id_portal_permission);
+
+    if (!leadItPermissions.includes("2000")) {
+      throw new ForbiddenException("Not allowed to approve as Lead IT");
+    }
+
+    const leadItUser = await this.userRepo.findOne({
+      where: { id_user: userId },
+    });
+
+    if (!leadItUser) {
+      throw new BadRequestException("Invalid Lead IT user");
+    }
+
+    const approvedRequests: RequestEntity[] = [];
+
+    for (const encId of encryptedIds) {
+      const id = Number(this.aesEcbService.decryptBase64Url(encId));
+      if (isNaN(id)) continue;
+
+      const existing = await this.requestRepo.findOne({
+        where: { id_request: id },
+        relations: ["created_by_user"],
+      });
+
+      if (!existing) continue;
+      if (existing.request_status !== 3) continue; // pending Lead IT
+
+      existing.previous_status = existing.request_status;
+      existing.approval_lead_it_by = leadItUser;
+      existing.approval_lead_date_at = new Date();
+
+      if (action === "approve") {
+        existing.request_status = 5;
+        await this.requestRepo.save(existing);
+        approvedRequests.push(existing);
+      }
+
+      if (action === "reject") {
+        existing.request_status = 4;
+        existing.rejected_lead_remarks = remarks;
+        await this.requestRepo.save(existing);
+      }
+    }
+
+    // kirim email ke IT Manager
+    for (const req of approvedRequests) {
+      await this.notifyItManagerApproval(req.id_request);
+    }
+
+    return {
+      success: true,
+      count: approvedRequests.length,
+      message: `Processed ${approvedRequests.length} Lead IT approvals`,
+    };
+  }
+
   async itApproval(
     id_request: number,
     action: string,
@@ -1292,6 +1424,75 @@ export class RequestService {
     }
 
     return this.requestRepo.save(existing);
+  }
+
+  async itApprovalBulk(
+    encryptedIds: string[],
+    action: "approve" | "reject",
+    remarks: string,
+    userId: number
+  ) {
+    if (!Array.isArray(encryptedIds)) {
+      throw new BadRequestException("encryptedIds must be an array");
+    }
+
+    const permissions = await this.permissionService.getUserPermissionsForApp(
+      userId,
+      31
+    );
+
+    const itManagerPermissions = permissions
+      .filter((p) => p.index_key === "1")
+      .map((p) => p.id_portal_permission);
+
+    if (!itManagerPermissions.includes("2001")) {
+      throw new ForbiddenException("Not allowed to approve as IT Manager");
+    }
+
+    const itUser = await this.userRepo.findOne({
+      where: { id_user: userId },
+    });
+
+    if (!itUser) {
+      throw new BadRequestException("Invalid IT Manager user");
+    }
+
+    const approvedRequests = [];
+
+    for (const encId of encryptedIds) {
+      const id = Number(this.aesEcbService.decryptBase64Url(encId));
+      if (isNaN(id)) continue;
+
+      const existing = await this.requestRepo.findOne({
+        where: { id_request: id },
+      });
+
+      if (!existing) continue;
+      if (existing.request_status !== 5) continue;
+
+      existing.previous_status = existing.request_status;
+      existing.approval_it_date_at = new Date();
+      existing.approval_it_hod_by = itUser;
+
+      if (action === "approve") {
+        existing.request_status = 7;
+        existing.request_admin = 0;
+        approvedRequests.push(existing);
+      }
+
+      if (action === "reject") {
+        existing.request_status = 4;
+        existing.rejected_it_remarks = remarks;
+      }
+
+      await this.requestRepo.save(existing);
+    }
+
+    return {
+      success: true,
+      count: approvedRequests.length,
+      message: `Processed ${approvedRequests.length} IT Manager approvals`,
+    };
   }
 
   async return(id_request: number, user: any) {
@@ -1415,6 +1616,12 @@ export class RequestService {
           id_request: dec_request_id,
           status_active: 1,
         },
+        relations: [
+          "approval_hod_by",
+          "approval_lead_it_by",
+          "approval_it_hod_by",
+          "created_by_user",
+        ],
       });
 
       if (!request) {
@@ -1454,10 +1661,16 @@ export class RequestService {
         "0"
       )}`;
 
+      const logoPath = path.join(process.cwd(), "src", "img", "pcms_logo.png");
+
+      const logoBase64 = this.pdf.getBase64Image(logoPath);
+
       const view_data = {
+        logoBase64,
         requestId: formattedRequestId,
+        requestedDate: formatDate(request.created_date),
         requestedBy: requestor?.full_name ?? "-",
-        categoryAccount: request.category_account ?? "-",
+        categoryAccount: getCategoryAccountLabel(request.category_account),
         badge: request.badge_no,
         fullName: request.full_name,
         email: request.email,
@@ -1474,8 +1687,21 @@ export class RequestService {
         purpose: request.request_reason,
         remarks: request.remarks,
         deptHeadName: request.approval_hod_by?.full_name ?? "-",
+        deptHeadDate: request.approval_hod_date_at
+          ? formatDate(request.approval_hod_date_at)
+          : null,
+
+        // LEAD IT
         leadItName: request.approval_lead_it_by?.full_name ?? "-",
+        leadItDate: request.approval_lead_date_at
+          ? formatDate(request.approval_lead_date_at)
+          : null,
+
+        // IT MANAGER / ASST IT MGR
         itManagerName: request.approval_it_hod_by?.full_name ?? "-",
+        itManagerDate: request.approval_it_date_at
+          ? formatDate(request.approval_it_date_at)
+          : null,
       };
 
       const htmlContent = this.pdf.renderTemplate(

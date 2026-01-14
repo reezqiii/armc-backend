@@ -132,22 +132,20 @@ export class RequestController {
   }
 
   @Put("hod-approval/bulk")
-  @UseGuards(JwtAuthGuard)
-  async hodApprovalBulk(
+  hodApprovalBulk(
     @Body()
     body: {
-      ids: number[];
-      action: string;
+      encryptedIds: string[];
+      action: "approve" | "reject";
       remarks?: string;
     },
     @Req() req
   ) {
-    const userId = req.user.id_user;
     return this.requestService.hodApprovalBulk(
-      body.ids,
+      body.encryptedIds,
       body.action,
       body.remarks,
-      userId
+      req.user.id
     );
   }
 
@@ -185,6 +183,31 @@ export class RequestController {
     );
   }
 
+  @Put("lead-it-approval/bulk")
+  @UseGuards(JwtAuthGuard)
+  async leadItApprovalBulk(
+    @Body()
+    body: {
+      encryptedIds: string[];
+      action: "approve" | "reject";
+      remarks?: string;
+    },
+    @Req() req
+  ) {
+    const userId = req.user.id_user;
+
+    if (!Array.isArray(body.encryptedIds)) {
+      throw new BadRequestException("encryptedIds must be array");
+    }
+
+    return this.requestService.leadItApprovalBulk(
+      body.encryptedIds,
+      body.action,
+      body.remarks,
+      userId
+    );
+  }
+
   @Put(":id/it-approval")
   @UseGuards(JwtAuthGuard)
   async itApproval(
@@ -197,6 +220,27 @@ export class RequestController {
 
     return this.requestService.itApproval(
       decId,
+      body.action,
+      body.remarks,
+      userId
+    );
+  }
+
+  @Put("it-approval/bulk")
+  @UseGuards(JwtAuthGuard)
+  async itApprovalBulk(
+    @Body()
+    body: {
+      encryptedIds: string[];
+      action: "approve" | "reject";
+      remarks?: string;
+    },
+    @Req() req
+  ) {
+    const userId = req.user.id_user;
+
+    return this.requestService.itApprovalBulk(
+      body.encryptedIds,
       body.action,
       body.remarks,
       userId

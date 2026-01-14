@@ -9,14 +9,22 @@
         font-size: 10px;
         color: #000;
         margin: 0;
-        padding: 15px;
+        padding: 0;
       }
+
+      /* Content Wrapper */
+      .content-wrapper {
+        width: 100%;
+      }
+
       /* Header Section */
       .header-container {
         width: 100%;
         border: 2px solid #000;
         border-collapse: collapse;
+        table-layout: fixed;
       }
+
       .header-container td {
         border: 1px solid #000;
         padding: 5px;
@@ -26,7 +34,7 @@
         text-align: center;
       }
       .logo-img {
-        height: 30px;
+        height: 50px;
       }
 
       /* Title */
@@ -46,6 +54,11 @@
         margin-top: 10px;
         border-collapse: collapse;
       }
+
+      .info-label {
+        font-weight: bold;
+      }
+
       .info-table td {
         padding: 2px 0;
       }
@@ -58,6 +71,7 @@
         padding: 4px 8px;
         margin-top: 15px;
         text-transform: uppercase;
+        page-break-after: avoid;
       }
 
       /* Data Display */
@@ -66,15 +80,43 @@
         border-collapse: collapse;
         margin-top: 5px;
       }
+
       .data-table td {
         padding: 5px;
         border: 1px solid #000;
         vertical-align: top;
       }
+
       .label-col {
         width: 25%;
         font-weight: bold;
         background-color: #fafafa;
+      }
+
+      /* CHECKBOX */
+      input[type="checkbox"].custom-chk {
+        appearance: none;
+        -webkit-appearance: none;
+        width: 12px;
+        height: 12px;
+        border: 1px solid #000; /* Garis kotak hitam */
+        background-color: #fff;
+        display: inline-block;
+        position: relative;
+        vertical-align: middle;
+        margin-right: 5px;
+        cursor: default;
+      }
+
+      /* Membuat tanda centang (V) hitam di dalam kotak */
+      input[type="checkbox"].custom-chk:checked::after {
+        content: "\2713"; /* Simbol centang */
+        font-size: 10px;
+        color: #000; /* Warna centang hitam pekat */
+        position: absolute;
+        top: -2px;
+        left: 1px;
+        font-weight: bold;
       }
 
       /* Remarks */
@@ -86,42 +128,90 @@
         margin-top: 5px;
       }
 
-      /* Signature Table */
+      /* Judul Section (Bar Hitam) */
+      .section-title {
+        background-color: #000;
+        color: #fff;
+        font-weight: bold;
+        padding: 4px 8px;
+        margin-top: 15px;
+        text-transform: uppercase;
+      }
+
+      /* Tabel Tanda Tangan */
       .signature-table {
         width: 100%;
-        margin-top: 20px;
         border-collapse: collapse;
+        margin-top: 5px; /* Jarak kecil setelah judul section */
       }
+
       .signature-table th {
-        background-color: #f2f2f2;
+        background-color: #f2f2f2; /* Warna abu-abu sesuai gambar 2 */
         border: 1px solid #000;
         padding: 5px;
         font-size: 9px;
+        text-align: center;
       }
+
       .signature-table td {
         width: 25%;
         border: 1px solid #000;
         text-align: center;
         vertical-align: bottom;
-        padding: 5px;
+        padding: 10px 5px;
       }
+
       .sig-space {
-        height: 60px;
+        height: 70px; /* Area untuk tanda tangan/stempel */
       }
-      .sig-img {
-        max-height: 50px;
-      }
+
       .sig-name {
-        border-top: 1px dotted #000;
-        margin: 5px 10px 0 10px;
-        padding-top: 2px;
+        margin: 5px 5px 0 5px;
+        padding-top: 3px;
+        font-size: 10px;
+        font-weight: bold;
+      }
+
+      .sig-img {
+        max-height: 50px; /* Sesuaikan ukuran logo agar pas di dalam kotak */
+        display: block;
+        margin: 0 auto 2px auto;
+        /* Jika menggunakan library PDF tertentu, terkadang perlu format Base64 atau path lengkap */
+      }
+
+      .sig-date {
+        font-size: 10px;
+        margin-top: 2px;
+        color: #333;
+      }
+
+      .sig-space {
+        height: 80px; /* Ditambah sedikit agar logo tidak menabrak header */
+        vertical-align: bottom !important;
+        position: relative;
+      }
+
+      .sig-label-row td {
+        text-align: center;
+        font-size: 9px;
+        font-weight: bold;
+        padding: 6px 4px;
+        border: 1px solid #000;
+        background-color: #fafafa;
+      }
+
+      .sig-name {
+        margin-top: 5px;
         font-size: 9px;
         font-weight: bold;
       }
 
-      .footer-info {
-        margin-top: 15px;
-        font-size: 9px;
+      .signature-table {
+        page-break-inside: avoid;
+      }
+
+      .page-break {
+        page-break-before: always;
       }
     </style>
   </head>
@@ -146,9 +236,7 @@
         <td style="width: 25%; font-size: 8px">
           Originated By:<br />IT Application Developer
         </td>
-        <td style="width: 25%; font-size: 8px">
-          Revision Date:<br />-
-        </td>
+        <td style="width: 25%; font-size: 8px">Revision Date:<br />-</td>
         <td style="width: 15%; font-size: 8px">Revision:<br />5.3</td>
       </tr>
     </table>
@@ -162,15 +250,13 @@
 
     <table class="info-table">
       <tr>
-        <td style="width: 15%">Requested Date</td>
-        <td style="width: 2%">:</td>
-        <td>Requested Date</td>
+        <td class="info-label" style="width: 15%">Requested Date</td>
         <td>:</td>
-        <td>-</td>
+        <td><%= requestedDate %></td>
       </tr>
 
       <tr>
-        <td>Requested By</td>
+        <td class="info-label">Requested By</td>
         <td>:</td>
         <td><%= requestedBy %></td>
       </tr>
@@ -217,74 +303,117 @@
       <tr>
         <td class="label-col">Company Yard Access</td>
         <td>
-          <% if (Array.isArray(yardAccess)) { %>
-          <ul>
-            <% yardAccess.forEach(item => { %>
-            <li><%= item %></li>
-            <% }) %>
-          </ul>
-          <% } else { %> <%= yardAccess || '-' %> <% } %>
+          <% if (Array.isArray(yardAccess) && yardAccess.length) { %> <%
+          yardAccess.forEach(item => { %>
+          <div style="margin-bottom: 3px">
+            <input type="checkbox" class="custom-chk" checked disabled />
+            <span><%= item.company_name %></span>
+          </div>
+          <% }) %> <% } else { %> - <% } %>
         </td>
       </tr>
+
       <tr>
         <td class="label-col">Application Access</td>
         <td>
-          <% if (Array.isArray(appAccess)) { %>
-          <ul>
-            <% appAccess.forEach(item => { %>
-            <li><%= item %></li>
-            <% }) %>
-          </ul>
-          <% } else { %> <%= appAccess || '-' %> <% } %>
+          <% if (Array.isArray(appAccess) && appAccess.length) { %> <%
+          appAccess.forEach(item => { %>
+          <div style="margin-bottom: 3px">
+            <input type="checkbox" class="custom-chk" checked disabled />
+            <span><%= item.application_name %></span>
+          </div>
+          <% }) %> <% } else { %> - <% } %>
         </td>
       </tr>
     </table>
 
     <div class="section-title">Remarks</div>
-    <div class="remarks-box">
-      <strong>Purpose:</strong><br />
-      <%= purpose || '-' %><br /><br />
-      <strong>Additional Remarks:</strong><br />
-      <%= remarks || '-' %>
-    </div>
-
-    <table class="signature-table">
+    <table class="data-table">
       <tr>
-        <th>REQUESTOR DEPARTMENT</th>
-        <th>REQUESTOR HOD</th>
-        <th>LEAD IT DEPARTMENT</th>
-        <th>IT MANAGER / ASST.</th>
+        <td class="label-col">Purpose</td>
+        <td><%= purpose || '-' %></td>
       </tr>
       <tr>
-        <td class="sig-space">
-          <div class="sig-name">
-            Requested By:<br />
-            <%= requestedBy %>
-          </div>
-        </td>
-        <td class="sig-space">
-          <div class="sig-name">
-            Acknowledged By:<br />
-            <%= deptHeadName %>
-          </div>
-        </td>
-        <td class="sig-space">
-          <div class="sig-name">
-            Checked By:<br />
-            <%= leadItName %>
-          </div>
-        </td>
-        <td class="sig-space">
-          <div class="sig-name">
-            Approved By:<br />
-            <%= itManagerName %>
-          </div>
-        </td>
+        <td class="label-col">Additional Remarks</td>
+        <td><%= remarks || '-' %></td>
       </tr>
     </table>
 
-    <div class="footer-info">
-      Form No: F14-IT-PTSMOEI-A <span style="float: right">Page 1 of 1</span>
-    </div>
+    <div class="section-title">Approval & Signatures</div>
+
+    <table class="signature-table">
+      <thead>
+        <tr>
+          <th>REQUESTOR DEPARTMENT</th>
+          <th>REQUESTOR HOD</th>
+          <th>LEAD IT DEPARTMENT</th>
+          <th>IT MGR / ASST.IT MGR</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <!-- BARIS LABEL -->
+        <tr class="sig-label-row">
+          <td>Requested By</td>
+          <td>Acknowledged By</td>
+          <td>Checked By</td>
+          <td>Approved By</td>
+        </tr>
+
+        <tr>
+          <!-- REQUESTOR -->
+          <td class="sig-space">
+            <img
+              src="data:image/png;base64,<%= logoBase64 %>"
+              class="sig-img"
+            />
+            <div class="sig-name"><%= requestedBy %></div>
+            <div class="sig-date"><%= requestedDate %></div>
+          </td>
+
+          <!-- HOD -->
+          <td class="sig-space">
+            <% if (deptHeadName && deptHeadName !== '-') { %>
+            <img
+              src="data:image/png;base64,<%= logoBase64 %>"
+              class="sig-img"
+            />
+            <% } %>
+            <div class="sig-name"><%= deptHeadName || '-' %></div>
+            <% if (deptHeadDate) { %>
+            <div class="sig-date"><%= deptHeadDate %></div>
+            <% } %>
+          </td>
+
+          <!-- LEAD IT -->
+          <td class="sig-space">
+            <% if (leadItName && leadItName !== '-') { %>
+            <img
+              src="data:image/png;base64,<%= logoBase64 %>"
+              class="sig-img"
+            />
+            <% } %>
+            <div class="sig-name"><%= leadItName || '-' %></div>
+            <% if (leadItDate) { %>
+            <div class="sig-date"><%= leadItDate %></div>
+            <% } %>
+          </td>
+
+          <!-- IT MANAGER -->
+          <td class="sig-space">
+            <% if (itManagerName && itManagerName !== '-') { %>
+            <img
+              src="data:image/png;base64,<%= logoBase64 %>"
+              class="sig-img"
+            />
+            <% } %>
+            <div class="sig-name"><%= itManagerName || '-' %></div>
+            <% if (itManagerDate) { %>
+            <div class="sig-date"><%= itManagerDate %></div>
+            <% } %>
+          </td>
+        </tr>
+      </tbody>
+    </table>
   </body>
 </html>

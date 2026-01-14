@@ -1,11 +1,16 @@
-import { Injectable } from '@nestjs/common';
-import * as path from 'path';
-import * as ejs from 'ejs';
-import * as puppeteer from 'puppeteer';
-import * as fs from 'fs';
+import { Injectable } from "@nestjs/common";
+import * as path from "path";
+import * as ejs from "ejs";
+import * as puppeteer from "puppeteer";
+import * as fs from "fs";
 
 @Injectable()
 export class PdfService {
+  public getBase64Image(filePath: string): string {
+    const image = fs.readFileSync(filePath);
+    return image.toString("base64");
+  }
+
   async generatePdf(): Promise<Buffer> {
     const browser = await puppeteer.launch();
     const page = await browser.newPage();
@@ -47,7 +52,10 @@ export class PdfService {
   }
 
   async generatePdf2(htmlContent: any): Promise<Buffer> {
-    const browser = await puppeteer.launch();
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
 
     const page = await browser.newPage();
     await page.setContent(htmlContent, { waitUntil: "networkidle0" });
@@ -55,16 +63,24 @@ export class PdfService {
     const pdf = await page.pdf({
       format: "A4",
       printBackground: true,
+      displayHeaderFooter: true,
+      headerTemplate: "<div></div>",
+      footerTemplate: `
+      <div style="font-size: 9px; width: 100%; margin: 0 10mm; display: flex; justify-content: space-between; font-family: Arial, sans-serif; color: #333;">
+        <span>Form No: F14-IT-PTSMOEI-A</span>
+        <div>
+          Page <span class="pageNumber"></span> of <span class="totalPages"></span>
+        </div>
+      </div>`,
       margin: {
-        top: "5mm",
-        bottom: "20mm",
-        left: "20mm",
-        right: "20mm",
+        top: "10mm",
+        bottom: "20mm", 
+        left: "10mm", 
+        right: "10mm",
       },
     });
 
     await browser.close();
-
     return Buffer.from(pdf);
   }
 
