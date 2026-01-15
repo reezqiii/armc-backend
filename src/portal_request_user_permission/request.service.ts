@@ -1661,7 +1661,7 @@ export class RequestService {
         "0"
       )}`;
 
-      const logoPath = path.join(process.cwd(), "src", "img", "pcms_logo.png");
+      const logoPath = path.join(process.cwd(), "public", "img", "pcms_logo.png");
 
       const logoBase64 = this.pdf.getBase64Image(logoPath);
 
