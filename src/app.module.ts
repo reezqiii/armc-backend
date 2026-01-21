@@ -23,6 +23,8 @@ import { RequestSubscriber } from "portal_request_user_permission/subscribers/ge
 import { PortalConfigModule } from "./portal_config/portal_config.module";
 import { join } from "node:path";
 import { ServeStaticModule } from "@nestjs/serve-static";
+import { PortalProjectModule } from './portal_project/portal_project.module';
+import { PortalDepartmentModule } from './portal_department/portal_department.module';
 
 @Module({
   imports: [
@@ -112,6 +114,8 @@ import { ServeStaticModule } from "@nestjs/serve-static";
     NavMenuModule,
     LogPortalModule,
     PortalConfigModule,
+    PortalProjectModule,
+    PortalDepartmentModule,
   ],
 
   providers: [RequestSubscriber],

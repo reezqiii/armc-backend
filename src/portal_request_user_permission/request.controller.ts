@@ -30,7 +30,7 @@ export class RequestController {
   constructor(
     private readonly requestService: RequestService,
     private readonly userService: UserService,
-    private readonly aesEcb: AesEcbService
+    private readonly aesEcb: AesEcbService,
   ) {}
 
   @Get("hods")
@@ -49,7 +49,7 @@ export class RequestController {
   @UseGuards(JwtAuthGuard)
   async create(
     @Body() data: Partial<RequestEntity>,
-    @Req() req
+    @Req() req,
   ): Promise<RequestEntity> {
     const userId = req.user.id_user;
     return this.requestService.create(data, userId);
@@ -93,7 +93,7 @@ export class RequestController {
   async update(
     @Param("id") id: string,
     @Body() data: Partial<RequestEntity>,
-    @Req() req
+    @Req() req,
   ) {
     const decId = Number(this.aesEcb.decryptBase64Url(id));
 
@@ -117,7 +117,7 @@ export class RequestController {
   async hodApproval(
     @Param("id") id: string,
     @Body() body: { action: string; remarks?: string },
-    @Req() req
+    @Req() req,
   ) {
     const decId = Number(this.aesEcb.decryptBase64Url(id));
     if (isNaN(decId)) throw new BadRequestException("Invalid request ID");
@@ -127,7 +127,7 @@ export class RequestController {
       decId,
       body.action,
       body.remarks,
-      userId
+      userId,
     );
   }
 
@@ -139,13 +139,13 @@ export class RequestController {
       action: "approve" | "reject";
       remarks?: string;
     },
-    @Req() req
+    @Req() req,
   ) {
     return this.requestService.hodApprovalBulk(
       body.encryptedIds,
       body.action,
       body.remarks,
-      req.user.id
+      req.user.id,
     );
   }
 
@@ -160,7 +160,7 @@ export class RequestController {
   @UseGuards(JwtAuthGuard)
   async submitBulkToHod(
     @Body() body: { encryptedIds: string[] },
-    @Req() req: any
+    @Req() req: any,
   ) {
     const userId = req.user?.id_user; // sesuai JWTStrategy
     if (!userId) {
@@ -179,7 +179,7 @@ export class RequestController {
       decId,
       body.action,
       body.remarks,
-      userId
+      userId,
     );
   }
 
@@ -192,7 +192,7 @@ export class RequestController {
       action: "approve" | "reject";
       remarks?: string;
     },
-    @Req() req
+    @Req() req,
   ) {
     const userId = req.user.id_user;
 
@@ -204,7 +204,7 @@ export class RequestController {
       body.encryptedIds,
       body.action,
       body.remarks,
-      userId
+      userId,
     );
   }
 
@@ -213,7 +213,7 @@ export class RequestController {
   async itApproval(
     @Param("id") id: string,
     @Body() body: { action: string; remarks?: string },
-    @Req() req
+    @Req() req,
   ) {
     const decId = Number(this.aesEcb.decryptBase64Url(id));
     const userId = req.user.id_user;
@@ -222,7 +222,7 @@ export class RequestController {
       decId,
       body.action,
       body.remarks,
-      userId
+      userId,
     );
   }
 
@@ -235,7 +235,7 @@ export class RequestController {
       action: "approve" | "reject";
       remarks?: string;
     },
-    @Req() req
+    @Req() req,
   ) {
     const userId = req.user.id_user;
 
@@ -243,7 +243,7 @@ export class RequestController {
       body.encryptedIds,
       body.action,
       body.remarks,
-      userId
+      userId,
     );
   }
 
@@ -251,7 +251,7 @@ export class RequestController {
   @UseGuards(JwtAuthGuard)
   async updateAdminStatus(
     @Param("id") id_request: number,
-    @Body("request_admin") request_admin: number
+    @Body("request_admin") request_admin: number,
   ): Promise<{ message: string }> {
     await this.requestService.updateAdminStatus(id_request, request_admin);
     return { message: "Admin status updated successfully" };
@@ -259,7 +259,7 @@ export class RequestController {
 
   @Get(":id/generate-pdf")
   async generateRequestPdf(
-    @Param("id") enc_id: string
+    @Param("id") enc_id: string,
   ): Promise<StreamableFile> {
     const pdfBuffer = await this.requestService.generateRequestPdf(enc_id);
 
