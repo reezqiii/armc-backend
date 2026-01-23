@@ -7,11 +7,23 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { User } from "./user.entity";
 import { Repository, ILike, FindOptionsWhere } from "typeorm";
 import { ServerSideDTO } from "DTO/dto.serverside";
+import { PortalDepartment } from "portal_department/entities/portal_department.entity";
+import { PortalProject } from "portal_project/entities/portal_project.entity";
+import { Company } from "portal_company/company.entity";
+import { PortalRole } from "portal_role_db/entities/portal_role_db.entity";
 
 @Injectable()
 export class UserService {
   constructor(
     @InjectRepository(User) private readonly _user: Repository<User>,
+    @InjectRepository(PortalDepartment)
+    private readonly _departmentRepo: Repository<PortalDepartment>,
+    @InjectRepository(PortalProject)
+    private readonly _projectRepo: Repository<PortalProject>,
+    @InjectRepository(Company)
+    private readonly _companyRepo: Repository<Company>,
+    @InjectRepository(PortalRole)
+    private readonly _roleRepo: Repository<PortalRole>,
   ) {}
 
   async serverSideList(queryDto: ServerSideDTO) {
@@ -24,7 +36,9 @@ export class UserService {
         .createQueryBuilder("user")
         .leftJoinAndSelect("user.department", "dept")
         .leftJoinAndSelect("user.project", "project")
-        .leftJoinAndSelect("user.company", "company");
+        .leftJoinAndSelect("user.company", "company")
+        .leftJoinAndSelect("user.role", "role")
+        .where("user.status_user = :status", { status: 1 });
 
       const columnMap: Record<string, string> = {
         badge_no: "user.badge_no",
@@ -34,6 +48,7 @@ export class UserService {
         department_name: "dept.name_of_department",
         project_name: "project.project_name",
         company_name: "company.company_name",
+        role_name: "role.role_name",
         created_date: "user.created_date",
         active: "user.active",
       };
@@ -58,15 +73,14 @@ export class UserService {
         });
       }
 
-      // 🔹 Ambil data dari DB
       const [data, total] = await qb.skip(skip).take(take).getManyAndCount();
 
-      // 🔹 Mapping nested object ke flat
       const mappedData = data.map((u) => ({
         ...u,
         department_name: u.department?.name_of_department ?? "-",
         project_name: u.project?.project_name ?? "-",
         company_name: u.company?.company_name ?? "-",
+        role_name: u.role?.role_name ?? "-",
       }));
 
       return {
@@ -116,6 +130,43 @@ export class UserService {
     } catch (error) {
       throw new InternalServerErrorException(error);
     }
+  }
+
+  async createUser(data: any): Promise<User> {
+    const department = data.dept_id
+      ? await this._departmentRepo.findOne({
+          where: { id_department: data.dept_id },
+        })
+      : null;
+
+    const project = data.project_id
+      ? await this._projectRepo.findOne({ where: { id: data.project_id } })
+      : null;
+
+    const company = data.company_id
+      ? await this._companyRepo.findOne({
+          where: { id_company: data.company_id },
+        })
+      : null;
+
+    const role = data.id_role
+      ? await this._roleRepo.findOne({ where: { id_role: data.id_role } })
+      : null;
+
+    const newUser = this._user.create({
+      full_name: data.full_name,
+      email: data.email,
+      badge_no: data.badge_no,
+      username: data.username,
+      status_user: 1,
+      created_date: new Date(),
+      department,
+      project,
+      company,
+      role,
+    });
+
+    return await this._user.save(newUser);
   }
 
   // async updateUser(id: number, data: Partial<User>): Promise<User> {

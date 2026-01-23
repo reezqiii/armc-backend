@@ -23,6 +23,12 @@ export class UserController {
     return this._user.findAll();
   }
 
+  @Post("/create")
+  @UseGuards(JwtAuthGuard)
+  async createUser(@Body() data: Partial<User>) {
+    return await this._user.createUser(data);
+  }
+
   @Get("/search")
   async searchUsers(@Query("q") query: string) {
     return await this._user.searchUsers(query);

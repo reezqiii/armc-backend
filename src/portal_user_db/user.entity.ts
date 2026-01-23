@@ -1,6 +1,7 @@
 import { Company } from "portal_company/company.entity";
 import { PortalDepartment } from "portal_department/entities/portal_department.entity";
 import { PortalProject } from "portal_project/entities/portal_project.entity";
+import { PortalRole } from "portal_role_db/entities/portal_role_db.entity";
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -39,14 +40,18 @@ export class User {
   update_by: number;
 
   @ManyToOne(() => PortalDepartment, { nullable: true })
-  @JoinColumn({ name: "department" })
+  @JoinColumn({ name: "department" }) 
   department: PortalDepartment;
 
   @ManyToOne(() => PortalProject, { nullable: true })
-  @JoinColumn({ name: "project_id" })
+  @JoinColumn({ name: "project_id" }) 
   project: PortalProject;
 
   @ManyToOne(() => Company, { nullable: true })
-  @JoinColumn({ name: "company" })
+  @JoinColumn({ name: "company" }) 
   company: Company;
+
+  @ManyToOne(() => PortalRole, { nullable: true })
+  @JoinColumn({ name: "id_role" }) 
+  role: PortalRole;
 }
