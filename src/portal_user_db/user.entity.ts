@@ -39,19 +39,48 @@ export class User {
   @Column({ name: "update_by", type: "int", nullable: true })
   update_by: number;
 
-  @ManyToOne(() => PortalDepartment, { nullable: true })
-  @JoinColumn({ name: "department" }) 
-  department: PortalDepartment;
+  @Column({
+    name: "yard_company",
+    type: "varchar",
+    length: 200,
+    nullable: true,
+  })
+  yard_company: string;
+
+  @Column({
+    name: "addon_project",
+    type: "varchar",
+    length: 200,
+    nullable: true,
+  })
+  addon_project: string;
+
+  @Column({
+    name: "dept_alt",
+    type: "varchar",
+    length: 200,
+    nullable: true,
+  })
+  dept_alt: string;
+
+  @Column({ name: "outside_access", type: "int", nullable: true })
+  outside_access: number;
+
+  @Column({ name: "portal_type", type: "int", nullable: true })
+  portal_type: number;
+
+  @Column({ name: "department", type: "int", nullable: true })
+  department: number;
 
   @ManyToOne(() => PortalProject, { nullable: true })
-  @JoinColumn({ name: "project_id" }) 
+  @JoinColumn({ name: "project_id" })
   project: PortalProject;
 
   @ManyToOne(() => Company, { nullable: true })
-  @JoinColumn({ name: "company" }) 
+  @JoinColumn({ name: "company" })
   company: Company;
 
   @ManyToOne(() => PortalRole, { nullable: true })
-  @JoinColumn({ name: "id_role" }) 
+  @JoinColumn({ name: "id_role" })
   role: PortalRole;
 }
