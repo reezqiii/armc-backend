@@ -4,40 +4,43 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
-  UnauthorizedException
-} from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { RequestEntity } from './request.entity';
-import { User } from '../portal_user_db/user.entity';
-import { ServerSideDTO } from 'DTO/dto.serverside';
-import { IssProject } from 'iss_project/iss_project.entity';
-import { IssDept } from 'iss_dept/iss_dept.entity';
-import { Position } from 'iss_design_new/position.entity';
-import { IssEmployee } from 'iss_employee/employee.entity';
-import { EmailService } from '../email/email.service';
-import { Company } from 'portal_company/company.entity';
-import { NavMenu } from 'portal_nav_menu/menu.entity';
-import { PortalPermission } from 'portal_permission/permission.entity';
-import { PortalUserPermissionService } from 'portal_user_permission/user_permission.service';
-import { sendEmailDto } from 'email/dto/send-email.dto';
-import { AesEcbService } from 'crypto/aes-ecb.service';
+  UnauthorizedException,
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { In, Repository } from "typeorm";
+import { RequestEntity } from "./request.entity";
+import { User } from "../portal_user_db/user.entity";
+import { ServerSideDTO } from "DTO/dto.serverside";
+import { IssProject } from "iss_project/iss_project.entity";
+import { IssDept } from "iss_dept/iss_dept.entity";
+import { Position } from "iss_design_new/position.entity";
+import { IssEmployee } from "iss_employee/employee.entity";
+import { EmailService } from "../email/email.service";
+import { Company } from "portal_company/company.entity";
+import { NavMenu } from "portal_nav_menu/menu.entity";
+import { PortalPermission } from "portal_permission/permission.entity";
+import { PortalUserPermissionService } from "portal_user_permission/user_permission.service";
+import { sendEmailDto } from "email/dto/send-email.dto";
+import { AesEcbService } from "crypto/aes-ecb.service";
 import { ConfigService } from "@nestjs/config";
-import { LogPortalService } from 'log_portal/log_portal.service';
-import { getCategoryAccountLabel } from 'utils/status-helper';
+import { LogPortalService } from "log_portal/log_portal.service";
+import { getCategoryAccountLabel } from "utils/status-helper";
+import { PdfService } from "pdf/pdf.service";
+import { formatDate } from "utils/format-date";
+import * as path from "path";
 
 @Injectable()
 export class RequestService {
-  private PORTAL_LINK: string
+  private PORTAL_LINK: string;
   constructor(
     private readonly aesEcbService: AesEcbService,
     @InjectRepository(RequestEntity)
     private readonly requestRepo: Repository<RequestEntity>,
-    @InjectRepository(IssProject, 'db_iss')
+    @InjectRepository(IssProject, "db_iss")
     private readonly projectRepo: Repository<IssProject>,
-    @InjectRepository(IssDept, 'db_iss')
+    @InjectRepository(IssDept, "db_iss")
     private readonly departmentRepo: Repository<IssDept>,
-    @InjectRepository(Position, 'db_iss')
+    @InjectRepository(Position, "db_iss")
     private readonly positionRepo: Repository<Position>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
@@ -48,11 +51,12 @@ export class RequestService {
     private readonly companyRepo: Repository<Company>,
     @InjectRepository(NavMenu)
     private readonly navMenuRepo: Repository<NavMenu>,
-    @InjectRepository(IssEmployee, 'db_iss')
+    @InjectRepository(IssEmployee, "db_iss")
     private readonly employeeRepo: Repository<IssEmployee>,
     private readonly mailService: EmailService,
     private configService: ConfigService,
     private readonly logPortalService: LogPortalService,
+    private readonly pdf: PdfService
   ) {
     this.PORTAL_LINK = this.configService.get<string>("LINK_PORTAL");
   }
@@ -64,42 +68,42 @@ export class RequestService {
       const skip = page * take;
 
       const qb = this.requestRepo
-        .createQueryBuilder('request')
-        .leftJoinAndSelect('request.approval_hod_by', 'approvalHod')
-        .leftJoinAndSelect('request.approval_it_hod_by', 'approvalIt')
-        .leftJoinAndSelect('request.approval_lead_it_by', 'approvalLeadIt')
-        .leftJoinAndSelect('request.created_by_user', 'requestor')
-        .leftJoinAndSelect('request.company', 'company')
-        .where('request.status_active = :active', { active: 1 });
+        .createQueryBuilder("request")
+        .leftJoinAndSelect("request.approval_hod_by", "approvalHod")
+        .leftJoinAndSelect("request.approval_it_hod_by", "approvalIt")
+        .leftJoinAndSelect("request.approval_lead_it_by", "approvalLeadIt")
+        .leftJoinAndSelect("request.created_by_user", "requestor")
+        .leftJoinAndSelect("request.company", "company")
+        .where("request.status_active = :active", { active: 1 });
 
       const columnMap: Record<string, string> = {
-        id_request: 'request.id_request',
-        full_name: 'request.full_name',
-        badge_no: 'request.badge_no',
-        email: 'request.email',
-        requestor_id: 'request.created_by',
-        request_status: 'request.request_status',
-        created_date: 'request.created_date',
-        status_active: 'request.status_active',
-        request_admin: 'request.request_admin',
-        requestor_name: 'requestor.full_name',
-        company_name: 'company.company_name',
-        approval_hod: 'approvalHod.full_name',
-        approval_hod_by: 'approvalHod.id_user',
-        approval_it: 'approvalIt.full_name',
-        approval_lead_it: 'approvalLeadIt.full_name',
-        category_account: 'request.category_account',
+        id_request: "request.id_request",
+        full_name: "request.full_name",
+        badge_no: "request.badge_no",
+        email: "request.email",
+        requestor_id: "request.created_by",
+        request_status: "request.request_status",
+        created_date: "request.created_date",
+        status_active: "request.status_active",
+        request_admin: "request.request_admin",
+        requestor_name: "requestor.full_name",
+        company_name: "company.company_name",
+        approval_hod: "approvalHod.full_name",
+        approval_hod_by: "approvalHod.id_user",
+        approval_it: "approvalIt.full_name",
+        approval_lead_it: "approvalLeadIt.full_name",
+        category_account: "request.category_account",
       };
 
       const manualSortFields = [
-        'department_name',
-        'project_name',
-        'position_name',
+        "department_name",
+        "project_name",
+        "position_name",
       ];
 
       let manualSearchQueue: Array<{ field: string; value: any }> = [];
       let manualSortField: string | null = null;
-      let manualSortDir: 'ASC' | 'DESC' = 'ASC';
+      let manualSortDir: "ASC" | "DESC" = "ASC";
 
       if (search) {
         let filters: Record<string, any> = {};
@@ -107,10 +111,14 @@ export class RequestService {
         try {
           filters = JSON.parse(search);
         } catch {
-          throw new InternalServerErrorException('Invalid JSON search format');
+          throw new InternalServerErrorException("Invalid JSON search format");
         }
 
-        const manualFields = ['department_name', 'project_name', 'position_name'];
+        const manualFields = [
+          "department_name",
+          "project_name",
+          "position_name",
+        ];
 
         for (const [key, value] of Object.entries(filters)) {
           if (value === undefined || value === null) continue;
@@ -124,21 +132,24 @@ export class RequestService {
           if (!column) continue;
 
           qb.andWhere(
-            typeof value === 'string'
+            typeof value === "string"
               ? `CAST(${column} AS TEXT) ILIKE :${key}`
               : `${column} = :${key}`,
-            { [key]: typeof value === 'string' ? `%${value}%` : value },
+            { [key]: typeof value === "string" ? `%${value}%` : value }
           );
         }
       }
 
       if (!user.permissions.includes(2)) {
-        qb.andWhere('(request.created_by = :uid OR request.approval_hod_by = :uid)', { uid: user.id_user });
+        qb.andWhere(
+          "(request.created_by = :uid OR request.approval_hod_by = :uid)",
+          { uid: user.id_user }
+        );
       }
 
       if (sort) {
-        const [sortField, sortDirRaw] = sort.split(',');
-        const sortDir = sortDirRaw?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+        const [sortField, sortDirRaw] = sort.split(",");
+        const sortDir = sortDirRaw?.toUpperCase() === "DESC" ? "DESC" : "ASC";
 
         if (manualSortFields.includes(sortField)) {
           manualSortField = sortField;
@@ -148,7 +159,7 @@ export class RequestService {
           qb.orderBy(column, sortDir);
         }
       } else {
-        qb.orderBy('request.created_date', 'DESC');
+        qb.orderBy("request.created_date", "DESC");
       }
 
       const [data, total] = await qb.skip(skip).take(take).getManyAndCount();
@@ -159,37 +170,38 @@ export class RequestService {
 
           const project = d.project_id
             ? await this.projectRepo.findOne({
-              where: { project_id: d.project_id },
-            })
+                where: { project_id: d.project_id },
+              })
             : null;
 
           const department = d.dept_id
             ? await this.departmentRepo.findOne({
-              where: { dept_id: d.dept_id },
-            })
+                where: { dept_id: d.dept_id },
+              })
             : null;
 
           const position = d.design_id
             ? await this.positionRepo.findOne({
-              where: { design_id: d.design_id },
-            })
+                where: { design_id: d.design_id },
+              })
             : null;
 
           const company = d.id_company
             ? await this.companyRepo.findOne({
-              where: { id_company: d.id_company },
-            })
+                where: { id_company: d.id_company },
+              })
             : null;
 
           let requestorName = null;
           if (d.created_by) {
-            const user = await this.userRepo.findOne({ where: { id_user: d.created_by } });
+            const user = await this.userRepo.findOne({
+              where: { id_user: d.created_by },
+            });
             requestorName = user?.full_name || null;
           }
 
           // const btnCancel = [0, 1, 2].includes(d.request_status) || user.permissions.includes(2);
           // const btnEdit = [0, 1, 2].includes(d.request_status) || user.permissions.includes(2);
-
 
           return {
             id_request: d.id_request,
@@ -200,33 +212,33 @@ export class RequestService {
             badge_no: d.badge_no,
             email: d.email,
             type: d.type,
-            company_name: company?.company_name || '-',
-            project_name: project?.project_desc || '-',
-            department_name: department?.dept || '-',
-            position_name: position?.design_desc || '-',
+            company_name: company?.company_name || "-",
+            project_name: project?.project_desc || "-",
+            department_name: department?.dept || "-",
+            position_name: position?.design_desc || "-",
             request_status: d.request_status,
             previous_status: d.previous_status,
             category_account: d.category_account,
             approval_hod: d.approval_hod_by
               ? `${d.approval_hod_by.id_user} - ${d.approval_hod_by.full_name}`
-              : '-',
+              : "-",
 
             approval_lead_it: d.approval_lead_it_by
               ? `${d.approval_lead_it_by.id_user} - ${d.approval_lead_it_by.full_name}`
-              : '-',
+              : "-",
 
             approval_it: d.approval_it_hod_by
               ? `${d.approval_it_hod_by.id_user} - ${d.approval_it_hod_by.full_name}`
-              : '-',
+              : "-",
 
             request_admin: d.request_admin ?? 0,
 
             approval_hod_by: d.approval_hod_by
               ? {
-                id: d.approval_hod_by.id_user,
-                badge_no: d.approval_hod_by.badge_no,
-                full_name: d.approval_hod_by.full_name,
-              }
+                  id: d.approval_hod_by.id_user,
+                  badge_no: d.approval_hod_by.badge_no,
+                  full_name: d.approval_hod_by.full_name,
+                }
               : null,
 
             approval_hod_date_at: d.approval_hod_date_at || null,
@@ -234,10 +246,10 @@ export class RequestService {
 
             approval_lead_it_by: d.approval_lead_it_by
               ? {
-                id: d.approval_lead_it_by.id_user,
-                badge_no: d.approval_lead_it_by.badge_no,
-                full_name: d.approval_lead_it_by.full_name,
-              }
+                  id: d.approval_lead_it_by.id_user,
+                  badge_no: d.approval_lead_it_by.badge_no,
+                  full_name: d.approval_lead_it_by.full_name,
+                }
               : null,
 
             approval_lead_date_at: d.approval_lead_date_at || null,
@@ -245,15 +257,14 @@ export class RequestService {
 
             approval_it_hod_by: d.approval_it_hod_by
               ? {
-                id: d.approval_it_hod_by.id_user,
-                badge_no: d.approval_it_hod_by.badge_no,
-                full_name: d.approval_it_hod_by.full_name,
-              }
+                  id: d.approval_it_hod_by.id_user,
+                  badge_no: d.approval_it_hod_by.badge_no,
+                  full_name: d.approval_it_hod_by.full_name,
+                }
               : null,
 
             approval_it_date_at: d.approval_it_date_at || null,
             rejected_it_remarks: d.rejected_it_remarks || null,
-
           };
         })
       );
@@ -261,18 +272,18 @@ export class RequestService {
       for (const { field, value } of manualSearchQueue) {
         const searchValue = String(value).toLowerCase();
 
-        mappedData = mappedData.filter(item => {
-          const target = String(item[field] ?? '').toLowerCase();
+        mappedData = mappedData.filter((item) => {
+          const target = String(item[field] ?? "").toLowerCase();
           return target.includes(searchValue);
         });
       }
 
       if (manualSortField) {
-        const direction = manualSortDir === 'DESC' ? -1 : 1;
+        const direction = manualSortDir === "DESC" ? -1 : 1;
 
         mappedData.sort((a, b) => {
-          const A = a[manualSortField] ?? '';
-          const B = b[manualSortField] ?? '';
+          const A = a[manualSortField] ?? "";
+          const B = b[manualSortField] ?? "";
           return A.localeCompare(B) * direction;
         });
       }
@@ -290,48 +301,88 @@ export class RequestService {
   }
 
   async findAll(): Promise<any[]> {
-    const data = await this.requestRepo.find({ order: { created_date: 'DESC' } });
+    const data = await this.requestRepo.find({
+      order: { created_date: "DESC" },
+    });
 
-    return Promise.all(
-      data.map(async (d) => {
-        const project = d.project_id
-          ? await this.projectRepo.findOne({
-            where: { project_id: d.project_id },
-          })
-          : null;
+    if (data.length === 0) return [];
 
-        const department = d.dept_id
-          ? await this.departmentRepo.findOne({
-            where: { dept_id: d.dept_id },
-          })
-          : null;
-
-        const position = d.design_id
-          ? await this.positionRepo.findOne({
-            where: { design_id: d.design_id },
-          })
-          : null;
-
-        return {
-          ...d,
-          project_name: project?.project_desc || '',
-          department_name: department?.dept || '',
-          position_name: position?.design_desc || '',
-        };
-      }),
+    const projectIds = Array.from(
+      new Set(
+        data
+          .map((d) => d.project_id)
+          .filter((id) => id !== null && id !== undefined)
+      )
     );
+
+    const deptIds = Array.from(
+      new Set(
+        data
+          .map((d) => d.dept_id)
+          .filter((id) => id !== null && id !== undefined)
+      )
+    );
+
+    const positionIds = Array.from(
+      new Set(
+        data
+          .map((d) => d.design_id)
+          .filter((id) => id !== null && id !== undefined)
+      )
+    );
+
+    const [projects, departments, positions] = await Promise.all([
+      projectIds.length > 0
+        ? this.projectRepo.find({ where: { project_id: In(projectIds) } })
+        : [],
+      deptIds.length > 0
+        ? this.departmentRepo.find({ where: { dept_id: In(deptIds) } })
+        : [],
+      positionIds.length > 0
+        ? this.positionRepo.find({ where: { design_id: In(positionIds) } })
+        : [],
+    ]);
+
+    const projectMap = new Map<number, string>();
+    for (const p of projects) {
+      projectMap.set(p.project_id, p.project_desc);
+    }
+
+    const deptMap = new Map<number, string>();
+    for (const d of departments) {
+      deptMap.set(d.dept_id, d.dept);
+    }
+
+    const positionMap = new Map<number, string>();
+    for (const p of positions) {
+      positionMap.set(p.design_id, p.design_desc);
+    }
+
+    return data.map((d) => ({
+      ...d,
+      project_name: projectMap.get(d.project_id) ?? "",
+      department_name: deptMap.get(d.dept_id) ?? "",
+      position_name: positionMap.get(d.design_id) ?? "",
+    }));
   }
 
   async findOne(id: number): Promise<any> {
     const data = await this.requestRepo.findOne({
       where: { id_request: id },
-      relations: ['approval_hod_by', 'approval_lead_it_by', 'approval_it_hod_by', 'company'],
+      relations: [
+        "approval_hod_by",
+        "approval_lead_it_by",
+        "approval_it_hod_by",
+        "company",
+      ],
     });
 
     if (!data) throw new NotFoundException(`Request with ID ${id} not found`);
 
     const project = data.project_id
-      ? await this.projectRepo.findOne({ where: { project_id: data.project_id } })
+      ? await this.projectRepo.findOne({
+          where: { project_id: data.project_id },
+        })
       : null;
 
     const department = data.dept_id
@@ -339,7 +390,9 @@ export class RequestService {
       : null;
 
     const position = data.design_id
-      ? await this.positionRepo.findOne({ where: { design_id: data.design_id } })
+      ? await this.positionRepo.findOne({
+          where: { design_id: data.design_id },
+        })
       : null;
 
     const createdByUser = data.created_by
@@ -357,34 +410,37 @@ export class RequestService {
       position_name: position ? position.design_desc : null,
       created_by_name: createdByUser ? createdByUser.full_name : null,
       category_account: data.category_account,
-      company: data.company ? {
-        id_company: data.company.id_company,
-        company_name: data.company.company_name
-      } : null,
+      company: data.company
+        ? {
+            id_company: data.company.id_company,
+            company_name: data.company.company_name,
+          }
+        : null,
       approval_hod_by: data.approval_hod_by
         ? {
-          id: data.approval_hod_by.id_user,
-          full_name: data.approval_hod_by.full_name,
-          badge_no: data.approval_hod_by.badge_no,
-        }
+            id: data.approval_hod_by.id_user,
+            full_name: data.approval_hod_by.full_name,
+            badge_no: data.approval_hod_by.badge_no,
+          }
         : null,
       approval_it_hod_by: data.approval_it_hod_by
         ? {
-          id: data.approval_it_hod_by.id_user,
-          full_name: data.approval_it_hod_by.full_name,
-          badge_no: data.approval_it_hod_by.badge_no,
-        }
+            id: data.approval_it_hod_by.id_user,
+            full_name: data.approval_it_hod_by.full_name,
+            badge_no: data.approval_it_hod_by.badge_no,
+          }
         : null,
       approval_lead_it_by: data.approval_lead_it_by
         ? {
-          id: data.approval_lead_it_by.id_user,
-          full_name: data.approval_lead_it_by.full_name,
-          badge_no: data.approval_lead_it_by.badge_no,
-        }
+            id: data.approval_lead_it_by.id_user,
+            full_name: data.approval_lead_it_by.full_name,
+            badge_no: data.approval_lead_it_by.badge_no,
+          }
         : null,
-      access_yard_company: await this.getYardCompanyList(data.access_yard_company),
+      access_yard_company: await this.getYardCompanyList(
+        data.access_yard_company
+      ),
       access_nav_menu: await this.getNavMenuList(data.access_nav_menu),
-
     };
   }
 
@@ -396,38 +452,38 @@ export class RequestService {
         created_by: null,
         status_active: 1,
       },
-      relations: ['company'],
+      relations: ["company"],
     });
 
     if (!data) {
-      throw new NotFoundException('Public request not found');
+      throw new NotFoundException("Public request not found");
     }
 
     const department = data.dept_id
       ? await this.departmentRepo.findOne({
-        where: { dept_id: data.dept_id },
-      })
+          where: { dept_id: data.dept_id },
+        })
       : null;
 
     const project = data.project_id
       ? await this.projectRepo.findOne({
-        where: { project_id: data.project_id },
-      })
+          where: { project_id: data.project_id },
+        })
       : null;
 
     const position = data.design_id
       ? await this.positionRepo.findOne({
-        where: { design_id: data.design_id },
-      })
+          where: { design_id: data.design_id },
+        })
       : null;
 
     return {
       ...data,
       request_status: data.request_status,
-      department_name: department?.dept ?? '-',
-      project_name: project?.project_desc ?? '-',
-      position_name: position?.design_desc ?? '-',
-        category_account: data.category_account,
+      department_name: department?.dept ?? "-",
+      project_name: project?.project_desc ?? "-",
+      position_name: position?.design_desc ?? "-",
+      category_account: data.category_account,
     };
   }
 
@@ -435,18 +491,20 @@ export class RequestService {
     if (!access) return [];
 
     const ids = String(access)
-      .split(',')
-      .map(id => Number(id.trim()))
-      .filter(id => !isNaN(id));
+      .split(",")
+      .map((id) => Number(id.trim()))
+      .filter((id) => !isNaN(id));
 
     return Promise.all(
-      ids.map(async id => {
-        const menu = await this.navMenuRepo.findOne({ where: { id_application: id } });
+      ids.map(async (id) => {
+        const menu = await this.navMenuRepo.findOne({
+          where: { id_application: id },
+        });
         return {
           id,
           application_name: menu?.application_name || `Unknown (${id})`,
         };
-      }),
+      })
     );
   }
 
@@ -454,33 +512,38 @@ export class RequestService {
     if (!access) return [];
 
     const ids = String(access)
-      .split(',')
-      .map(id => Number(id.trim()))
-      .filter(id => !isNaN(id));
+      .split(",")
+      .map((id) => Number(id.trim()))
+      .filter((id) => !isNaN(id));
 
     return Promise.all(
-      ids.map(async id => {
-        const company = await this.companyRepo.findOne({ where: { id_company: id } });
+      ids.map(async (id) => {
+        const company = await this.companyRepo.findOne({
+          where: { id_company: id },
+        });
         return {
           id,
           company_name: company?.company_name || `Unknown (${id})`,
         };
-      }),
+      })
     );
   }
 
   async create(
     data: Partial<RequestEntity>,
     userId: number
-  ): Promise<RequestEntity & { created_by_name?: string; no_request?: string }> {
-
+  ): Promise<
+    RequestEntity & { created_by_name?: string; no_request?: string }
+  > {
     const employee = await this.employeeRepo.findOne({
       where: { badge: Number(data.badge_no) },
-      relations: ['department', 'project', 'position'],
+      relations: ["department", "project", "position"],
     });
 
     if (!employee) {
-      throw new NotFoundException(`Employee with badge ${data.badge_no} not found`);
+      throw new NotFoundException(
+        `Employee with badge ${data.badge_no} not found`
+      );
     }
 
     const company = await this.companyRepo.findOne({
@@ -488,33 +551,34 @@ export class RequestService {
     });
 
     const accessYardValue = Array.isArray(data.access_yard_company)
-      ? data.access_yard_company.join(',')
+      ? data.access_yard_company.join(",")
       : data.access_yard_company || null;
 
     const accessNavMenuValue = Array.isArray(data.access_nav_menu)
-      ? data.access_nav_menu.join(',')
+      ? data.access_nav_menu.join(",")
       : data.access_nav_menu || null;
 
     let approvalHodUser = null;
     if (data.approval_hod_by) {
       approvalHodUser = await this.userRepo.findOne({
         where: {
-          id_user: typeof data.approval_hod_by === 'object'
-            ? data.approval_hod_by.id_user
-            : data.approval_hod_by
+          id_user:
+            typeof data.approval_hod_by === "object"
+              ? data.approval_hod_by.id_user
+              : data.approval_hod_by,
         },
       });
     }
 
     const approvalItUser = data.approval_it_hod_by
       ? await this.userRepo.findOne({
-        where: {
-          id_user:
-            typeof data.approval_it_hod_by === 'object'
-              ? data.approval_it_hod_by.id_user
-              : data.approval_it_hod_by,
-        },
-      })
+          where: {
+            id_user:
+              typeof data.approval_it_hod_by === "object"
+                ? data.approval_it_hod_by.id_user
+                : data.approval_it_hod_by,
+          },
+        })
       : null;
 
     const newRequest = this.requestRepo.create({
@@ -560,16 +624,16 @@ export class RequestService {
     });
 
     const accessYardValue = Array.isArray(data.access_yard_company)
-      ? data.access_yard_company.join(',')
+      ? data.access_yard_company.join(",")
       : data.access_yard_company || null;
 
     const accessNavMenuValue = Array.isArray(data.access_nav_menu)
-      ? data.access_nav_menu.join(',')
+      ? data.access_nav_menu.join(",")
       : data.access_nav_menu || null;
     let approvalLeadItUser: User | null = null;
     if (data.approval_lead_it_by) {
       approvalLeadItUser = await this.userRepo.findOne({
-        where: { id_user: Number(data.approval_lead_it_by) }
+        where: { id_user: Number(data.approval_lead_it_by) },
       });
     }
 
@@ -599,13 +663,12 @@ export class RequestService {
     });
 
     return this.requestRepo.save(newRequest);
-
   }
 
   async getEmployeeByBadge(badge: number) {
     const employee = await this.employeeRepo.findOne({
       where: { badge },
-      relations: ['department', 'project', 'position'],
+      relations: ["department", "project", "position"],
     });
 
     if (!employee) {
@@ -616,11 +679,11 @@ export class RequestService {
       badge: employee.badge,
       full_name: employee.name,
       project_id: employee.project?.project_id || null,
-      project_name: employee.project?.project_desc || '-',
+      project_name: employee.project?.project_desc || "-",
       dept_id: employee.department?.dept_id || null,
-      dept_name: employee.department?.dept || '-',
+      dept_name: employee.department?.dept || "-",
       design_id: employee.position?.design_id || null,
-      position_name: employee.position?.design_desc || '-',
+      position_name: employee.position?.design_desc || "-",
     };
   }
 
@@ -628,26 +691,30 @@ export class RequestService {
     try {
       const users = await this.userRepo.find({
         where: { status_user: 1 },
-        order: { full_name: 'ASC' },
+        order: { full_name: "ASC" },
       });
 
-      return users.map(u => ({
+      return users.map((u) => ({
         id_user: u.id_user,
         badge_no: u.badge_no,
         full_name: u.full_name,
       }));
     } catch (error) {
-      throw new InternalServerErrorException('Failed to fetch HOD list');
+      throw new InternalServerErrorException("Failed to fetch HOD list");
     }
   }
 
   async update(
     id_request: number,
-    data: Partial<RequestEntity>,
+    data: Partial<RequestEntity>
   ): Promise<RequestEntity> {
     const existing = await this.requestRepo.findOne({
       where: { id_request },
-      relations: ['approval_hod_by', 'approval_lead_it_by', 'approval_it_hod_by'],
+      relations: [
+        "approval_hod_by",
+        "approval_lead_it_by",
+        "approval_it_hod_by",
+      ],
     });
 
     if (!existing)
@@ -656,29 +723,31 @@ export class RequestService {
     // handle yard company
     if (data.access_yard_company !== undefined) {
       existing.access_yard_company = Array.isArray(data.access_yard_company)
-        ? data.access_yard_company.join(',')
+        ? data.access_yard_company.join(",")
         : data.access_yard_company;
     }
 
     // handle nav menu
     if (data.access_nav_menu !== undefined) {
       existing.access_nav_menu = Array.isArray(data.access_nav_menu)
-        ? data.access_nav_menu.join(',')
+        ? data.access_nav_menu.join(",")
         : data.access_nav_menu;
     }
 
     // approval HOD
     if (data.approval_hod_by) {
-      const hodId = typeof data.approval_hod_by === 'object'
-        ? data.approval_hod_by.id_user
-        : data.approval_hod_by;
+      const hodId =
+        typeof data.approval_hod_by === "object"
+          ? data.approval_hod_by.id_user
+          : data.approval_hod_by;
 
       const parsedId = Number(hodId);
 
       if (!parsedId || isNaN(parsedId)) {
-
       } else {
-        const userHod = await this.userRepo.findOne({ where: { id_user: parsedId } });
+        const userHod = await this.userRepo.findOne({
+          where: { id_user: parsedId },
+        });
         if (userHod) {
           existing.approval_hod_by = userHod;
           // existing.approval_hod_date_at = new Date();
@@ -688,16 +757,18 @@ export class RequestService {
 
     // approval Lead IT
     if (data.approval_lead_it_by) {
-      const leadItId = typeof data.approval_lead_it_by === 'object'
-        ? data.approval_lead_it_by.id_user
-        : data.approval_lead_it_by;
+      const leadItId =
+        typeof data.approval_lead_it_by === "object"
+          ? data.approval_lead_it_by.id_user
+          : data.approval_lead_it_by;
 
       const parsedId = Number(leadItId);
 
       if (!parsedId || isNaN(parsedId)) {
-
       } else {
-        const userLeadIt = await this.userRepo.findOne({ where: { id_user: parsedId } });
+        const userLeadIt = await this.userRepo.findOne({
+          where: { id_user: parsedId },
+        });
         if (userLeadIt) {
           existing.approval_lead_it_by = userLeadIt;
           existing.approval_lead_date_at = new Date();
@@ -707,14 +778,14 @@ export class RequestService {
 
     // approval IT HOD
     if (data.approval_it_hod_by) {
-      const itId = typeof data.approval_it_hod_by === 'object'
-        ? data.approval_it_hod_by.id_user
-        : data.approval_it_hod_by;
+      const itId =
+        typeof data.approval_it_hod_by === "object"
+          ? data.approval_it_hod_by.id_user
+          : data.approval_it_hod_by;
 
       const parsedId = Number(itId);
 
       if (!parsedId || isNaN(parsedId)) {
-
       } else {
         const userIt = await this.userRepo.findOne({
           where: { id_user: parsedId },
@@ -783,7 +854,7 @@ export class RequestService {
   ) {
     const existing = await this.requestRepo.findOne({
       where: { id_request },
-      relations: ['approval_hod_by', 'created_by_user'],
+      relations: ["approval_hod_by", "created_by_user"],
     });
 
     if (!existing) {
@@ -791,7 +862,7 @@ export class RequestService {
     }
 
     if (existing.request_status !== 1) {
-      throw new BadRequestException('Request is not pending HOD approval');
+      throw new BadRequestException("Request is not pending HOD approval");
     }
 
     const hodUser = await this.userRepo.findOne({
@@ -799,66 +870,68 @@ export class RequestService {
     });
 
     if (!hodUser) {
-      throw new BadRequestException('Invalid HOD user');
+      throw new BadRequestException("Invalid HOD user");
     }
 
     existing.previous_status = existing.request_status;
-    existing.approval_hod_by = hodUser;
     existing.approval_hod_date_at = new Date();
 
-    if (action === 'approve') {
+    if (action === "approve") {
       existing.request_status = 3;
       await this.requestRepo.save(existing);
 
       await this.notifyLeadItApproval(existing.id_request);
-
-    } else if (action === 'reject') {
+    } else if (action === "reject") {
       existing.request_status = 2;
       existing.rejected_hod_remarks = remarks;
       await this.requestRepo.save(existing);
-
     } else {
-      throw new InternalServerErrorException('Invalid action');
+      throw new InternalServerErrorException("Invalid action");
     }
 
     return true;
   }
 
   async hodApprovalBulk(
-    ids: number[],
+    encryptedIds: string[],
     action: string,
     remarks: string,
     userId: number
   ) {
+    if (!Array.isArray(encryptedIds)) {
+      throw new BadRequestException("encryptedIds must be an array");
+    }
+
     const approvedRequests = [];
 
-    for (const id of ids) {
+    const hodUser = await this.userRepo.findOne({
+      where: { id_user: userId },
+    });
+
+    if (!hodUser) {
+      throw new BadRequestException("Invalid HOD user");
+    }
+
+    for (const encryptedId of encryptedIds) {
+      const id = Number(this.aesEcbService.decryptBase64Url(encryptedId));
+
       const existing = await this.requestRepo.findOne({
         where: { id_request: id },
-        relations: ['approval_hod_by', 'created_by_user'],
+        relations: ["approval_hod_by", "created_by_user"],
       });
 
       if (!existing) continue;
       if (existing.request_status !== 1) continue;
-
-      const hodUser = await this.userRepo.findOne({
-        where: { id_user: userId },
-      });
-
-      if (!hodUser) {
-        throw new BadRequestException('Invalid HOD user');
-      }
-
       existing.previous_status = existing.request_status;
-      existing.approval_hod_by = hodUser;
       existing.approval_hod_date_at = new Date();
 
-      if (action === 'approve') {
+      if (action === "approve") {
         existing.request_status = 3;
         await this.requestRepo.save(existing);
         approvedRequests.push(existing);
+      }
 
-      } else if (action === 'reject') {
+      if (action === "reject") {
         existing.request_status = 2;
         existing.rejected_hod_remarks = remarks;
         await this.requestRepo.save(existing);
@@ -889,7 +962,7 @@ export class RequestService {
     try {
       await this.notifyHod(saved);
     } catch (err) {
-      console.error('Failed to send HOD email:', err);
+      console.error("Failed to send HOD email:", err);
     }
 
     return saved;
@@ -898,14 +971,16 @@ export class RequestService {
   private async submitToHodInternal(id_request: number, userId: number) {
     const existing = await this.requestRepo.findOne({
       where: { id_request },
-      relations: ['approval_hod_by', 'created_by_user'],
+      relations: ["approval_hod_by", "created_by_user"],
     });
 
     if (!existing)
       throw new NotFoundException(`Request with ID ${id_request} not found`);
 
     if (!existing.approval_hod_by)
-      throw new InternalServerErrorException('HOD not assigned for this request');
+      throw new InternalServerErrorException(
+        "HOD not assigned for this request"
+      );
 
     // hanya update status, TANPA email
     existing.request_status = 1;
@@ -916,41 +991,35 @@ export class RequestService {
   private async notifyHod(request: any) {
     const hod = request.approval_hod_by;
 
-    const encryptedId =
-      this.aesEcbService.encryptToBase64Url(
-        String(request.id_request)
-      );
+    const encryptedId = this.aesEcbService.encryptToBase64Url(
+      String(request.id_request)
+    );
 
-    const targetUrl =
-      `http://localhost:3001/user_request/detail_req/${encryptedId}`;
+    const targetUrl = `${process.env.ARMC_BASE_URL}/user_request/detail_req/${encryptedId}`;
 
-    const encryptedTarget =
-      this.aesEcbService.encryptToBase64Url(targetUrl);
+    const encryptedTarget = this.aesEcbService.encryptToBase64Url(targetUrl);
 
-    const approvalLink =
-      `${process.env.LINK_PORTAL}/jump_url/redirect_v2/${encryptedTarget}`;
+    const approvalLink = `${process.env.LINK_PORTAL}/jump_url/redirect_v2/${encryptedTarget}`;
 
     const viewData = {
       approverName: hod.full_name,
-      categoryAccount: getCategoryAccountLabel(
-        request.category_account
-      ),
-      requestNumber: `ITF14-${String(request.id_request).padStart(6, '0')}`,
+      categoryAccount: getCategoryAccountLabel(request.category_account),
+      requestNumber: `ITF14-${String(request.id_request).padStart(6, "0")}`,
       requestDate: request.created_date
-        ? new Date(request.created_date).toLocaleDateString('en-GB')
-        : '-',
-      requestorName: request.created_by_user?.full_name || '-',
-      targetBadgeNo: request.badge_no || '-',
-      targetFullName: request.full_name || '-',
-      targetEmail: request.email || '-',
-      requestDescription: request.request_reason || '-',
+        ? new Date(request.created_date).toLocaleDateString("en-GB")
+        : "-",
+      requestorName: request.created_by_user?.full_name || "-",
+      targetBadgeNo: request.badge_no || "-",
+      targetFullName: request.full_name || "-",
+      targetEmail: request.email || "-",
+      requestDescription: request.request_reason || "-",
       approvalLink,
     };
 
     const email = new sendEmailDto();
     email.email_to = [hod.email];
-    email.subject = 'Request Need Your Approval';
-    email.content = this.mailService.renderTemplate('approval.ejs', viewData);
+    email.subject = "Request Need Your Approval";
+    email.content = this.mailService.renderTemplate("approval.ejs", viewData);
 
     await this.mailService.sendEmail(email);
   }
@@ -958,63 +1027,81 @@ export class RequestService {
   async notifyLeadItApproval(id_request: number) {
     const request = await this.requestRepo.findOne({
       where: { id_request },
-      relations: ['created_by_user'],
+      relations: ["created_by_user"],
     });
 
     if (!request) return;
 
     const portalEmails = await this.mailService.getPortalEmailList({
-      process: 'IT Lead Approval',
+      process: "IT Lead Approval",
+      group_name: 24,
     });
 
-    const encryptedId =
-      this.aesEcbService.encryptToBase64Url(
-        String(request.id_request)
-      );
+    const encryptedId = this.aesEcbService.encryptToBase64Url(
+      String(request.id_request)
+    );
 
-    const targetUrl =
-      `http://localhost:3001/user_request/detail_req/${encryptedId}`;
+    const targetUrl = `http://localhost:3001/armc/user_request/detail_req/${encryptedId}`;
 
-    const encryptedTarget =
-      this.aesEcbService.encryptToBase64Url(targetUrl);
+    const encryptedTarget = this.aesEcbService.encryptToBase64Url(targetUrl);
 
-    const approvalLink =
-      `${process.env.LINK_PORTAL}/jump_url/redirect_v2/${encryptedTarget}`;
+    const approvalLink = `${process.env.LINK_PORTAL}/jump_url/redirect_v2/${encryptedTarget}`;
 
-    const emailTo = [];
-    portalEmails.forEach(row => {
+    const emailTo: string[] = [];
+    const emailCc: string[] = [];
+    const emailBcc: string[] = [];
+
+    portalEmails.forEach((row) => {
+      // TO
       if (row.email_to) {
         emailTo.push(
           ...row.email_to
             .split(",")
-            .map(v => v.trim())
-            .filter(v => v)
+            .map((v) => v.trim())
+            .filter((v) => v)
+        );
+      }
+
+      // CC
+      if (row.email_cc) {
+        emailCc.push(
+          ...row.email_cc
+            .split(",")
+            .map((v) => v.trim())
+            .filter((v) => v)
+        );
+      }
+
+      // BCC
+      if (row.email_bcc) {
+        emailBcc.push(
+          ...row.email_bcc
+            .split(",")
+            .map((v) => v.trim())
+            .filter((v) => v)
         );
       }
     });
 
     const viewData = {
-      approverName: 'Lead IT Approver',
-      categoryAccount: getCategoryAccountLabel(
-        request.category_account
-      ),
-      requestNumber: `ITF14-${String(request.id_request).padStart(6, '0')}`,
+      approverName: "Lead IT Approver",
+      categoryAccount: getCategoryAccountLabel(request.category_account),
+      requestNumber: `ITF14-${String(request.id_request).padStart(6, "0")}`,
       requestDate: request.created_date
-        ? new Date(request.created_date).toLocaleDateString('en-GB')
-        : '-',
-      requestorName: request.created_by_user?.full_name || '-',
-      targetBadgeNo: request.badge_no || '-',
-      targetFullName: request.full_name || '-',
-      targetEmail: request.email || '-',
-      requestDescription: request.request_reason || '-',
-      approvalLink:
-        `${process.env.LINK_PORTAL}/jump_url/redirect_v2/${encryptedTarget}`
+        ? new Date(request.created_date).toLocaleDateString("en-GB")
+        : "-",
+      requestorName: request.created_by_user?.full_name || "-",
+      targetBadgeNo: request.badge_no || "-",
+      targetFullName: request.full_name || "-",
+      targetEmail: request.email || "-",
+      requestDescription: request.request_reason || "-",
+      approvalLink: `${process.env.LINK_PORTAL}/jump_url/redirect_v2/${encryptedTarget}`,
     };
 
     const email = new sendEmailDto();
     email.email_to = [...new Set(emailTo)];
-    email.subject = 'Request Need Lead IT Approval';
-    email.content = this.mailService.renderTemplate('approval.ejs', viewData);
+    email.subject = "Request Need Lead IT Approval";
+    email.content = this.mailService.renderTemplate("approval.ejs", viewData);
 
     await this.mailService.sendEmail(email);
   }
@@ -1022,74 +1109,92 @@ export class RequestService {
   async notifyItManagerApproval(id_request: number) {
     const request = await this.requestRepo.findOne({
       where: { id_request },
-      relations: ['created_by_user'],
+      relations: ["created_by_user"],
     });
 
     if (!request) return;
 
     const portalEmails = await this.mailService.getPortalEmailList({
-      process: 'IT Manager Approval',
+      process: "IT Manager Approval",
+      group_name: 24,
     });
 
     const emailTo: string[] = [];
-    portalEmails.forEach(row => {
+    const emailCc: string[] = [];
+    const emailBcc: string[] = [];
+
+    portalEmails.forEach((row) => {
+      // TO
       if (row.email_to) {
         emailTo.push(
           ...row.email_to
-            .split(',')
-            .map(v => v.trim())
-            .filter(v => v)
+            .split(",")
+            .map((v) => v.trim())
+            .filter((v) => v)
+        );
+      }
+
+      // CC
+      if (row.email_cc) {
+        emailCc.push(
+          ...row.email_cc
+            .split(",")
+            .map((v) => v.trim())
+            .filter((v) => v)
+        );
+      }
+
+      // BCC
+      if (row.email_bcc) {
+        emailBcc.push(
+          ...row.email_bcc
+            .split(",")
+            .map((v) => v.trim())
+            .filter((v) => v)
         );
       }
     });
 
     if (!emailTo.length) {
-      console.warn('No IT Manager email configured');
+      console.warn("No IT Manager email configured");
       return;
     }
 
-    const encryptedId =
-      this.aesEcbService.encryptToBase64Url(
-        String(request.id_request)
-      );
+    const encryptedId = this.aesEcbService.encryptToBase64Url(
+      String(request.id_request)
+    );
 
-    const targetUrl =
-      `http://localhost:3001/user_request/detail_req/${encryptedId}`;
+    const targetUrl = `http://localhost:3001/armc/user_request/detail_req/${encryptedId}`;
 
-    const encryptedTarget =
-      this.aesEcbService.encryptToBase64Url(targetUrl);
+    const encryptedTarget = this.aesEcbService.encryptToBase64Url(targetUrl);
 
-    const approvalLink =
-      `${process.env.LINK_PORTAL}/jump_url/redirect_v2/${encryptedTarget}`;
+    const approvalLink = `${process.env.LINK_PORTAL}/jump_url/redirect_v2/${encryptedTarget}`;
 
     const viewData = {
-      approverName: 'IT Manager',
-      categoryAccount: getCategoryAccountLabel(
-        request.category_account
-      ),
-      requestNumber: `ITF14-${String(request.id_request).padStart(6, '0')}`,
+      approverName: "IT Manager",
+      categoryAccount: getCategoryAccountLabel(request.category_account),
+      requestNumber: `ITF14-${String(request.id_request).padStart(6, "0")}`,
       requestDate: request.created_date
-        ? new Date(request.created_date).toLocaleDateString('en-GB')
-        : '-',
-      requestorName: request.created_by_user?.full_name || '-',
-      targetBadgeNo: request.badge_no || '-',
-      targetFullName: request.full_name || '-',
-      targetEmail: request.email || '-',
-      requestDescription: request.request_reason || '-',
+        ? new Date(request.created_date).toLocaleDateString("en-GB")
+        : "-",
+      requestorName: request.created_by_user?.full_name || "-",
+      targetBadgeNo: request.badge_no || "-",
+      targetFullName: request.full_name || "-",
+      targetEmail: request.email || "-",
+      requestDescription: request.request_reason || "-",
       approvalLink,
     };
 
     const email = new sendEmailDto();
     email.email_to = [...new Set(emailTo)];
-    email.subject = 'Request Need IT Manager Approval';
-    email.content =
-      this.mailService.renderTemplate('approval.ejs', viewData);
+    email.subject = "Request Need IT Manager Approval";
+    email.content = this.mailService.renderTemplate("approval.ejs", viewData);
 
     await this.mailService.sendEmail(email);
   }
 
   async submitBulkToHod(encryptedIds: string[], userId: number) {
-    return this.requestRepo.manager.transaction(async manager => {
+    return this.requestRepo.manager.transaction(async (manager) => {
       const results = [];
       const hodMap = new Map<number, any[]>();
 
@@ -1100,7 +1205,7 @@ export class RequestService {
 
         const existing = await manager.findOne(RequestEntity, {
           where: { id_request },
-          relations: ['approval_hod_by', 'created_by_user'],
+          relations: ["approval_hod_by", "created_by_user"],
         });
 
         if (!existing || !existing.approval_hod_by) continue;
@@ -1133,12 +1238,14 @@ export class RequestService {
     remarks: string,
     userId: number
   ) {
-    const permissions =
-      await this.permissionService.getUserPermissionsForApp(userId, 31);
+    const permissions = await this.permissionService.getUserPermissionsForApp(
+      userId,
+      31
+    );
 
     const leadItPermissions = permissions
-      .filter(p => p.index_key === '0')
-      .map(p => p.id_portal_permission);
+      .filter((p) => p.index_key === "0")
+      .map((p) => p.id_portal_permission);
 
     if (!leadItPermissions.includes("2000")) {
       throw new ForbiddenException("Not allowed to approve as Lead IT");
@@ -1146,17 +1253,17 @@ export class RequestService {
 
     const existing = await this.requestRepo.findOne({
       where: { id_request },
-      relations: ['created_by_user'],
+      relations: ["created_by_user"],
     });
 
     if (!existing)
       throw new NotFoundException(`Request with ID ${id_request} not found`);
 
     if (existing.request_status !== 3) {
-      throw new BadRequestException('Request is not pending Lead IT approval');
+      throw new BadRequestException("Request is not pending Lead IT approval");
     }
 
-    if (action === 'approve') {
+    if (action === "approve") {
       existing.previous_status = existing.request_status;
       existing.request_status = 5;
       existing.approval_lead_date_at = new Date();
@@ -1167,8 +1274,7 @@ export class RequestService {
       await this.requestRepo.save(existing);
 
       await this.notifyItManagerApproval(existing.id_request);
-
-    } else if (action === 'reject') {
+    } else if (action === "reject") {
       existing.previous_status = existing.request_status;
       existing.request_status = 4;
       existing.rejected_lead_remarks = remarks;
@@ -1179,10 +1285,85 @@ export class RequestService {
 
       await this.requestRepo.save(existing);
     } else {
-      throw new InternalServerErrorException('Invalid action');
+      throw new InternalServerErrorException("Invalid action");
     }
 
     return true;
+  }
+
+  async leadItApprovalBulk(
+    encryptedIds: string[],
+    action: "approve" | "reject",
+    remarks: string,
+    userId: number
+  ) {
+    if (!Array.isArray(encryptedIds)) {
+      throw new BadRequestException("encryptedIds must be an array");
+    }
+
+    // cek permission Lead IT
+    const permissions = await this.permissionService.getUserPermissionsForApp(
+      userId,
+      31
+    );
+
+    const leadItPermissions = permissions
+      .filter((p) => p.index_key === "0")
+      .map((p) => p.id_portal_permission);
+
+    if (!leadItPermissions.includes("2000")) {
+      throw new ForbiddenException("Not allowed to approve as Lead IT");
+    }
+
+    const leadItUser = await this.userRepo.findOne({
+      where: { id_user: userId },
+    });
+
+    if (!leadItUser) {
+      throw new BadRequestException("Invalid Lead IT user");
+    }
+
+    const approvedRequests: RequestEntity[] = [];
+
+    for (const encId of encryptedIds) {
+      const id = Number(this.aesEcbService.decryptBase64Url(encId));
+      if (isNaN(id)) continue;
+
+      const existing = await this.requestRepo.findOne({
+        where: { id_request: id },
+        relations: ["created_by_user"],
+      });
+
+      if (!existing) continue;
+      if (existing.request_status !== 3) continue; // pending Lead IT
+
+      existing.previous_status = existing.request_status;
+      existing.approval_lead_it_by = leadItUser;
+      existing.approval_lead_date_at = new Date();
+
+      if (action === "approve") {
+        existing.request_status = 5;
+        await this.requestRepo.save(existing);
+        approvedRequests.push(existing);
+      }
+
+      if (action === "reject") {
+        existing.request_status = 4;
+        existing.rejected_lead_remarks = remarks;
+        await this.requestRepo.save(existing);
+      }
+    }
+
+    // kirim email ke IT Manager
+    for (const req of approvedRequests) {
+      await this.notifyItManagerApproval(req.id_request);
+    }
+
+    return {
+      success: true,
+      count: approvedRequests.length,
+      message: `Processed ${approvedRequests.length} Lead IT approvals`,
+    };
   }
 
   async itApproval(
@@ -1191,12 +1372,14 @@ export class RequestService {
     remarks: string,
     userId: number
   ) {
-    const permissions =
-      await this.permissionService.getUserPermissionsForApp(userId, 31);
+    const permissions = await this.permissionService.getUserPermissionsForApp(
+      userId,
+      31
+    );
 
     const itManagerPermissions = permissions
-      .filter(p => p.index_key === '1')
-      .map(p => p.id_portal_permission);
+      .filter((p) => p.index_key === "1")
+      .map((p) => p.id_portal_permission);
 
     if (!itManagerPermissions.includes("2001")) {
       throw new ForbiddenException("Not allowed to approve as IT Manager");
@@ -1204,7 +1387,11 @@ export class RequestService {
 
     const existing = await this.requestRepo.findOne({
       where: { id_request },
-      relations: ['approval_it_hod_by', 'approval_lead_it_by', 'approval_hod_by'],
+      relations: [
+        "approval_it_hod_by",
+        "approval_lead_it_by",
+        "approval_hod_by",
+      ],
     });
 
     if (!existing)
@@ -1212,36 +1399,105 @@ export class RequestService {
 
     if (existing.request_status !== 5) {
       throw new BadRequestException(
-        'Request is not pending IT Manager approval'
+        "Request is not pending IT Manager approval"
       );
     }
 
-    if (action === 'approve') {
+    if (action === "approve") {
       existing.previous_status = existing.request_status;
       existing.request_status = 7;
       existing.approval_it_date_at = new Date();
-      existing.approval_it_hod_by =
-        await this.userRepo.findOne({ where: { id_user: userId } });
+      existing.approval_it_hod_by = await this.userRepo.findOne({
+        where: { id_user: userId },
+      });
       existing.request_admin = 0;
-
-    } else if (action === 'reject') {
+    } else if (action === "reject") {
       existing.previous_status = existing.request_status;
       existing.request_status = 4;
       existing.rejected_it_remarks = remarks;
       existing.approval_it_date_at = new Date();
-      existing.approval_it_hod_by =
-        await this.userRepo.findOne({ where: { id_user: userId } });
-
+      existing.approval_it_hod_by = await this.userRepo.findOne({
+        where: { id_user: userId },
+      });
     } else {
-      throw new InternalServerErrorException('Invalid action');
+      throw new InternalServerErrorException("Invalid action");
     }
 
     return this.requestRepo.save(existing);
   }
 
+  async itApprovalBulk(
+    encryptedIds: string[],
+    action: "approve" | "reject",
+    remarks: string,
+    userId: number
+  ) {
+    if (!Array.isArray(encryptedIds)) {
+      throw new BadRequestException("encryptedIds must be an array");
+    }
+
+    const permissions = await this.permissionService.getUserPermissionsForApp(
+      userId,
+      31
+    );
+
+    const itManagerPermissions = permissions
+      .filter((p) => p.index_key === "1")
+      .map((p) => p.id_portal_permission);
+
+    if (!itManagerPermissions.includes("2001")) {
+      throw new ForbiddenException("Not allowed to approve as IT Manager");
+    }
+
+    const itUser = await this.userRepo.findOne({
+      where: { id_user: userId },
+    });
+
+    if (!itUser) {
+      throw new BadRequestException("Invalid IT Manager user");
+    }
+
+    const approvedRequests = [];
+
+    for (const encId of encryptedIds) {
+      const id = Number(this.aesEcbService.decryptBase64Url(encId));
+      if (isNaN(id)) continue;
+
+      const existing = await this.requestRepo.findOne({
+        where: { id_request: id },
+      });
+
+      if (!existing) continue;
+      if (existing.request_status !== 5) continue;
+
+      existing.previous_status = existing.request_status;
+      existing.approval_it_date_at = new Date();
+      existing.approval_it_hod_by = itUser;
+
+      if (action === "approve") {
+        existing.request_status = 7;
+        existing.request_admin = 0;
+        approvedRequests.push(existing);
+      }
+
+      if (action === "reject") {
+        existing.request_status = 4;
+        existing.rejected_it_remarks = remarks;
+      }
+
+      await this.requestRepo.save(existing);
+    }
+
+    return {
+      success: true,
+      count: approvedRequests.length,
+      message: `Processed ${approvedRequests.length} IT Manager approvals`,
+    };
+  }
+
   async return(id_request: number, user: any) {
     if (!user.permissions.includes(2)) {
-      throw new UnauthorizedException('Forbidden');
+      throw new UnauthorizedException("Forbidden");
     }
 
     const request = await this.requestRepo.findOne({
@@ -1249,11 +1505,11 @@ export class RequestService {
     });
 
     if (!request) {
-      throw new NotFoundException('Request not found');
+      throw new NotFoundException("Request not found");
     }
 
     if (![3, 5, 7].includes(request.request_status)) {
-      throw new BadRequestException('Request cannot be returned');
+      throw new BadRequestException("Request cannot be returned");
     }
 
     request.previous_status = request.request_status;
@@ -1265,55 +1521,60 @@ export class RequestService {
 
   async submitReturn(id: number, userId: number) {
     const request = await this.requestRepo.findOneBy({ id_request: id });
-    if (!request) throw new NotFoundException('Request not found');
+    if (!request) throw new NotFoundException("Request not found");
 
     if (request.request_status !== 8) {
-      throw new BadRequestException('Request is not in Returned status');
+      throw new BadRequestException("Request is not in Returned status");
     }
 
     if (request.created_by !== userId) {
-      throw new ForbiddenException('You are not allowed to submit this return request');
+      throw new ForbiddenException(
+        "You are not allowed to submit this return request"
+      );
     }
 
     request.request_status = request.previous_status ?? request.request_status;
     await this.requestRepo.save(request);
 
-    return { message: 'Return request submitted successfully', request_status: request.request_status };
+    return {
+      message: "Return request submitted successfully",
+      request_status: request.request_status,
+    };
   }
 
   async exportList(filters: any, sort_by: string, sort_order: string) {
     const qb = this.requestRepo
-      .createQueryBuilder('r')
-      .leftJoin('portal_user_db', 'u', 'u.id_user = r.created_by')
-      .addSelect(['u.full_name'])
-      .leftJoin('portal_company', 'c', 'c.id_company = r.id_company')
-      .addSelect(['c.company_name']);
+      .createQueryBuilder("r")
+      .leftJoin("portal_user_db", "u", "u.id_user = r.created_by")
+      .addSelect(["u.full_name"])
+      .leftJoin("portal_company", "c", "c.id_company = r.id_company")
+      .addSelect(["c.company_name"]);
 
-    Object.keys(filters || {}).forEach(key => {
+    Object.keys(filters || {}).forEach((key) => {
       const value = filters[key];
-      if (value !== undefined && value !== null && value !== '') {
-
-        if (key === 'request_status' || key === 'request_admin') {
+      if (value !== undefined && value !== null && value !== "") {
+        if (key === "request_status" || key === "request_admin") {
           const numValue = Number(value);
           if (!isNaN(numValue)) {
             qb.andWhere(`r.${key} = :${key}`, { [key]: numValue });
           }
         }
-        if (key === 'category_account') {
-          qb.andWhere('r.category_account = :category_account', {
+        if (key === "category_account") {
+          qb.andWhere("r.category_account = :category_account", {
             category_account: Number(value),
           });
-        }
-        else if (isNaN(Number(value))) {
+        } else if (isNaN(Number(value))) {
           qb.andWhere(`r.${key} ILIKE :${key}`, { [key]: `%${value}%` });
-        }
-        else {
+        } else {
           qb.andWhere(`r.${key} = :${key}`, { [key]: Number(value) });
         }
       }
     });
 
-    qb.orderBy(`r.${sort_by || 'id_request'}`, (sort_order || 'ASC') as 'ASC' | 'DESC');
+    qb.orderBy(
+      `r.${sort_by || "id_request"}`,
+      (sort_order || "ASC") as "ASC" | "DESC"
+    );
 
     const requests = await qb.getRawMany();
 
@@ -1323,22 +1584,140 @@ export class RequestService {
       this.projectRepo.find(),
     ]);
 
-    const deptMap = new Map(depts.map(d => [d.dept_id, d.dept]));
-    const positionMap = new Map(positions.map(p => [p.design_id, p.design_desc]));
-    const projectMap = new Map(projects.map(p => [p.project_id, p.project_desc]));
+    const deptMap = new Map(depts.map((d) => [d.dept_id, d.dept]));
+    const positionMap = new Map(
+      positions.map((p) => [p.design_id, p.design_desc])
+    );
+    const projectMap = new Map(
+      projects.map((p) => [p.project_id, p.project_desc])
+    );
 
-    return requests.map(r => ({
+    return requests.map((r) => ({
       ...r,
-      department_name: deptMap.get(r.r_dept_id) || '-',
-      position_name: positionMap.get(r.r_design_id) || '-',
-      project_name: projectMap.get(r.r_project_id) || '-',
+      department_name: deptMap.get(r.r_dept_id) || "-",
+      position_name: positionMap.get(r.r_design_id) || "-",
+      project_name: projectMap.get(r.r_project_id) || "-",
       category_account: r.r_category_account,
     }));
   }
 
+  async generateRequestPdf(enc_request_id: string): Promise<Buffer> {
+    try {
+      const dec_request_id = Number(
+        this.aesEcbService.decryptBase64Url(enc_request_id)
+      );
+
+      if (isNaN(dec_request_id)) {
+        throw new BadRequestException("Invalid request ID");
+      }
+
+      const request = await this.requestRepo.findOne({
+        where: {
+          id_request: dec_request_id,
+          status_active: 1,
+        },
+        relations: [
+          "approval_hod_by",
+          "approval_lead_it_by",
+          "approval_it_hod_by",
+          "created_by_user",
+        ],
+      });
+
+      if (!request) {
+        throw new NotFoundException("Request not found");
+      }
+
+      const [dept, project, position, company, requestor] = await Promise.all([
+        request.dept_id
+          ? this.departmentRepo.findOne({ where: { dept_id: request.dept_id } })
+          : null,
+
+        request.project_id
+          ? this.projectRepo.findOne({
+              where: { project_id: request.project_id },
+            })
+          : null,
+
+        request.design_id
+          ? this.positionRepo.findOne({
+              where: { design_id: request.design_id },
+            })
+          : null,
+
+        request.id_company
+          ? this.companyRepo.findOne({
+              where: { id_company: request.id_company },
+            })
+          : null,
+
+        request.created_by
+          ? this.userRepo.findOne({ where: { id_user: request.created_by } })
+          : null,
+      ]);
+
+      const formattedRequestId = `ITF14-${String(request.id_request).padStart(
+        6,
+        "0"
+      )}`;
+
+      const logoPath = path.join(process.cwd(), "public", "img", "pcms_logo.png");
+
+      const logoBase64 = this.pdf.getBase64Image(logoPath);
+
+      const view_data = {
+        logoBase64,
+        requestId: formattedRequestId,
+        requestedDate: formatDate(request.created_date),
+        requestedBy: requestor?.full_name ?? "-",
+        categoryAccount: getCategoryAccountLabel(request.category_account),
+        badge: request.badge_no,
+        fullName: request.full_name,
+        email: request.email,
+        dept: dept?.dept ?? "-",
+        position: position?.design_desc ?? "-",
+        project: project?.project_desc ?? "-",
+        company: company?.company_name ?? "-",
+        yardAccess: request.access_yard_company
+          ? await this.getYardCompanyList(request.access_yard_company)
+          : [],
+        appAccess: request.access_nav_menu
+          ? await this.getNavMenuList(request.access_nav_menu)
+          : [],
+        purpose: request.request_reason,
+        remarks: request.remarks,
+        deptHeadName: request.approval_hod_by?.full_name ?? "-",
+        deptHeadDate: request.approval_hod_date_at
+          ? formatDate(request.approval_hod_date_at)
+          : null,
+
+        // LEAD IT
+        leadItName: request.approval_lead_it_by?.full_name ?? "-",
+        leadItDate: request.approval_lead_date_at
+          ? formatDate(request.approval_lead_date_at)
+          : null,
+
+        // IT MANAGER / ASST IT MGR
+        itManagerName: request.approval_it_hod_by?.full_name ?? "-",
+        itManagerDate: request.approval_it_date_at
+          ? formatDate(request.approval_it_date_at)
+          : null,
+      };
+
+      const htmlContent = this.pdf.renderTemplate(
+        "request_report.ejs",
+        view_data
+      );
+
+      return this.pdf.generatePdf2(htmlContent);
+    } catch (error) {
+      throw new InternalServerErrorException(error.message);
+    }
+  }
+
   async cancelRequest(
     id_request: number,
-    userId: number,
+    userId: number
   ): Promise<RequestEntity> {
     const existing = await this.requestRepo.findOne({ where: { id_request } });
     if (!existing)
