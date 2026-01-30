@@ -8,7 +8,6 @@ export class LogPortalService {
     constructor(
         @InjectDataSource('alms')
         private readonly almsDataSource: DataSource,
-
         @InjectDataSource()
         private readonly defaultDataSource: DataSource,
     ) { }
