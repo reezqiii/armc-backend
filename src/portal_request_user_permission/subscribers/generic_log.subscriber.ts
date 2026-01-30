@@ -107,8 +107,8 @@ export class RequestSubscriber implements EntitySubscriberInterface<RequestEntit
   async afterInsert(event: InsertEvent<RequestEntity>) {
     const userId = requestStorage.getStore()?.userId || null;
     if (!userId) return;
-    const entity = event.entity;
 
+    const entity = event.entity;
     if (!entity) return;
 
     const keysToLog = [
@@ -129,26 +129,36 @@ export class RequestSubscriber implements EntitySubscriberInterface<RequestEntit
       "category_account",
     ];
 
+    const afterDiff: Record<string, any> = {};
+
     for (const key of keysToLog) {
       if (!(key in entity)) continue;
 
-      const newValue = await this.mapValueByColumn(key, entity[key]);
-
-      if (newValue === null || newValue === undefined || newValue === "")
+      const rawValue = entity[key];
+      if (rawValue === null || rawValue === undefined || rawValue === "")
         continue;
 
-      const log = new LogPortalEntity();
-      log.table = "portal_request_user_permission";
-      log.index = entity.id_request;
-      log.before = null;
-      log.after = newValue;
-      log.user = userId;
-      log.date = new Date();
-      log.type = 2; // insert
-      log.id_application = 31;
+      const mappedValue = await this.mapValueByColumn(key, rawValue);
+      const normalizedValue = this.normalizeValue(mappedValue);
 
-      await this.almsDataSource.manager.save(LogPortalEntity, log);
+      if (normalizedValue === null) continue;
+
+      afterDiff[key] = normalizedValue;
     }
+
+    if (Object.keys(afterDiff).length === 0) return;
+
+    const log = new LogPortalEntity();
+    log.table = "portal_request_user_permission";
+    log.index = entity.id_request;
+    log.before = null;
+    log.after = afterDiff;
+    log.user = userId;
+    log.date = new Date();
+    log.type = 2; // INSERT
+    log.id_application = 31;
+
+    await this.almsDataSource.manager.save(LogPortalEntity, log);
   }
 
   async afterRemove(event: RemoveEvent<RequestEntity>) {
@@ -157,7 +167,7 @@ export class RequestSubscriber implements EntitySubscriberInterface<RequestEntit
     const log = new LogPortalEntity();
     log.table = "portal_request_user_permission";
     log.index = event.entityId;
-    log.before = event.databaseEntity; 
+    log.before = event.databaseEntity;
     log.after = null;
     log.user = userId;
     log.date = new Date();
