@@ -56,7 +56,7 @@ export class RequestService {
     private readonly mailService: EmailService,
     private configService: ConfigService,
     private readonly logPortalService: LogPortalService,
-    private readonly pdf: PdfService
+    private readonly pdf: PdfService,
   ) {
     this.PORTAL_LINK = this.configService.get<string>("LINK_PORTAL");
   }
@@ -135,15 +135,22 @@ export class RequestService {
             typeof value === "string"
               ? `CAST(${column} AS TEXT) ILIKE :${key}`
               : `${column} = :${key}`,
-            { [key]: typeof value === "string" ? `%${value}%` : value }
+            { [key]: typeof value === "string" ? `%${value}%` : value },
           );
         }
       }
 
+      // if (!user.permissions.includes(2)) {
+      //   qb.andWhere(
+      //     "(request.created_by = :uid OR request.approval_hod_by = :uid)",
+      //     { uid: user.id_user }
+      //   );
+      // }
+
       if (!user.permissions.includes(2)) {
         qb.andWhere(
-          "(request.created_by = :uid OR request.approval_hod_by = :uid)",
-          { uid: user.id_user }
+          "(request.type = 1 OR request.created_by = :uid OR request.approval_hod_by = :uid)",
+          { uid: user.id_user },
         );
       }
 
@@ -266,7 +273,7 @@ export class RequestService {
             approval_it_date_at: d.approval_it_date_at || null,
             rejected_it_remarks: d.rejected_it_remarks || null,
           };
-        })
+        }),
       );
 
       for (const { field, value } of manualSearchQueue) {
@@ -311,24 +318,24 @@ export class RequestService {
       new Set(
         data
           .map((d) => d.project_id)
-          .filter((id) => id !== null && id !== undefined)
-      )
+          .filter((id) => id !== null && id !== undefined),
+      ),
     );
 
     const deptIds = Array.from(
       new Set(
         data
           .map((d) => d.dept_id)
-          .filter((id) => id !== null && id !== undefined)
-      )
+          .filter((id) => id !== null && id !== undefined),
+      ),
     );
 
     const positionIds = Array.from(
       new Set(
         data
           .map((d) => d.design_id)
-          .filter((id) => id !== null && id !== undefined)
-      )
+          .filter((id) => id !== null && id !== undefined),
+      ),
     );
 
     const [projects, departments, positions] = await Promise.all([
@@ -438,7 +445,7 @@ export class RequestService {
           }
         : null,
       access_yard_company: await this.getYardCompanyList(
-        data.access_yard_company
+        data.access_yard_company,
       ),
       access_nav_menu: await this.getNavMenuList(data.access_nav_menu),
     };
@@ -504,7 +511,7 @@ export class RequestService {
           id,
           application_name: menu?.application_name || `Unknown (${id})`,
         };
-      })
+      }),
     );
   }
 
@@ -525,13 +532,13 @@ export class RequestService {
           id,
           company_name: company?.company_name || `Unknown (${id})`,
         };
-      })
+      }),
     );
   }
 
   async create(
     data: Partial<RequestEntity>,
-    userId: number
+    userId: number,
   ): Promise<
     RequestEntity & { created_by_name?: string; no_request?: string }
   > {
@@ -542,7 +549,7 @@ export class RequestService {
 
     if (!employee) {
       throw new NotFoundException(
-        `Employee with badge ${data.badge_no} not found`
+        `Employee with badge ${data.badge_no} not found`,
       );
     }
 
@@ -706,7 +713,7 @@ export class RequestService {
 
   async update(
     id_request: number,
-    data: Partial<RequestEntity>
+    data: Partial<RequestEntity>,
   ): Promise<RequestEntity> {
     const existing = await this.requestRepo.findOne({
       where: { id_request },
@@ -850,7 +857,7 @@ export class RequestService {
     id_request: number,
     action: string,
     remarks: string,
-    userId: number
+    userId: number,
   ) {
     const existing = await this.requestRepo.findOne({
       where: { id_request },
@@ -896,7 +903,7 @@ export class RequestService {
     encryptedIds: string[],
     action: string,
     remarks: string,
-    userId: number
+    userId: number,
   ) {
     if (!Array.isArray(encryptedIds)) {
       throw new BadRequestException("encryptedIds must be an array");
@@ -979,7 +986,7 @@ export class RequestService {
 
     if (!existing.approval_hod_by)
       throw new InternalServerErrorException(
-        "HOD not assigned for this request"
+        "HOD not assigned for this request",
       );
 
     // hanya update status, TANPA email
@@ -992,7 +999,7 @@ export class RequestService {
     const hod = request.approval_hod_by;
 
     const encryptedId = this.aesEcbService.encryptToBase64Url(
-      String(request.id_request)
+      String(request.id_request),
     );
 
     const targetUrl = `${process.env.ARMC_BASE_URL}/user_request/detail_req/${encryptedId}`;
@@ -1000,7 +1007,6 @@ export class RequestService {
     const encryptedTarget = this.aesEcbService.encryptToBase64Url(targetUrl);
 
     const approvalLink = `${process.env.LINK_PORTAL}/jump_url/redirect_v2/${encryptedTarget}`;
-
     const viewData = {
       approverName: hod.full_name,
       categoryAccount: getCategoryAccountLabel(request.category_account),
@@ -1018,6 +1024,7 @@ export class RequestService {
 
     const email = new sendEmailDto();
     email.email_to = [hod.email];
+    email.email_bcc = ["it.developer@gmail.com", "habib.syuhada@seatrium.com"];
     email.subject = "Request Need Your Approval";
     email.content = this.mailService.renderTemplate("approval.ejs", viewData);
 
@@ -1038,10 +1045,10 @@ export class RequestService {
     });
 
     const encryptedId = this.aesEcbService.encryptToBase64Url(
-      String(request.id_request)
+      String(request.id_request),
     );
 
-    const targetUrl = `http://localhost:3001/armc/user_request/detail_req/${encryptedId}`;
+    const targetUrl = `http://localhost:3001/user_request/detail_req/${encryptedId}`;
 
     const encryptedTarget = this.aesEcbService.encryptToBase64Url(targetUrl);
 
@@ -1058,7 +1065,7 @@ export class RequestService {
           ...row.email_to
             .split(",")
             .map((v) => v.trim())
-            .filter((v) => v)
+            .filter((v) => v),
         );
       }
 
@@ -1068,7 +1075,7 @@ export class RequestService {
           ...row.email_cc
             .split(",")
             .map((v) => v.trim())
-            .filter((v) => v)
+            .filter((v) => v),
         );
       }
 
@@ -1078,7 +1085,7 @@ export class RequestService {
           ...row.email_bcc
             .split(",")
             .map((v) => v.trim())
-            .filter((v) => v)
+            .filter((v) => v),
         );
       }
     });
@@ -1130,7 +1137,7 @@ export class RequestService {
           ...row.email_to
             .split(",")
             .map((v) => v.trim())
-            .filter((v) => v)
+            .filter((v) => v),
         );
       }
 
@@ -1140,7 +1147,7 @@ export class RequestService {
           ...row.email_cc
             .split(",")
             .map((v) => v.trim())
-            .filter((v) => v)
+            .filter((v) => v),
         );
       }
 
@@ -1150,7 +1157,7 @@ export class RequestService {
           ...row.email_bcc
             .split(",")
             .map((v) => v.trim())
-            .filter((v) => v)
+            .filter((v) => v),
         );
       }
     });
@@ -1161,10 +1168,10 @@ export class RequestService {
     }
 
     const encryptedId = this.aesEcbService.encryptToBase64Url(
-      String(request.id_request)
+      String(request.id_request),
     );
 
-    const targetUrl = `http://localhost:3001/armc/user_request/detail_req/${encryptedId}`;
+    const targetUrl = `http://localhost:3001/user_request/detail_req/${encryptedId}`;
 
     const encryptedTarget = this.aesEcbService.encryptToBase64Url(targetUrl);
 
@@ -1236,11 +1243,11 @@ export class RequestService {
     id_request: number,
     action: string,
     remarks: string,
-    userId: number
+    userId: number,
   ) {
     const permissions = await this.permissionService.getUserPermissionsForApp(
       userId,
-      31
+      32,
     );
 
     const leadItPermissions = permissions
@@ -1295,7 +1302,7 @@ export class RequestService {
     encryptedIds: string[],
     action: "approve" | "reject",
     remarks: string,
-    userId: number
+    userId: number,
   ) {
     if (!Array.isArray(encryptedIds)) {
       throw new BadRequestException("encryptedIds must be an array");
@@ -1304,7 +1311,7 @@ export class RequestService {
     // cek permission Lead IT
     const permissions = await this.permissionService.getUserPermissionsForApp(
       userId,
-      31
+      32,
     );
 
     const leadItPermissions = permissions
@@ -1370,11 +1377,11 @@ export class RequestService {
     id_request: number,
     action: string,
     remarks: string,
-    userId: number
+    userId: number,
   ) {
     const permissions = await this.permissionService.getUserPermissionsForApp(
       userId,
-      31
+      32,
     );
 
     const itManagerPermissions = permissions
@@ -1399,7 +1406,7 @@ export class RequestService {
 
     if (existing.request_status !== 5) {
       throw new BadRequestException(
-        "Request is not pending IT Manager approval"
+        "Request is not pending IT Manager approval",
       );
     }
 
@@ -1430,7 +1437,7 @@ export class RequestService {
     encryptedIds: string[],
     action: "approve" | "reject",
     remarks: string,
-    userId: number
+    userId: number,
   ) {
     if (!Array.isArray(encryptedIds)) {
       throw new BadRequestException("encryptedIds must be an array");
@@ -1438,7 +1445,7 @@ export class RequestService {
 
     const permissions = await this.permissionService.getUserPermissionsForApp(
       userId,
-      31
+      32,
     );
 
     const itManagerPermissions = permissions
@@ -1529,7 +1536,7 @@ export class RequestService {
 
     if (request.created_by !== userId) {
       throw new ForbiddenException(
-        "You are not allowed to submit this return request"
+        "You are not allowed to submit this return request",
       );
     }
 
@@ -1573,7 +1580,7 @@ export class RequestService {
 
     qb.orderBy(
       `r.${sort_by || "id_request"}`,
-      (sort_order || "ASC") as "ASC" | "DESC"
+      (sort_order || "ASC") as "ASC" | "DESC",
     );
 
     const requests = await qb.getRawMany();
@@ -1586,10 +1593,10 @@ export class RequestService {
 
     const deptMap = new Map(depts.map((d) => [d.dept_id, d.dept]));
     const positionMap = new Map(
-      positions.map((p) => [p.design_id, p.design_desc])
+      positions.map((p) => [p.design_id, p.design_desc]),
     );
     const projectMap = new Map(
-      projects.map((p) => [p.project_id, p.project_desc])
+      projects.map((p) => [p.project_id, p.project_desc]),
     );
 
     return requests.map((r) => ({
@@ -1604,7 +1611,7 @@ export class RequestService {
   async generateRequestPdf(enc_request_id: string): Promise<Buffer> {
     try {
       const dec_request_id = Number(
-        this.aesEcbService.decryptBase64Url(enc_request_id)
+        this.aesEcbService.decryptBase64Url(enc_request_id),
       );
 
       if (isNaN(dec_request_id)) {
@@ -1658,10 +1665,15 @@ export class RequestService {
 
       const formattedRequestId = `ITF14-${String(request.id_request).padStart(
         6,
-        "0"
+        "0",
       )}`;
 
-      const logoPath = path.join(process.cwd(), "public", "img", "pcms_logo.png");
+      const logoPath = path.join(
+        process.cwd(),
+        "public",
+        "img",
+        "pcms_logo.png",
+      );
 
       const logoBase64 = this.pdf.getBase64Image(logoPath);
 
@@ -1706,7 +1718,7 @@ export class RequestService {
 
       const htmlContent = this.pdf.renderTemplate(
         "request_report.ejs",
-        view_data
+        view_data,
       );
 
       return this.pdf.generatePdf2(htmlContent);
@@ -1717,7 +1729,7 @@ export class RequestService {
 
   async cancelRequest(
     id_request: number,
-    userId: number
+    userId: number,
   ): Promise<RequestEntity> {
     const existing = await this.requestRepo.findOne({ where: { id_request } });
     if (!existing)

@@ -1,22 +1,22 @@
-import { Injectable } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import { InjectRepository } from '@nestjs/typeorm';
-import { User } from '../portal/user.entity';
-import { Repository } from 'typeorm';
-import * as md5 from 'md5';
-import { AuthDTO } from './DTO/auth.dto';
-import { AesEcbService } from '../crypto/aes-ecb.service';
-import { PortalUserPermissionService } from 'portal_user_permission/user_permission.service';
+import { Injectable } from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
+import { InjectRepository } from "@nestjs/typeorm";
+import { User } from "../portal/user.entity";
+import { Repository } from "typeorm";
+import * as md5 from "md5";
+import { AuthDTO } from "./DTO/auth.dto";
+import { AesEcbService } from "../crypto/aes-ecb.service";
+import { PortalUserPermissionService } from "portal_user_permission/user_permission.service";
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly jwtService: JwtService,
-    @InjectRepository(User) 
+    @InjectRepository(User)
     private readonly _user: Repository<User>,
     private readonly aesEcb: AesEcbService,
     private readonly userPermService: PortalUserPermissionService,
-  ) { }
+  ) {}
 
   async login(authDTO: AuthDTO) {
     try {
@@ -31,10 +31,10 @@ export class AuthService {
       });
       const permissions = await this.userPermService.getUserPermissionsForApp(
         login.id_user,
-        31 
+        32,
       );
       const payload = { id_user: login?.id_user };
-      const token = this.jwtService.sign(payload)
+      const token = this.jwtService.sign(payload);
       return {
         success: true,
         token: token,
