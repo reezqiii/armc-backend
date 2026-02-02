@@ -89,7 +89,7 @@ export class RequestSubscriber implements EntitySubscriberInterface<RequestEntit
     log.user = userId;
     log.date = new Date();
     log.type = 1; // UPDATE
-    log.id_application = 31;
+    log.id_application = 32;
 
     await this.almsDataSource.manager.save(LogPortalEntity, log);
   }
@@ -156,7 +156,7 @@ export class RequestSubscriber implements EntitySubscriberInterface<RequestEntit
     log.user = userId;
     log.date = new Date();
     log.type = 2; // INSERT
-    log.id_application = 31;
+    log.id_application = 32;
 
     await this.almsDataSource.manager.save(LogPortalEntity, log);
   }
@@ -172,7 +172,7 @@ export class RequestSubscriber implements EntitySubscriberInterface<RequestEntit
     log.user = userId;
     log.date = new Date();
     log.type = 3;
-    log.id_application = 31;
+    log.id_application = 32;
 
     await this.almsDataSource.manager.save(LogPortalEntity, log);
   }

@@ -1,150 +1,160 @@
 <!DOCTYPE html>
 <html lang="en">
-
-<head>
+  <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Request Account Approval Notification</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: #f6f8fa;
-            margin: 0;
-            padding: 20px;
-            color: #333;
-        }
+      body {
+        font-family: Arial, sans-serif;
+        background: #f6f8fa;
+        margin: 0;
+        padding: 20px;
+        color: #333;
+      }
 
-        .email-container {
-            max-width: 600px;
-            margin: auto;
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            border: 1px solid #ddd;
-        }
+      .email-container {
+        max-width: 600px;
+        margin: auto;
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        border: 1px solid #ddd;
+      }
 
-        .header {
-            text-align: center;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #eee;
-        }
+      .header {
+        text-align: center;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #eee;
+      }
 
-        .logo {
-            width: 180px;
-            margin-bottom: 10px;
-        }
+      .logo {
+        width: 180px;
+        margin-bottom: 10px;
+      }
 
-        .title {
-            font-size: 20px;
-            font-weight: bold;
-            margin-bottom: 15px;
-            color: #004aad;
-        }
+      .title {
+        font-size: 20px;
+        font-weight: bold;
+        margin-bottom: 15px;
+        color: #004aad;
+      }
 
-        .content p {
-            line-height: 1.5;
-            font-size: 14px;
-        }
+      .content p {
+        line-height: 1.5;
+        font-size: 14px;
+      }
 
-        .info-box {
-            background: #f1f5ff;
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 10px;
-            font-size: 14px;
-        }
+      .info-box {
+        background: #f1f5ff;
+        padding: 15px;
+        border-radius: 8px;
+        margin-top: 10px;
+        font-size: 14px;
+      }
 
-        .request-item {
-            margin-bottom: 12px;
-            padding-bottom: 10px;
-            border-bottom: 1px dashed #ccc;
-        }
+      .request-item {
+        margin-bottom: 12px;
+        padding-bottom: 10px;
+        border-bottom: 1px dashed #ccc;
+      }
 
-        .button {
-            display: block;
-            width: fit-content;
-            background: #007bff;
-            color: white;
-            padding: 12px 20px;
-            text-decoration: none;
-            margin: 20px auto;
-            border-radius: 8px;
-            font-weight: bold;
-        }
+      .button {
+        display: block;
+        width: fit-content;
+        background: #007bff;
+        color: white;
+        padding: 12px 20px;
+        text-decoration: none;
+        margin: 20px auto;
+        border-radius: 8px;
+        font-weight: bold;
+      }
 
-        .footer {
-            font-size: 12px;
-            margin-top: 25px;
-            text-align: center;
-            color: #777;
-            border-top: 1px solid #eee;
-            padding-top: 15px;
-        }
+      .footer {
+        font-size: 12px;
+        margin-top: 25px;
+        text-align: center;
+        color: #777;
+        border-top: 1px solid #eee;
+        padding-top: 15px;
+      }
     </style>
-</head>
+  </head>
 
-<body>
+  <body>
     <div class="email-container">
+      <div class="header">
+        <img
+          class="logo"
+          src="https://www.smoebatam.com/smoe_portal/assets/seatrium/logo/logo_white.png"
+          alt="Company Logo"
+        />
+      </div>
 
-        <div class="header">
-            <img class="logo" src="https://www.smoebatam.com/smoe_portal/assets/seatrium/logo/logo_white.png"
-                alt="Company Logo" />
+      <div class="content">
+        <h2 class="title">New Request Account Notification</h2>
+
+        <p>
+          Dear
+          <strong> <%= approverName %> </strong>
+        </p>
+
+        <p>You have a new pending request requiring your approval.</p>
+
+        <div class="info-box">
+          <p>
+            <strong>Category Account:</strong>
+            <%= categoryAccount %>
+          </p>
+          <p>
+            <strong>Request Number:</strong>
+            <%= requestNumber %>
+          </p>
+          <p>
+            <strong>Request Date:</strong>
+            <%= requestDate %>
+          </p>
+          <p>
+            <strong>Requestor:</strong>
+            <%= requestorName %>
+          </p>
+          <p>
+            <strong>Badge No:</strong>
+            <%= targetBadgeNo %>
+          </p>
+          <p>
+            <strong>Full Name:</strong>
+            <%= targetFullName %>
+          </p>
+          <p>
+            <strong>Email:</strong>
+            <%= targetEmail %>
+          </p>
+          <p>
+            <strong>Purpose:</strong>
+            <%= requestDescription %>
+          </p>
         </div>
 
-        <div class="content">
-            <h2 class="title">New Request Account Notification</h2>
+        <a
+          class="button"
+          href="<%= approvalLink %>"
+          style="color: #ffffff !important"
+        >
+          Review & Approve Request
+        </a>
+      </div>
 
-            <p>
-                Dear
-                <strong>
-                    <%= approverName %>
-                </strong>
-            </p>
-
-            <p>You have a new pending request requiring your approval.</p>
-
-            <div class="info-box">
-                <p><strong>Category Account:</strong>
-                    <%= categoryAccount %>
-                </p>
-                <p><strong>Request Number:</strong>
-                    <%= requestNumber %>
-                </p>
-                <p><strong>Request Date:</strong>
-                    <%= requestDate %>
-                </p>
-                <p><strong>Requestor:</strong>
-                    <%= requestorName %>
-                </p>
-                <p><strong>Badge No:</strong>
-                    <%= targetBadgeNo %>
-                </p>
-                <p><strong>Full Name:</strong>
-                    <%= targetFullName %>
-                </p>
-                <p><strong>Email:</strong>
-                    <%= targetEmail %>
-                </p>
-                <p><strong>Purpose:</strong>
-                    <%= requestDescription %>
-                </p>
-            </div>
-
-            <a class="button" href="<%= approvalLink %>">
-                Review & Approve Request
-            </a>
-
-        </div>
-
-        <div class="footer">
-            Regards, <br />
-            <strong>SMOE Portal</strong> <br />
-            (Auto Notification System)
-            <br><br>
-            <em>This email was auto-generated by the system. Please do not reply.</em>
-        </div>
-
+      <div class="footer">
+        Regards, <br />
+        <strong>SMOE Portal</strong> <br />
+        (Auto Notification System)
+        <br /><br />
+        <em
+          >This email was auto-generated by the system. Please do not reply.</em
+        >
+      </div>
     </div>
-</body>
-
+  </body>
 </html>

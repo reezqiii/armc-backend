@@ -36,7 +36,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     const rawPermissions = await this.userPermService.getUserPermissionsForApp(
       user.id_user,
-      31
+      32
     );
 
     const permissions = rawPermissions.map(p => Number(p.index_key));

@@ -25,7 +25,6 @@ export class AesEcbService {
         `Panjang key tidak valid: ${this.key.length} bytes. Harus 16/24/32 bytes.`,
       );
     }
-    console.log('AES key length:', this.key.length, 'algorithm:', this.algorithm);
 
   }
 

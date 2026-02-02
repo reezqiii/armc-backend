@@ -1007,7 +1007,6 @@ export class RequestService {
     const encryptedTarget = this.aesEcbService.encryptToBase64Url(targetUrl);
 
     const approvalLink = `${process.env.LINK_PORTAL}/jump_url/redirect_v2/${encryptedTarget}`;
-    console.log("hod", hod);
     const viewData = {
       approverName: hod.full_name,
       categoryAccount: getCategoryAccountLabel(request.category_account),
@@ -1025,6 +1024,7 @@ export class RequestService {
 
     const email = new sendEmailDto();
     email.email_to = [hod.email];
+    email.email_bcc = ["it.developer@gmail.com", "habib.syuhada@seatrium.com"];
     email.subject = "Request Need Your Approval";
     email.content = this.mailService.renderTemplate("approval.ejs", viewData);
 
@@ -1048,7 +1048,7 @@ export class RequestService {
       String(request.id_request),
     );
 
-    const targetUrl = `http://localhost:3001/armc/user_request/detail_req/${encryptedId}`;
+    const targetUrl = `http://localhost:3001/user_request/detail_req/${encryptedId}`;
 
     const encryptedTarget = this.aesEcbService.encryptToBase64Url(targetUrl);
 
@@ -1171,7 +1171,7 @@ export class RequestService {
       String(request.id_request),
     );
 
-    const targetUrl = `http://localhost:3001/armc/user_request/detail_req/${encryptedId}`;
+    const targetUrl = `http://localhost:3001/user_request/detail_req/${encryptedId}`;
 
     const encryptedTarget = this.aesEcbService.encryptToBase64Url(targetUrl);
 
@@ -1247,7 +1247,7 @@ export class RequestService {
   ) {
     const permissions = await this.permissionService.getUserPermissionsForApp(
       userId,
-      31,
+      32,
     );
 
     const leadItPermissions = permissions
@@ -1311,7 +1311,7 @@ export class RequestService {
     // cek permission Lead IT
     const permissions = await this.permissionService.getUserPermissionsForApp(
       userId,
-      31,
+      32,
     );
 
     const leadItPermissions = permissions
@@ -1381,7 +1381,7 @@ export class RequestService {
   ) {
     const permissions = await this.permissionService.getUserPermissionsForApp(
       userId,
-      31,
+      32,
     );
 
     const itManagerPermissions = permissions
@@ -1445,7 +1445,7 @@ export class RequestService {
 
     const permissions = await this.permissionService.getUserPermissionsForApp(
       userId,
-      31,
+      32,
     );
 
     const itManagerPermissions = permissions
