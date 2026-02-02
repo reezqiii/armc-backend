@@ -21,6 +21,7 @@ export class AuthService {
   async login(authDTO: AuthDTO) {
     try {
       const { id_user } = authDTO;
+      console.log('id_user (raw):', authDTO.id_user);
       const decrypted = this.aesEcb.decryptBase64Url(id_user);
       const idUserNum = Number.parseInt(decrypted, 10);
       const login = await this._user.findOne({
