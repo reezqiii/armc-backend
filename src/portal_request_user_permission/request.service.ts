@@ -1048,7 +1048,7 @@ export class RequestService {
       String(request.id_request),
     );
 
-    const targetUrl = `http://localhost:3001/user_request/detail_req/${encryptedId}`;
+    const targetUrl = `${process.env.ARMC_BASE_URL}/user_request/detail_req/${encryptedId}`;
 
     const encryptedTarget = this.aesEcbService.encryptToBase64Url(targetUrl);
 
@@ -1171,7 +1171,7 @@ export class RequestService {
       String(request.id_request),
     );
 
-    const targetUrl = `http://localhost:3001/user_request/detail_req/${encryptedId}`;
+    const targetUrl = `${process.env.ARMC_BASE_URL}/user_request/detail_req/${encryptedId}`;
 
     const encryptedTarget = this.aesEcbService.encryptToBase64Url(targetUrl);
 
