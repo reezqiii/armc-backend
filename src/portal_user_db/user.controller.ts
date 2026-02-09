@@ -27,11 +27,19 @@ export class UserController {
     return this._user.findAll();
   }
 
-  @Put("/:id")
+  @Put("/bulk-update")
   @UseGuards(JwtAuthGuard)
-  async updateUser(@Param("id") id: string, @Body() data: Partial<User>) {
-    const realId = Number(this.aesEcbService.decryptBase64Url(id));
-    return await this._user.updateUser(realId, data);
+  async bulkUpdateUsers(
+    @Body()
+    users: {
+      id_user: number;
+      outside_access?: number;
+      status_user?: number;
+      role_id?: number;
+      department_id?: number;
+    }[],
+  ) {
+    return await this._user.bulkUpdateUsers(users);
   }
 
   @Post("/create")

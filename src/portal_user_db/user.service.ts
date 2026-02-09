@@ -17,8 +17,8 @@ import { IssDept } from "iss_dept/iss_dept.entity";
 export class UserService {
   constructor(
     @InjectRepository(User) private readonly _user: Repository<User>,
-    @InjectRepository(IssDept, "db_iss")
-    private readonly _issDeptRepo: Repository<IssDept>, // <--- tambahan
+    @InjectRepository(PortalDepartment)
+    private readonly _portalDeptRepo: Repository<PortalDepartment>,
     @InjectRepository(PortalProject)
     private readonly _projectRepo: Repository<PortalProject>,
     @InjectRepository(Company)
@@ -79,10 +79,10 @@ export class UserService {
         data.map(async (u) => {
           let deptName = "-";
           if (u.department) {
-            const dept = await this._issDeptRepo.findOne({
-              where: { dept_id: u.department },
+            const dept = await this._portalDeptRepo.findOne({
+              where: { temp_iss_id: u.department },
             });
-            deptName = dept?.dept ?? "-";
+            deptName = dept?.name_of_department ?? "-";
           }
 
           return {
@@ -122,7 +122,7 @@ export class UserService {
 
       const users = await this._user.find({
         where,
-        relations: ["department", "project"],
+        relations: ["project"],
         order: { full_name: "ASC" },
       });
 
@@ -203,6 +203,8 @@ export class UserService {
       project,
       company,
       role,
+      outside_access: data.outside_access ?? null,
+      portal_type: data.portal_type ?? null,
       yard_company: data.access_yard_company?.join(";") ?? null,
       addon_project: data.project_ids?.join(";") ?? null,
     });
@@ -210,63 +212,50 @@ export class UserService {
     return await this._user.save(newUser);
   }
 
-  async updateUser(id: number, data: any): Promise<User> {
-    const user = await this._user.findOne({ where: { id_user: id } });
-    if (!user) throw new NotFoundException("User not found");
+  async bulkUpdateUsers(
+    users: {
+      id_user: number;
+      outside_access?: number;
+      status_user?: number;
+      role_id?: number;
+      department_id?: number;
+    }[],
+  ) {
+    if (!users?.length) {
+      return { success: false, message: "No data to update" };
+    }
 
-    const project = data.project_id
-      ? await this._projectRepo.findOne({ where: { id: data.project_id } })
-      : null;
+    for (const u of users) {
+      const updateData: any = {};
 
-    const company = data.company_id
-      ? await this._companyRepo.findOne({
-          where: { id_company: data.company_id },
-        })
-      : null;
+      if (u.outside_access !== undefined) {
+        updateData.outside_access = u.outside_access;
+      }
 
-    const role = data.id_role
-      ? await this._roleRepo.findOne({ where: { id_role: data.id_role } })
-      : null;
+      if (u.status_user !== undefined) {
+        updateData.status_user = u.status_user;
+      }
 
-    user.full_name = data.full_name;
-    user.email = data.email;
-    user.badge_no = data.badge_no;
-    user.username = data.username;
-    user.department = data.dept_id ?? null; // optional default
-    user.dept_alt = data.dept_ids?.length ? data.dept_ids.join(";") : null; // multiple
-    user.project = project;
-    user.company = company;
-    user.role = role;
-    user.addon_project = data.project_ids?.length
-      ? data.project_ids.join(";")
-      : null;
-    user.yard_company = data.access_yard_company?.length
-      ? data.access_yard_company.join(";")
-      : null;
-    user.update_by = data.updated_by ?? null;
+      if (u.department_id !== undefined) {
+        updateData.department = u.department_id;
+      }
 
-    return await this._user.save(user);
+      if (u.role_id !== undefined) {
+        const role = await this._roleRepo.findOne({
+          where: { id_role: u.role_id },
+        });
+        if (!role) {
+          throw new NotFoundException("Role not found");
+        }
+        updateData.role = role;
+      }
+
+      await this._user.update({ id_user: u.id_user }, updateData);
+    }
+
+    return {
+      success: true,
+      updated_count: users.length,
+    };
   }
-
-  // async updateUser(id: number, data: Partial<User>): Promise<User> {
-  //   const user = await this._user.findOne({ where: { id_user: id } });
-  //   if (!user) throw new NotFoundException('User not found');
-
-  //   Object.assign(user, data);
-  //   return await this._user.save(user);
-  // }
-
-  // // Insert
-  // async createUser(data: Partial<User>): Promise<User> {
-  //   const newUser = this._user.create(data);
-  //   return await this._user.save(newUser); // log type = 2 (insert)
-  // }
-
-  // // Delete
-  // async deleteUser(id: number): Promise<void> {
-  //   const user = await this._user.findOne({ where: { id_user: id } });
-  //   if (!user) throw new NotFoundException('User not found');
-
-  //   await this._user.remove(user); // log type = 3 (delete)
-  // }
 }
