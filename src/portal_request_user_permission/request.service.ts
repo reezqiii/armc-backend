@@ -1442,11 +1442,9 @@ export class RequestService {
       32,
     );
 
-    const itManagerPermissions = permissions
-      .filter((p) => p.index_key === "1")
-      .map((p) => p.id_portal_permission);
+    const itManagerPermissions = permissions.filter((p) => p.index_key === "1");
 
-    if (!itManagerPermissions.includes("2001")) {
+    if (!itManagerPermissions.length) {
       throw new ForbiddenException("Not allowed to approve as IT Manager");
     }
 
