@@ -21,20 +21,20 @@ export class PortalDepartmentService {
 
   async findAll() {
     return this.departmentRepository.find({
-      select: ["id_department", "name_of_department"],
+      select: ["temp_iss_id", "name_of_department"],
       order: { name_of_department: "ASC" },
     });
   }
 
-  findOne(id: number) {
+  findOne(tempIssId: number) {
     return this.departmentRepository.findOne({
-      where: { id_department: id },
-      select: ["id_department", "name_of_department"],
+      where: { temp_iss_id: tempIssId },
+      select: ["temp_iss_id", "name_of_department"],
     });
   }
 
-  update(id: number, updatePortalDepartmentDto: UpdatePortalDepartmentDto) {
-    return this.departmentRepository.update(id, updatePortalDepartmentDto);
+  update(tempIssId: number, updatePortalDepartmentDto: UpdatePortalDepartmentDto) {
+    return this.departmentRepository.update(tempIssId, updatePortalDepartmentDto);
   }
 
   remove(id: number) {
