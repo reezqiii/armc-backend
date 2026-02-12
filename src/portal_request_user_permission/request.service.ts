@@ -149,7 +149,7 @@ export class RequestService {
 
       if (!user.permissions.includes(2)) {
         qb.andWhere(
-          "(request.type = 1 OR request.created_by = :uid OR request.approval_hod_by = :uid)",
+          "(request.type = 0 OR request.created_by = :uid OR request.approval_hod_by = :uid)",
           { uid: user.id_user },
         );
       }
@@ -542,20 +542,26 @@ export class RequestService {
   ): Promise<
     RequestEntity & { created_by_name?: string; no_request?: string }
   > {
-    const employee = await this.employeeRepo.findOne({
-      where: { badge: Number(data.badge_no) },
-      relations: ["department", "project", "position"],
-    });
+    let employee = null;
 
-    if (!employee) {
-      throw new NotFoundException(
-        `Employee with badge ${data.badge_no} not found`,
-      );
+    if (data.badge_no) {
+      employee = await this.employeeRepo.findOne({
+        where: { badge: Number(data.badge_no) },
+        relations: ["department", "project", "position"],
+      });
     }
 
-    const company = await this.companyRepo.findOne({
-      where: { id_company: employee.company },
-    });
+    let company = null;
+
+    if (employee?.company) {
+      company = await this.companyRepo.findOne({
+        where: { id_company: employee.company },
+      });
+    } else if (data.id_company) {
+      company = await this.companyRepo.findOne({
+        where: { id_company: Number(data.id_company) },
+      });
+    }
 
     const accessYardValue = Array.isArray(data.access_yard_company)
       ? data.access_yard_company.join(",")
