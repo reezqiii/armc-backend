@@ -149,7 +149,7 @@ export class RequestService {
 
       if (!user.permissions.includes(2)) {
         qb.andWhere(
-          "(request.type = 0 OR request.created_by = :uid OR request.approval_hod_by = :uid)",
+          "(request.created_by = :uid OR request.approval_hod_by = :uid)",
           { uid: user.id_user },
         );
       }
