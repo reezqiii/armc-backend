@@ -28,6 +28,7 @@ import { getCategoryAccountLabel } from "utils/status-helper";
 import { PdfService } from "pdf/pdf.service";
 import { formatDate } from "utils/format-date";
 import * as path from "path";
+import e from "express";
 
 @Injectable()
 export class RequestService {
@@ -1030,8 +1031,9 @@ export class RequestService {
 
     const email = new sendEmailDto();
     email.email_to = [hod.email];
+    email.email_cc = [];
     email.email_bcc = ["it.developer@gmail.com", "habib.syuhada@seatrium.com"];
-    email.subject = "Request Need Your Approval";
+    email.subject = `${viewData.requestNumber} - Request Need Your Approval`;
     email.content = this.mailService.renderTemplate("approval.ejs", viewData);
 
     await this.mailService.sendEmail(email);
@@ -1113,7 +1115,9 @@ export class RequestService {
 
     const email = new sendEmailDto();
     email.email_to = [...new Set(emailTo)];
-    email.subject = "Request Need Lead IT Approval";
+    email.email_cc = [...new Set(emailCc)];
+    email.email_bcc = [...new Set(emailBcc)];
+    email.subject = `${viewData.requestNumber} - Request Need Lead IT Approval`;
     email.content = this.mailService.renderTemplate("approval.ejs", viewData);
 
     await this.mailService.sendEmail(email);
@@ -1200,7 +1204,9 @@ export class RequestService {
 
     const email = new sendEmailDto();
     email.email_to = [...new Set(emailTo)];
-    email.subject = "Request Need IT Manager Approval";
+    email.email_cc = [...new Set(emailCc)];
+    email.email_bcc = [...new Set(emailBcc)];
+    email.subject = `${viewData.requestNumber} - Request Need IT Manager Approval`;
     email.content = this.mailService.renderTemplate("approval.ejs", viewData);
 
     await this.mailService.sendEmail(email);
