@@ -701,23 +701,6 @@ export class RequestService {
     };
   }
 
-  async getAllHods() {
-    try {
-      const users = await this.userRepo.find({
-        where: { status_user: 1 },
-        order: { full_name: "ASC" },
-      });
-
-      return users.map((u) => ({
-        id_user: u.id_user,
-        badge_no: u.badge_no,
-        full_name: u.full_name,
-      }));
-    } catch (error) {
-      throw new InternalServerErrorException("Failed to fetch HOD list");
-    }
-  }
-
   async update(
     id_request: number,
     data: Partial<RequestEntity>,

@@ -35,8 +35,11 @@ export class RequestController {
 
   @Get("hods")
   @UseGuards(JwtAuthGuard)
-  async getAllHods() {
-    return this.requestService.getAllHods();
+  async getHods() {
+    return this.userService.getUsersByRoles([
+      "Head Of Department",
+      "Administrator",
+    ]);
   }
 
   @Get("employee/:badge")

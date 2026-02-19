@@ -106,6 +106,27 @@ export class UserService {
     }
   }
 
+  async getUsersByRoles(roleNames: string[]) {
+  if (!roleNames?.length) {
+    return [];
+  }
+
+  return this._user
+    .createQueryBuilder("user")
+    .leftJoin("user.role", "role")
+    .where("LOWER(role.role_name) IN (:...roles)", {
+      roles: roleNames.map(r => r.toLowerCase()),
+    })
+    .andWhere("user.status_user = :status", { status: 1 })
+    .select([
+      "user.id_user",
+      "user.full_name",
+      "user.badge_no",
+    ])
+    .orderBy("user.full_name", "ASC")
+    .getMany();
+}
+
   async findAll(): Promise<User[]> {
     try {
       return await this._user.find();
