@@ -1664,11 +1664,15 @@ export class RequestService {
 
       const logoBase64 = this.pdf.getBase64Image(logoPath);
 
+      const isPublicRequest = !request.created_by;
+
       const view_data = {
         logoBase64,
         requestId: formattedRequestId,
         requestedDate: formatDate(request.created_date),
-        requestedBy: requestor?.full_name ?? "-",
+        requestedBy: isPublicRequest
+          ? request.full_name
+          : (requestor?.full_name ?? "-"),
         categoryAccount: getCategoryAccountLabel(request.category_account),
         badge: request.badge_no,
         fullName: request.full_name,
@@ -1685,10 +1689,16 @@ export class RequestService {
           : [],
         purpose: request.request_reason,
         remarks: request.remarks,
-        deptHeadName: request.approval_hod_by?.full_name ?? "-",
-        deptHeadDate: request.approval_hod_date_at
-          ? formatDate(request.approval_hod_date_at)
-          : null,
+
+        // HOD
+        deptHeadName: isPublicRequest
+          ? null
+          : (request.approval_hod_by?.full_name ?? "-"),
+        deptHeadDate: isPublicRequest
+          ? null
+          : request.approval_hod_date_at
+            ? formatDate(request.approval_hod_date_at)
+            : null,
 
         // LEAD IT
         leadItName: request.approval_lead_it_by?.full_name ?? "-",
@@ -1701,6 +1711,7 @@ export class RequestService {
         itManagerDate: request.approval_it_date_at
           ? formatDate(request.approval_it_date_at)
           : null,
+        isPublicRequest,
       };
 
       const htmlContent = this.pdf.renderTemplate(

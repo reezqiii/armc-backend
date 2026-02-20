@@ -175,7 +175,7 @@
       }
 
       .signature-table td {
-        width: 25%;
+        /* width: 25%; */
         border: 1px solid #000;
         text-align: center;
         vertical-align: bottom;
@@ -371,7 +371,9 @@
       <thead>
         <tr>
           <th>REQUESTOR DEPARTMENT</th>
-          <th>REQUESTOR HOD</th>
+          <% if (!isPublicRequest) { %>
+            <th>REQUESTOR HOD</th>
+            <% } %>
           <th>LEAD IT DEPARTMENT</th>
           <th>IT MGR / ASST.IT MGR</th>
         </tr>
@@ -381,7 +383,9 @@
         <!-- BARIS LABEL -->
         <tr class="sig-label-row">
           <td>Requested By</td>
-          <td>Acknowledged By</td>
+          <% if (!isPublicRequest) { %>
+            <td>Acknowledged By</td>
+            <% } %>
           <td>Checked By</td>
           <td>Approved By</td>
         </tr>
@@ -398,6 +402,7 @@
           </td>
 
           <!-- HOD -->
+           <% if (!isPublicRequest) { %>
           <td class="sig-space">
             <% if (deptHeadName && deptHeadName !== '-') { %>
             <img
@@ -410,6 +415,7 @@
             <div class="sig-date"><%= deptHeadDate %></div>
             <% } %>
           </td>
+          <% } %>
 
           <!-- LEAD IT -->
           <td class="sig-space">
