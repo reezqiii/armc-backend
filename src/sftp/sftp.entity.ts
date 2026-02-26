@@ -27,7 +27,7 @@ export class PortalSftp {
   @Column({ nullable: true })
   remarks: string;
 
-  @Column({ type: "int", default: 0 })
+  @Column({ type: "int", default: 1 }) 
   status_active: number;
 
   // relasi

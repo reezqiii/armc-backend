@@ -111,7 +111,7 @@ export class SftpController {
       name_file: remoteName,
       upload_date: new Date(),
       remarks,
-      status_active: 0,
+      status_active: 1,
     });
 
     await this.repo.save(attachment);
@@ -129,7 +129,7 @@ export class SftpController {
     }
 
     const data = await this.repo.find({
-      where: { id_request: id, status_active: 0 },
+      where: { id_request: id, status_active: 1 },
       relations: ["user"],
       order: { upload_date: "DESC" },
     });
@@ -223,7 +223,7 @@ export class SftpController {
       .createQueryBuilder("sftp")
       .leftJoinAndSelect("sftp.user", "user")
       .where("sftp.id_request = :idReq", { idReq })
-      .andWhere("sftp.status_active = 0");
+      .andWhere("sftp.status_active = 1");
 
     // filters (sesuaikan dengan id kolom filter di FE)
     if (search.file_name) {
@@ -271,7 +271,7 @@ export class SftpController {
     const file = await this.repo.findOne({
       where: {
         id: Number(id),
-        status_active: 0, // hanya bisa delete yang active
+        status_active: 1, // hanya bisa delete yang active
       },
     });
 
@@ -280,7 +280,7 @@ export class SftpController {
     }
 
     await this.repo.update(id, {
-      status_active: 1,
+      status_active: 0,
     });
 
     return { success: true };
