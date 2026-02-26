@@ -1,7 +1,7 @@
 import { User } from "portal_user_db/user.entity";
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from "typeorm";
 
-@Entity("portal_sftp")
+@Entity("portal_request_user_permission_attachments")
 export class PortalSftp {
   @PrimaryGeneratedColumn()
   id: number;
