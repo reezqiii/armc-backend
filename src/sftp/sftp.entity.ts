@@ -1,5 +1,11 @@
 import { User } from "portal_user_db/user.entity";
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from "typeorm";
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+} from "typeorm";
 
 @Entity("portal_request_user_permission_attachments")
 export class PortalSftp {
@@ -20,6 +26,9 @@ export class PortalSftp {
 
   @Column({ nullable: true })
   remarks: string;
+
+  @Column({ type: "int", default: 0 })
+  status_active: number;
 
   // relasi
   @ManyToOne(() => User, { nullable: true })

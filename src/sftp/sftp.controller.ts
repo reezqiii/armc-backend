@@ -33,6 +33,18 @@ export class SftpController {
     private readonly repo: Repository<PortalSftp>,
     private readonly aesEcb: AesEcbService,
   ) {}
+  private generateTimestamp(): string {
+    const now = new Date();
+
+    const YYYY = now.getFullYear();
+    const MM = String(now.getMonth() + 1).padStart(2, "0");
+    const DD = String(now.getDate()).padStart(2, "0");
+    const HH = String(now.getHours()).padStart(2, "0");
+    const mm = String(now.getMinutes()).padStart(2, "0");
+    const ss = String(now.getSeconds()).padStart(2, "0");
+
+    return `${YYYY}${MM}${DD}${HH}${mm}${ss}`;
+  }
 
   @Post("upload")
   @UseGuards(JwtAuthGuard)
@@ -49,9 +61,35 @@ export class SftpController {
           cb(null, uniqueName);
         },
       }),
+      fileFilter: (req, file, cb) => {
+        const isPdfMime = file.mimetype === "application/pdf";
+        const isPdfExt =
+          path.extname(file.originalname).toLowerCase() === ".pdf";
+
+        if (!isPdfMime || !isPdfExt) {
+          return cb(
+            new BadRequestException("Only PDF files are allowed"),
+            false,
+          );
+        }
+
+        cb(null, true);
+      },
     }),
   )
   async upload(@UploadedFile() file, @Body() body, @Req() req) {
+    if (!file) {
+      throw new BadRequestException("File is required");
+    }
+
+    const fileBuffer = fs.readFileSync(file.path);
+    const fileHeader = fileBuffer.toString("utf8", 0, 4);
+
+    if (!fileHeader.startsWith("%PDF")) {
+      fs.unlinkSync(file.path); // delete invalid file
+      throw new BadRequestException("Invalid PDF file");
+    }
+
     const { id_request, remarks } = body;
 
     const idReq = Number(this.aesEcb.decryptBase64Url(String(id_request)));
@@ -59,11 +97,11 @@ export class SftpController {
 
     const localPath = file.path;
 
-    const remoteName = path
-      .basename(file.originalname)
-      .replace(/[^\w.\-() ]/g, "_");
+    const timestamp = this.generateTimestamp();
+    const userId = req.user.id_user;
+    const remoteName = `pcms-access-${timestamp}-${userId}.pdf`;
 
-    const remotePath = `/PCMS/mc_punch/${remoteName}`;
+    const remotePath = `/PCMS/armc/${remoteName}`;
 
     await this.sftpService.uploadFile(localPath, remotePath);
 
@@ -73,6 +111,7 @@ export class SftpController {
       name_file: remoteName,
       upload_date: new Date(),
       remarks,
+      status_active: 0,
     });
 
     await this.repo.save(attachment);
@@ -90,7 +129,7 @@ export class SftpController {
     }
 
     const data = await this.repo.find({
-      where: { id_request: id },
+      where: { id_request: id, status_active: 0 },
       relations: ["user"],
       order: { upload_date: "DESC" },
     });
@@ -115,7 +154,7 @@ export class SftpController {
       throw new BadRequestException("File not found");
     }
 
-    const remotePath = `/PCMS/mc_punch/${file.name_file}`;
+    const remotePath = `/PCMS/armc/${file.name_file}`;
 
     const exists = await this.sftpService.exists(remotePath);
     if (!exists) {
@@ -183,7 +222,8 @@ export class SftpController {
     const qb = this.repo
       .createQueryBuilder("sftp")
       .leftJoinAndSelect("sftp.user", "user")
-      .where("sftp.id_request = :idReq", { idReq });
+      .where("sftp.id_request = :idReq", { idReq })
+      .andWhere("sftp.status_active = 0");
 
     // filters (sesuaikan dengan id kolom filter di FE)
     if (search.file_name) {
@@ -228,13 +268,21 @@ export class SftpController {
   @Delete("delete/:id")
   @UseGuards(JwtAuthGuard)
   async delete(@Param("id") id: number) {
-    const file = await this.repo.findOne({ where: { id: Number(id) } });
-    if (!file) throw new BadRequestException("File not found");
+    const file = await this.repo.findOne({
+      where: {
+        id: Number(id),
+        status_active: 0, // hanya bisa delete yang active
+      },
+    });
 
-    const remotePath = `/PCMS/mc_punch/${file.name_file}`;
-    await this.sftpService.deleteFile(remotePath);
+    if (!file) {
+      throw new BadRequestException("File not found or already inactive");
+    }
 
-    await this.repo.delete(id);
+    await this.repo.update(id, {
+      status_active: 1,
+    });
+
     return { success: true };
   }
 }
