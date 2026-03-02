@@ -543,11 +543,14 @@ export class RequestService {
   ): Promise<
     RequestEntity & { created_by_name?: string; no_request?: string }
   > {
+    const badgeInput = data.badge_no?.toString().trim();
+    const isNumericBadge = /^\d+$/.test(badgeInput || "");
+
     let employee = null;
 
-    if (data.badge_no) {
+    if (badgeInput && isNumericBadge) {
       employee = await this.employeeRepo.findOne({
-        where: { badge: Number(data.badge_no) },
+        where: { badge: Number(badgeInput) },
         relations: ["department", "project", "position"],
       });
     }
@@ -558,7 +561,9 @@ export class RequestService {
       company = await this.companyRepo.findOne({
         where: { id_company: employee.company },
       });
-    } else if (data.id_company) {
+    }
+    // Kalau manual input
+    else if (data.id_company) {
       company = await this.companyRepo.findOne({
         where: { id_company: Number(data.id_company) },
       });
@@ -600,7 +605,7 @@ export class RequestService {
       full_name: data.full_name,
       request_reason: data.request_reason,
       email: data.email,
-      badge_no: data.badge_no,
+      badge_no: badgeInput,
       project_id: data.project_id || null,
       dept_id: data.dept_id || null,
       design_id: data.design_id || null,
