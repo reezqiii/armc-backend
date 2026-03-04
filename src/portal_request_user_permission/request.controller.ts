@@ -272,6 +272,19 @@ export class RequestController {
     });
   }
 
+  
+  @Get("dashboard/latest-period")
+  @UseGuards(JwtAuthGuard)
+  getLatestPeriod() {
+    return this.requestService.getLatestPeriod();
+  }
+
+  @Get("dashboard/summary")
+  @UseGuards(JwtAuthGuard)
+  getDashboardSummary(@Query() query) {
+    return this.requestService.getSummary(query.month, query.year);
+  }
+
   @Delete(":id")
   remove(@Param("id") id: number): Promise<void> {
     return this.requestService.remove(id);

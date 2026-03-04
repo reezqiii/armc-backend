@@ -1745,6 +1745,133 @@ export class RequestService {
     return this.requestRepo.save(existing);
   }
 
+  async getLatestPeriod() {
+    const result = await this.requestRepo
+      .createQueryBuilder("r")
+      .select("MAX(r.created_date)", "max")
+      .where("r.status_active = :active", { active: 1 })
+      .getRawOne();
+
+    if (!result?.max) {
+      return null;
+    }
+
+    const date = new Date(result.max);
+
+    return {
+      month: date.getMonth() + 1,
+      year: date.getFullYear(),
+    };
+  }
+
+  async getSummary(month: number, year: number) {
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59);
+
+    // 1. Ambil data dasar (Total & Status)
+    const baseQuery = this.requestRepo
+      .createQueryBuilder("r")
+      .where("r.status_active = :active", { active: 1 })
+      .andWhere("r.created_date BETWEEN :start AND :end", {
+        start: startDate,
+        end: endDate,
+      });
+
+    const [total, onQueue, onProgress, completed, rawRequests] =
+      await Promise.all([
+        baseQuery.getCount(),
+        baseQuery.clone().andWhere("r.request_admin = 0").getCount(),
+        baseQuery.clone().andWhere("r.request_admin = 1").getCount(),
+        baseQuery.clone().andWhere("r.request_admin = 3").getCount(),
+        // Ambil semua data request untuk diproses manual (karena ada string koma di ID Company)
+        baseQuery
+          .clone()
+          .select(["r.id_request", "r.dept_id", "r.access_yard_company"])
+          .getMany(),
+      ]);
+
+    // 2. Proses Manual Company Stats (Menangani String Koma)
+    const allCompanies = await this.companyRepo.find({
+      select: ["id_company", "company_name"],
+    });
+    const companyCounts = new Map<string, number>();
+
+    rawRequests.forEach((req) => {
+      if (req.access_yard_company) {
+        // Split string ID (misal "1,4" menjadi ["1", "4"])
+        const ids = req.access_yard_company.split(",");
+        ids.forEach((id) => {
+          const found = allCompanies.find(
+            (c) => c.id_company === Number(id.trim()),
+          );
+          const name = found ? found.company_name : "Unknown Company";
+          companyCounts.set(name, (companyCounts.get(name) || 0) + 1);
+        });
+      } else {
+        companyCounts.set(
+          "No Company",
+          (companyCounts.get("No Company") || 0) + 1,
+        );
+      }
+    });
+
+    // 3. Proses Dept Stats (Tetap menggunakan Map agar lebih akurat)
+    const allDepts = await this.departmentRepo.find({
+      select: ["dept_id", "dept"],
+    });
+    const deptCounts = new Map<string, number>();
+
+    rawRequests.forEach((req) => {
+      const dept = allDepts.find((d) => d.dept_id === req.dept_id);
+      const name = dept ? dept.dept : "Unknown Dept";
+      deptCounts.set(name, (deptCounts.get(name) || 0) + 1);
+    });
+
+    return {
+      total,
+      onQueue,
+      onProgress,
+      completed,
+      deptStats: Array.from(deptCounts)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count),
+      companyStats: Array.from(companyCounts)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value),
+    };
+  }
+
+  async getAnalyticsByDeptAndCompany(month: number, year: number) {
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59);
+
+    const deptStats = await this.requestRepo
+      .createQueryBuilder("r")
+      .leftJoin("iss_dept", "d", "r.dept_id = d.id")
+      .select("d.dept_name", "label")
+      .addSelect("COUNT(r.id_request)", "value")
+      .where("r.created_date BETWEEN :start AND :end", {
+        start: startDate,
+        end: endDate,
+      })
+      .groupBy("d.dept_name")
+      .getRawMany();
+
+    const companyStats = await this.requestRepo
+      .createQueryBuilder("r")
+      .leftJoin("portal_company", "c", "r.id_company = c.id_company")
+      .select("c.company_name", "label")
+      .addSelect("COUNT(r.id_request)", "value")
+      .where("r.created_date BETWEEN :start AND :end", {
+        start: startDate,
+        end: endDate,
+      })
+      .groupBy("c.company_name")
+      .getRawMany();
+
+    return { deptStats, companyStats };
+  }
+
   async remove(id: number): Promise<void> {
     const result = await this.requestRepo.delete(id);
     if (result.affected === 0)
