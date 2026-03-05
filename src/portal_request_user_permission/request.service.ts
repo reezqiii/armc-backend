@@ -24,7 +24,7 @@ import { sendEmailDto } from "email/dto/send-email.dto";
 import { AesEcbService } from "crypto/aes-ecb.service";
 import { ConfigService } from "@nestjs/config";
 import { LogPortalService } from "log_portal/log_portal.service";
-import { getCategoryAccountLabel } from "utils/status-helper";
+import { getCategoryAccountLabel, TYPE_LABELS } from "utils/status-helper";
 import { PdfService } from "pdf/pdf.service";
 import { formatDate } from "utils/format-date";
 import * as path from "path";
@@ -562,7 +562,7 @@ export class RequestService {
         where: { id_company: employee.company },
       });
     }
-    // Kalau manual input
+
     else if (data.id_company) {
       company = await this.companyRepo.findOne({
         where: { id_company: Number(data.id_company) },
@@ -824,14 +824,12 @@ export class RequestService {
       existing.category_account = data.category_account;
     }
 
-    // hapus field yg tidak boleh assign langsung
     delete rest.approval_hod_by;
     delete rest.approval_lead_it_by;
     delete rest.approval_it_hod_by;
     delete rest.access_yard_company;
     delete rest.access_nav_menu;
 
-    // assign sisa tanpa menimpa design_id
     Object.assign(existing, rest);
 
     return this.requestRepo.save(existing);
@@ -982,7 +980,6 @@ export class RequestService {
         "HOD not assigned for this request",
       );
 
-    // hanya update status, TANPA email
     existing.request_status = 1;
 
     return this.requestRepo.save(existing);
@@ -1336,7 +1333,7 @@ export class RequestService {
       });
 
       if (!existing) continue;
-      if (existing.request_status !== 3) continue; // pending Lead IT
+      if (existing.request_status !== 3) continue; 
 
       existing.previous_status = existing.request_status;
       existing.approval_lead_it_by = leadItUser;
@@ -1540,83 +1537,148 @@ export class RequestService {
   }
 
   async exportList(filters: any, sort_by: string, sort_order: string) {
-    console.log("DEBUG: Received Filters:", filters);
-
     const qb = this.requestRepo
       .createQueryBuilder("r")
+      .select("r")
       .leftJoin("portal_user_db", "u", "u.id_user = r.created_by")
       .addSelect(["u.full_name"])
       .leftJoin("portal_company", "c", "c.id_company = r.id_company")
       .addSelect(["c.company_name"]);
+    if (filters && Object.keys(filters).length > 0) {
+      const exactMatchFields: Record<string, string> = {
+        request_status: "r.request_status",
+        requestor_id: "r.created_by",
+        type: "r.type",
+        dept_id: "r.dept_id",
+        id_request: "r.id_request",
+      };
 
-    if (filters) {
-      if (filters.request_status !== undefined) {
-        qb.andWhere("r.request_status = :status", {
-          status: Number(filters.request_status),
-        });
+      const likeFields: Record<string, string> = {
+        requestor_name: "u.full_name",
+        full_name: "r.full_name",
+        email: "r.email",
+        badge_no: "r.badge_no",
+        company_name: "c.company_name",
+      };
+
+      for (const key in exactMatchFields) {
+        if (filters[key] !== undefined && filters[key] !== "") {
+          qb.andWhere(`${exactMatchFields[key]} = :${key}`, {
+            [key]: filters[key],
+          });
+        }
       }
-      if (filters.requestor_id) {
-        qb.andWhere("r.created_by = :reqId", { reqId: filters.requestor_id });
+
+      for (const key in likeFields) {
+        if (filters[key]) {
+          qb.andWhere(`LOWER(${likeFields[key]}) LIKE :${key}`, {
+            [key]: `%${filters[key].toLowerCase()}%`,
+          });
+        }
       }
-
-      if (filters.type !== undefined) {
-        qb.andWhere("r.type = :type", { type: Number(filters.type) });
-      }
-
-      if (filters.status_active !== undefined) {
-        qb.andWhere("r.status_active = :sActive", {
-          sActive: Number(filters.status_active),
-        });
-      }
-
-      if (filters.badge_no)
-        qb.andWhere("r.badge_no ILIKE :badge", {
-          badge: `%${filters.badge_no}%`,
-        });
-      if (filters.full_name)
-        qb.andWhere("r.full_name ILIKE :fname", {
-          fname: `%${filters.full_name}%`,
-        });
-    }
-
-    try {
-      const requests = await qb.getRawMany();
-      console.log(`DEBUG: Found ${requests.length} raw records.`);
-
-      const [depts, positions, projects] = await Promise.all([
-        this.departmentRepo.find(),
-        this.positionRepo.find(),
-        this.projectRepo.find(),
-      ]);
-
-      const deptMap = new Map(depts.map((d) => [d.dept_id, d.dept]));
-      const positionMap = new Map(
-        positions.map((p) => [p.design_id, p.design_desc]),
-      );
-      const projectMap = new Map(
-        projects.map((p) => [p.project_id, p.project_desc]),
-      );
-
-      let finalResult = requests.map((r) => ({
-        ...r,
-        department_name: deptMap.get(r.r_dept_id) || "-",
-        position_name: positionMap.get(r.r_design_id) || "-",
-        project_name: projectMap.get(r.r_project_id) || "-",
-        category_account: r.r_category_account,
-      }));
 
       if (filters.department_name) {
-        const searchVal = filters.department_name.toLowerCase();
-        finalResult = finalResult.filter((item) =>
-          item.department_name.toLowerCase().includes(searchVal),
-        );
+        const depts = await this.departmentRepo
+          .createQueryBuilder("d")
+          .where("LOWER(d.dept) LIKE :name", {
+            name: `%${filters.department_name.toLowerCase()}%`,
+          })
+          .getMany();
+
+        const deptIds = depts.map((d) => d.dept_id);
+
+        if (deptIds.length > 0) {
+          qb.andWhere("r.dept_id IN (:...deptIds)", { deptIds });
+        } else {
+          qb.andWhere("1=0");
+        }
       }
 
-      return finalResult;
-    } catch (error) {
-      console.error("DEBUG: ERROR IN exportList:", error.message);
-      throw error;
+      if (filters.project_name) {
+        const projects = await this.projectRepo
+          .createQueryBuilder("p")
+          .where("LOWER(p.project_desc) LIKE :name", {
+            name: `%${filters.project_name.toLowerCase()}%`,
+          })
+          .getMany();
+
+        const projectIds = projects.map((p) => p.project_id);
+
+        if (projectIds.length > 0) {
+          qb.andWhere("r.project_id IN (:...projectIds)", { projectIds });
+        } else {
+          qb.andWhere("1=0");
+        }
+      }
+
+      if (filters.position_name) {
+        const positions = await this.positionRepo
+          .createQueryBuilder("p")
+          .where("LOWER(p.design_desc) LIKE :name", {
+            name: `%${filters.position_name.toLowerCase()}%`,
+          })
+          .getMany();
+
+        const positionIds = positions.map((p) => p.design_id);
+
+        if (positionIds.length > 0) {
+          qb.andWhere("r.design_id IN (:...positionIds)", { positionIds });
+        } else {
+          qb.andWhere("1=0");
+        }
+      }
+
+      if (filters.keyword) {
+        const keyword = `%${filters.keyword.toLowerCase()}%`;
+
+        qb.andWhere(
+          `
+      (
+        LOWER(r.full_name) LIKE :keyword OR
+        LOWER(r.email) LIKE :keyword OR
+        LOWER(r.badge_no) LIKE :keyword OR
+        LOWER(u.full_name) LIKE :keyword OR
+        LOWER(c.company_name) LIKE :keyword OR
+        CAST(r.id_request AS TEXT) LIKE :keyword
+      )
+    `,
+          { keyword },
+        );
+      }
     }
+    if (sort_by) {
+      qb.orderBy(
+        `r.${sort_by}`,
+        sort_order?.toUpperCase() === "DESC" ? "DESC" : "ASC",
+      );
+    } else {
+      qb.orderBy("r.created_date", "DESC");
+    }
+
+    const requests = await qb.getRawMany();
+
+    const [depts, projects, positions] = await Promise.all([
+      this.departmentRepo.find(),
+      this.projectRepo.find(),
+      this.positionRepo.find(),
+    ]);
+
+    const deptMap = new Map(depts.map((d) => [d.dept_id, d.dept]));
+    const projectMap = new Map(
+      projects.map((p) => [p.project_id, p.project_desc]),
+    );
+    const positionMap = new Map(
+      positions.map((p) => [p.design_id, p.design_desc]),
+    );
+
+    return requests.map((r) => ({
+      ...r,
+      department_name: deptMap.get(r.r_dept_id) || "-",
+      project_name: projectMap.get(r.r_project_id) || "-",
+      position_name: positionMap.get(r.r_design_id) || "-",
+      requestor_name: r.u_full_name || "-",
+      type_label: TYPE_LABELS[r.r_type] ?? "-",
+    }));
   }
 
   async generateRequestPdf(enc_request_id: string): Promise<Buffer> {

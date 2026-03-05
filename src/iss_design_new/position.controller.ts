@@ -7,11 +7,6 @@ import { Public } from 'auth/public.decorator';
 export class PositionController {
   constructor(private readonly positionService: PositionService) { }
 
-  // @Get()
-  // async findAll(): Promise<Position[]> {
-  //   return this.positionService.findAll();
-  // }
-
   @Public()
   @Get()
   async findAll(): Promise<Position[]> {

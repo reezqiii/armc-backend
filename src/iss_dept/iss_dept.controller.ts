@@ -7,11 +7,6 @@ import { Public } from 'auth/public.decorator';
 export class IssDeptController {
   constructor(private readonly deptService: IssDeptService) { }
 
-  // @Get()
-  // async getAll(): Promise<IssDept[]> {
-  //   return this.deptService.findAll();
-  // }
-
   @Public()
   @Get()
   async getAll(): Promise<IssDept[]> {

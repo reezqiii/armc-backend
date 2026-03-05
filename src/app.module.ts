@@ -53,19 +53,6 @@ import { PortalRoleDbModule } from './portal_role_db/portal_role_db.module';
       }),
     }),
 
-    //   imports: [ConfigModule],
-    //   inject: [ConfigService],
-    //   useFactory: (config: ConfigService) => ({
-    //     type: 'postgres',
-    //     host: config.get('DB_PORTAL_HOST'),
-    //     port: config.get('DB_PORTAL_PORT'),
-    //     username: config.get('DB_PORTAL_USERNAME'),
-    //     password: config.get('DB_PORTAL_PASSWORD'),
-    //     database: config.get('DB_PORTAL_NAME'),
-    //     autoLoadEntities: true,
-    //     synchronize: false,
-    //   }),
-    // }),
     TypeOrmModule.forRootAsync({
       name: "db_iss",
       imports: [ConfigModule],

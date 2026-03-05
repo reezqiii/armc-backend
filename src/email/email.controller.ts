@@ -16,7 +16,6 @@ export class EmailController {
       'requestDate'  : "2024-06-15",
       'requestDescription': "Access to the new financial system",
       'approvalLink': "https://example.com/approve?req=REQ-2024-0001",
-      // 'requestStatus': "Pending Approval
       
     }
     var content   = this.emailService.renderTemplate("approval.ejs", view_data)

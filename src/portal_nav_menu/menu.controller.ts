@@ -16,11 +16,6 @@ import { Public } from 'public.decorator';
 export class NavMenuController {
   constructor(private readonly navMenuService: NavMenuService) { }
 
-  // @Get('list')
-  // async findAll() {
-  //   return this.navMenuService.findAll();
-  // }
-
   @Public()
   @Get('list')
   async findAll() {

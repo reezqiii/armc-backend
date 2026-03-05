@@ -1,6 +1,6 @@
 import * as ExcelJS from "exceljs";
 import { get } from "http";
-import { getAdminStatusLabel, getCategoryAccountLabel, getStatusLabel } from "utils/status-helper";
+import { getAdminStatusLabel, getCategoryAccountLabel, getStatusLabel, TYPE_LABELS } from "utils/status-helper";
 
 export async function buildCompletedExcelTemplate(requests) {
     const workbook = new ExcelJS.Workbook();
@@ -62,7 +62,7 @@ export async function buildCompletedExcelTemplate(requests) {
 
             company: req.c_company_name || '-',
             email: req.r_email || '-',
-            type: req.r_type === 1 ? 'External' : 'Internal',
+            type: TYPE_LABELS[req.r_type] ?? "-",
             status_label: getStatusLabel(req.r_request_status), 
             admin_status: getAdminStatusLabel(req.r_request_admin), 
             category_account: getCategoryAccountLabel(req.r_category_account) || '-',

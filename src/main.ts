@@ -10,12 +10,10 @@ async function bootstrap() {
     const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
 
-   // === STATIC FILES ===
   app.useStaticAssets(join(__dirname, "..", "public"), {
     prefix: "/",
   });
 
-  // ---- FIX PENTING: START ALS CONTEXT ----
   app.use((req, res, next) => {
     requestStorage.run({ userId: null }, () => {
       next();

@@ -16,34 +16,38 @@ import { buildCompletedExcelTemplate } from './views/export_template';
 export class ExcelController {
   constructor(private readonly requestService: RequestService) { }
 
-  @Get('export-list')
+@Get('export-list')
 async exportCompleted(
-  @Query('search') search: string, // Ini biasanya berisi JSON string dari UI
+  @Query('search') search: string, 
   @Query('sort_by') sort_by: string,
   @Query('sort_order') sort_order: string,
   @Query('status') status: string, 
   @Res() res: Response,
 ) {
   try {
-    // 1. Parsing filter dari search query
     let filters = {};
     if (search) {
       try {
         filters = JSON.parse(search);
       } catch (e) {
-        // Jika bukan JSON, anggap sebagai search string biasa untuk 'full_name'
-        filters = { r_full_name: search }; 
+        filters = { full_name: search }; 
       }
     }
 
-    // 2. Tambahkan filter status jika ada
     const statusMapping: Record<string, number> = {
+      'draft': 0,
+      'awaiting-hod-approval': 1,
+      'rejected-hod-approval': 2,
+      'awaiting-lead-it-approval': 3,
+      'rejected-lead-it-approval': 4,
+      'awaiting-it-manager-approval': 5,
+      'rejected-it-manager-approval': 6,
       'completed': 7,
-      // ... mapping lainnya
+      'returned': 8,
     };
 
     if (status && statusMapping[status.toLowerCase()] !== undefined) {
-      filters['r_request_status'] = statusMapping[status.toLowerCase()];
+      filters['request_status'] = statusMapping[status.toLowerCase()];
     }
 
     const requests = await this.requestService.exportList(
@@ -52,15 +56,20 @@ async exportCompleted(
       sort_order,
     );
 
-    const label = status ? status.toUpperCase() : 'ALL';
+    const label = status ? status.toUpperCase().replace(/-/g, '_') : 'ALL';
     const buffer = await buildCompletedExcelTemplate(requests);
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=Export_Requests_${label}.xlsx`);
 
-    return res.status(HttpStatus.OK).end(buffer);
+    return res.status(HttpStatus.OK).send(buffer);
+
   } catch (err) {
-    // ... error handling
+    console.error("ERROR EXPORT CONTROLLER:", err);
+    return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+      message: "Export Excel failed",
+      error: err.message,
+    });
   }
 }
 }

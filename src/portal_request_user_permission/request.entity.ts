@@ -117,10 +117,6 @@ export class RequestEntity {
   @JoinColumn({ name: 'created_by' })
   created_by_user: User;
 
-  // @ManyToOne(() => NavMenu, { nullable: true })
-  // @JoinColumn({ name: 'access_nav_menu' })
-  // nav_menu: NavMenu;
-
   @ManyToOne(() => Company, { nullable: true })
   @JoinColumn({ name: 'id_company' })
   company: Company;
