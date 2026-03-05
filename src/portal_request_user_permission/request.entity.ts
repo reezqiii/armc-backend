@@ -26,9 +26,6 @@ export class RequestEntity {
   @Column({ name: 'email', type: 'varchar', length: 255 })
   email: string;
 
-  @Column({ name: 'request_type', type: 'int' })
-  request_type: number;
-
   @Column({ name: 'request_reason', type: 'text' })
   request_reason: string;
 

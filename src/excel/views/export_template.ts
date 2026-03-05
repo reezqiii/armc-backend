@@ -62,7 +62,7 @@ export async function buildCompletedExcelTemplate(requests) {
 
             company: req.c_company_name || '-',
             email: req.r_email || '-',
-            type: req.r_type === 1 ? 'Public' : 'Login',
+            type: req.r_type === 1 ? 'External' : 'Internal',
             status_label: getStatusLabel(req.r_request_status), 
             admin_status: getAdminStatusLabel(req.r_request_admin), 
             category_account: getCategoryAccountLabel(req.r_category_account) || '-',

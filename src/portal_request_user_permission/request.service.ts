@@ -613,7 +613,6 @@ export class RequestService {
       id_company: company?.id_company || null,
       access_yard_company: accessYardValue,
       access_nav_menu: accessNavMenuValue,
-      request_type: data.request_type ?? 1,
       request_status: data.request_status ?? 0,
       status_active: data.status_active ?? 1,
       created_date: new Date(),
@@ -668,7 +667,6 @@ export class RequestService {
       company: company || null,
       access_yard_company: accessYardValue,
       access_nav_menu: accessNavMenuValue,
-      request_type: data.request_type ?? 1,
       request_status: data.request_status ?? 0,
       status_active: data.status_active ?? 1,
       category_account: data.category_account ?? null,
@@ -1542,6 +1540,8 @@ export class RequestService {
   }
 
   async exportList(filters: any, sort_by: string, sort_order: string) {
+    console.log("DEBUG: Received Filters:", filters);
+
     const qb = this.requestRepo
       .createQueryBuilder("r")
       .leftJoin("portal_user_db", "u", "u.id_user = r.created_by")
@@ -1549,55 +1549,74 @@ export class RequestService {
       .leftJoin("portal_company", "c", "c.id_company = r.id_company")
       .addSelect(["c.company_name"]);
 
-    Object.keys(filters || {}).forEach((key) => {
-      const value = filters[key];
-      if (value !== undefined && value !== null && value !== "") {
-        if (key === "request_status" || key === "request_admin") {
-          const numValue = Number(value);
-          if (!isNaN(numValue)) {
-            qb.andWhere(`r.${key} = :${key}`, { [key]: numValue });
-          }
-        }
-        if (key === "category_account") {
-          qb.andWhere("r.category_account = :category_account", {
-            category_account: Number(value),
-          });
-        } else if (isNaN(Number(value))) {
-          qb.andWhere(`r.${key} ILIKE :${key}`, { [key]: `%${value}%` });
-        } else {
-          qb.andWhere(`r.${key} = :${key}`, { [key]: Number(value) });
-        }
+    if (filters) {
+      if (filters.request_status !== undefined) {
+        qb.andWhere("r.request_status = :status", {
+          status: Number(filters.request_status),
+        });
       }
-    });
+      if (filters.requestor_id) {
+        qb.andWhere("r.created_by = :reqId", { reqId: filters.requestor_id });
+      }
 
-    qb.orderBy(
-      `r.${sort_by || "id_request"}`,
-      (sort_order || "ASC") as "ASC" | "DESC",
-    );
+      if (filters.type !== undefined) {
+        qb.andWhere("r.type = :type", { type: Number(filters.type) });
+      }
 
-    const requests = await qb.getRawMany();
+      if (filters.status_active !== undefined) {
+        qb.andWhere("r.status_active = :sActive", {
+          sActive: Number(filters.status_active),
+        });
+      }
 
-    const [depts, positions, projects] = await Promise.all([
-      this.departmentRepo.find(),
-      this.positionRepo.find(),
-      this.projectRepo.find(),
-    ]);
+      if (filters.badge_no)
+        qb.andWhere("r.badge_no ILIKE :badge", {
+          badge: `%${filters.badge_no}%`,
+        });
+      if (filters.full_name)
+        qb.andWhere("r.full_name ILIKE :fname", {
+          fname: `%${filters.full_name}%`,
+        });
+    }
 
-    const deptMap = new Map(depts.map((d) => [d.dept_id, d.dept]));
-    const positionMap = new Map(
-      positions.map((p) => [p.design_id, p.design_desc]),
-    );
-    const projectMap = new Map(
-      projects.map((p) => [p.project_id, p.project_desc]),
-    );
+    try {
+      const requests = await qb.getRawMany();
+      console.log(`DEBUG: Found ${requests.length} raw records.`);
 
-    return requests.map((r) => ({
-      ...r,
-      department_name: deptMap.get(r.r_dept_id) || "-",
-      position_name: positionMap.get(r.r_design_id) || "-",
-      project_name: projectMap.get(r.r_project_id) || "-",
-      category_account: r.r_category_account,
-    }));
+      const [depts, positions, projects] = await Promise.all([
+        this.departmentRepo.find(),
+        this.positionRepo.find(),
+        this.projectRepo.find(),
+      ]);
+
+      const deptMap = new Map(depts.map((d) => [d.dept_id, d.dept]));
+      const positionMap = new Map(
+        positions.map((p) => [p.design_id, p.design_desc]),
+      );
+      const projectMap = new Map(
+        projects.map((p) => [p.project_id, p.project_desc]),
+      );
+
+      let finalResult = requests.map((r) => ({
+        ...r,
+        department_name: deptMap.get(r.r_dept_id) || "-",
+        position_name: positionMap.get(r.r_design_id) || "-",
+        project_name: projectMap.get(r.r_project_id) || "-",
+        category_account: r.r_category_account,
+      }));
+
+      if (filters.department_name) {
+        const searchVal = filters.department_name.toLowerCase();
+        finalResult = finalResult.filter((item) =>
+          item.department_name.toLowerCase().includes(searchVal),
+        );
+      }
+
+      return finalResult;
+    } catch (error) {
+      console.error("DEBUG: ERROR IN exportList:", error.message);
+      throw error;
+    }
   }
 
   async generateRequestPdf(enc_request_id: string): Promise<Buffer> {
@@ -1768,7 +1787,6 @@ export class RequestService {
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0, 23, 59, 59);
 
-    // 1. Ambil data dasar (Total & Status)
     const baseQuery = this.requestRepo
       .createQueryBuilder("r")
       .where("r.status_active = :active", { active: 1 })
@@ -1783,14 +1801,12 @@ export class RequestService {
         baseQuery.clone().andWhere("r.request_admin = 0").getCount(),
         baseQuery.clone().andWhere("r.request_admin = 1").getCount(),
         baseQuery.clone().andWhere("r.request_admin = 3").getCount(),
-        // Ambil semua data request untuk diproses manual (karena ada string koma di ID Company)
         baseQuery
           .clone()
           .select(["r.id_request", "r.dept_id", "r.access_yard_company"])
           .getMany(),
       ]);
 
-    // 2. Proses Manual Company Stats (Menangani String Koma)
     const allCompanies = await this.companyRepo.find({
       select: ["id_company", "company_name"],
     });
@@ -1798,7 +1814,6 @@ export class RequestService {
 
     rawRequests.forEach((req) => {
       if (req.access_yard_company) {
-        // Split string ID (misal "1,4" menjadi ["1", "4"])
         const ids = req.access_yard_company.split(",");
         ids.forEach((id) => {
           const found = allCompanies.find(
@@ -1815,7 +1830,6 @@ export class RequestService {
       }
     });
 
-    // 3. Proses Dept Stats (Tetap menggunakan Map agar lebih akurat)
     const allDepts = await this.departmentRepo.find({
       select: ["dept_id", "dept"],
     });

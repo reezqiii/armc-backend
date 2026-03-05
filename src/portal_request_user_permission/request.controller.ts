@@ -165,7 +165,7 @@ export class RequestController {
     @Body() body: { encryptedIds: string[] },
     @Req() req: any,
   ) {
-    const userId = req.user?.id_user; // sesuai JWTStrategy
+    const userId = req.user?.id_user; 
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
@@ -272,7 +272,6 @@ export class RequestController {
     });
   }
 
-  
   @Get("dashboard/latest-period")
   @UseGuards(JwtAuthGuard)
   getLatestPeriod() {
