@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { InjectRepository } from "@nestjs/typeorm";
 import { User } from "../portal/user.entity";
@@ -19,34 +19,32 @@ export class AuthService {
   ) {}
 
   async login(authDTO: AuthDTO) {
-    try {
-      const { id_user } = authDTO;
-      const decrypted = this.aesEcb.decryptBase64Url(id_user);
-      const idUserNum = Number.parseInt(decrypted, 10);
-      const login = await this._user.findOne({
-        where: {
-          id_user: idUserNum,
-          status_user: 1,
-        },
-      });
-      const permissions = await this.userPermService.getUserPermissionsForApp(
-        login.id_user,
-        32,
-      );
-      
-      const payload = { id_user: login?.id_user };
-      const token = this.jwtService.sign(payload);
-      return {
-        success: true,
-        token: token,
-        user: {
-          id: login?.id_user,
-          full_name: login?.full_name,
-          permissions: permissions,
-        },
-      };
-    } catch (error) {
-      throw new Error(error);
+    const { username, password } = authDTO;
+
+    const user = await this._user.findOne({
+      where: {
+        username: username,
+        status_user: 1,
+      },
+    });
+
+    // Gunakan Exception agar ditangkap oleh catch di frontend
+    if (!user) {
+      throw new NotFoundException("User tidak ditemukan atau tidak aktif");
     }
+
+    // Hash MD5 sudah sesuai dengan gambar DB kamu
+    if (user.password !== md5(password)) {
+      throw new UnauthorizedException("Password yang anda masukkan salah");
+    }
+
+    // ... sisa logic (generate token & permissions)
+    const token = this.jwtService.sign({ id_user: user.id_user });
+
+    return {
+      success: true,
+      token: token,
+      user: { id: user.id_user, full_name: user.full_name },
+    };
   }
 }
