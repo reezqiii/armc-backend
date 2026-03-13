@@ -1,6 +1,7 @@
 // src/utils/status-helper.ts
 
-export const REQUEST_STATUS_LABELS: Record<number, string> = {
+export const STATUS_REGISTRY = {
+  request_status: {
     0: "Draft",
     1: "Awaiting HOD Approval",
     2: "Rejected HOD Approval",
@@ -10,39 +11,25 @@ export const REQUEST_STATUS_LABELS: Record<number, string> = {
     6: "Rejected IT Manager Approval",
     7: "Completed",
     8: "Returned",
-};
+  },
 
-// Mapping Admin Status (IT Technical Progress)
-export const ADMIN_STATUS_LABELS: Record<number, string> = {
+  admin_status: {
     0: "On Queue",
     1: "On Progress",
     2: "Completed",
-};
+  },
 
-export const CATEGORY_ACCOUNT_LABELS: Record<number, string> = {
-    0: "Create New Account",
-    1: "Request Permission",
-    2: "Request Outside Access",
-};
+  type: {
+    0: "Internal",
+    1: "External",
+  },
+} as const;
 
-export const getCategoryAccountLabel = (
-    value: number | null | undefined
-): string =>
-    value !== null && value !== undefined
-        ? CATEGORY_ACCOUNT_LABELS[value] ?? "-"
-        : "-";
+export function getStatusLabel(
+  group: keyof typeof STATUS_REGISTRY,
+  value?: number | null,
+): string {
+  if (value === null || value === undefined) return "-";
+  return STATUS_REGISTRY[group]?.[value] ?? "-";
+}
 
-export const TYPE_LABELS: Record<number, string> = {
-    0: 'Internal',
-    1: 'External',
-};
-
-export const getTypeLabel = (
-    value: number | null | undefined
-): string =>
-    value !== null && value !== undefined
-        ? TYPE_LABELS[value] ?? '-'
-        : '-';
-
-export const getStatusLabel = (code: number) => REQUEST_STATUS_LABELS[code] || "Unknown";
-export const getAdminStatusLabel = (code: number) => ADMIN_STATUS_LABELS[code] || "-";

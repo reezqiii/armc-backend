@@ -26,6 +26,7 @@ import { ServeStaticModule } from "@nestjs/serve-static";
 import { PortalProjectModule } from './portal_project/portal_project.module';
 import { PortalDepartmentModule } from './portal_department/portal_department.module';
 import { PortalRoleDbModule } from './portal_role_db/portal_role_db.module';
+import { PortalCategoryAccountModule } from "portal_category_account/portal_category_account.module";
 
 @Module({
   imports: [
@@ -105,6 +106,7 @@ import { PortalRoleDbModule } from './portal_role_db/portal_role_db.module';
     PortalProjectModule,
     PortalDepartmentModule,
     PortalRoleDbModule,
+    PortalCategoryAccountModule,
   ],
 
   providers: [RequestSubscriber],

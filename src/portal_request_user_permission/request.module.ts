@@ -18,10 +18,11 @@ import { LogPortalEntity } from 'log_portal/log_portal.entity';
 import { LogPortalService } from 'log_portal/log_portal.service';
 import { PdfModule } from 'pdf/pdf.module';
 import { UserModule } from 'portal_user_db/user.module';
+import { CategoryAccount } from 'portal_category_account/entities/portal_category_account.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([RequestEntity, User, Company, NavMenu]),
+    TypeOrmModule.forFeature([RequestEntity, User, Company, NavMenu, CategoryAccount]),
     TypeOrmModule.forFeature([IssProject, IssDept, Position, IssEmployee], 'db_iss'),
     TypeOrmModule.forFeature([LogPortalEntity], 'alms'),
     EmailModule,

@@ -148,7 +148,7 @@ export class RequestController {
       body.encryptedIds,
       body.action,
       body.remarks,
-      req.user.id,
+      req.user.id_user,
     );
   }
 
