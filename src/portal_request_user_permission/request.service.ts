@@ -24,11 +24,11 @@ import { sendEmailDto } from "email/dto/send-email.dto";
 import { AesEcbService } from "crypto/aes-ecb.service";
 import { ConfigService } from "@nestjs/config";
 import { LogPortalService } from "log_portal/log_portal.service";
-import { getCategoryAccountLabel } from "utils/status-helper";
+import { getStatusLabel } from "utils/status-helper";
 import { PdfService } from "pdf/pdf.service";
 import { formatDate } from "utils/format-date";
 import * as path from "path";
-import e from "express";
+import { CategoryAccount } from "portal_category_account/entities/portal_category_account.entity";
 
 @Injectable()
 export class RequestService {
@@ -43,6 +43,8 @@ export class RequestService {
     private readonly departmentRepo: Repository<IssDept>,
     @InjectRepository(Position, "db_iss")
     private readonly positionRepo: Repository<Position>,
+    @InjectRepository(IssEmployee, "db_iss")
+    private readonly employeeRepo: Repository<IssEmployee>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     private readonly permissionService: PortalUserPermissionService,
@@ -52,12 +54,12 @@ export class RequestService {
     private readonly companyRepo: Repository<Company>,
     @InjectRepository(NavMenu)
     private readonly navMenuRepo: Repository<NavMenu>,
-    @InjectRepository(IssEmployee, "db_iss")
-    private readonly employeeRepo: Repository<IssEmployee>,
     private readonly mailService: EmailService,
     private configService: ConfigService,
     private readonly logPortalService: LogPortalService,
     private readonly pdf: PdfService,
+    @InjectRepository(CategoryAccount)
+    private readonly categoryRepo: Repository<CategoryAccount>,
   ) {
     this.PORTAL_LINK = this.configService.get<string>("LINK_PORTAL");
   }
@@ -65,11 +67,12 @@ export class RequestService {
   async serverSideList(queryDto: ServerSideDTO, user?: any) {
     try {
       const { page = 0, size = 10, search, sort } = queryDto;
-      const take = size;
+      const take = Number(size);
       const skip = page * take;
 
       const qb = this.requestRepo
         .createQueryBuilder("request")
+        .leftJoinAndSelect("request.category", "category")
         .leftJoinAndSelect("request.approval_hod_by", "approvalHod")
         .leftJoinAndSelect("request.approval_it_hod_by", "approvalIt")
         .leftJoinAndSelect("request.approval_lead_it_by", "approvalLeadIt")
@@ -83,6 +86,7 @@ export class RequestService {
         badge_no: "request.badge_no",
         email: "request.email",
         requestor_id: "request.created_by",
+        requestor: "requestor.full_name",
         request_status: "request.request_status",
         created_date: "request.created_date",
         status_active: "request.status_active",
@@ -93,7 +97,9 @@ export class RequestService {
         approval_hod_by: "approvalHod.id_user",
         approval_it: "approvalIt.full_name",
         approval_lead_it: "approvalLeadIt.full_name",
-        category_account: "request.category_account",
+        category_account: "category.id",
+        category_account_name: "category.name",
+        type: "request.type",
       };
 
       const manualSortFields = [
@@ -129,6 +135,23 @@ export class RequestService {
             continue;
           }
 
+          if (key === "requestor" || key === "requestor_name") {
+            qb.andWhere(
+              `(requestor.full_name ILIKE :req_name OR request.requestor_name ILIKE :req_name)`,
+              { req_name: `%${value}%` },
+            );
+            continue;
+          }
+
+          if (key === "type") {
+            const val = String(value).toLowerCase();
+            if ("internal".includes(val))
+              qb.andWhere("request.type = :type", { type: 0 });
+            if ("external".includes(val))
+              qb.andWhere("request.type = :type", { type: 1 });
+            continue;
+          }
+
           const column = columnMap[key];
           if (!column) continue;
 
@@ -140,13 +163,6 @@ export class RequestService {
           );
         }
       }
-
-      // if (!user.permissions.includes(2)) {
-      //   qb.andWhere(
-      //     "(request.created_by = :uid OR request.approval_hod_by = :uid)",
-      //     { uid: user.id_user }
-      //   );
-      // }
 
       if (!user.permissions.includes(2)) {
         qb.andWhere(
@@ -170,77 +186,77 @@ export class RequestService {
         qb.orderBy("request.created_date", "DESC");
       }
 
-      const [data, total] = await qb.skip(skip).take(take).getManyAndCount();
+      const hasManualFilter = manualSearchQueue.length > 0;
+      const hasManualSort = !!manualSortField;
+
+      let data: any[];
+      let totalCount: number;
+
+      if (hasManualFilter || hasManualSort) {
+        [data, totalCount] = await qb.getManyAndCount();
+      } else {
+        [data, totalCount] = await qb.skip(skip).take(take).getManyAndCount();
+      }
+
+      const projects = await this.projectRepo.find();
+      const departments = await this.departmentRepo.find();
+      const positions = await this.positionRepo.find();
+      const companies = await this.companyRepo.find();
+
+      const projectMap = Object.fromEntries(
+        projects.map((p) => [p.project_id, p]),
+      );
+      const departmentMap = Object.fromEntries(
+        departments.map((d) => [d.dept_id, d]),
+      );
+      const positionMap = Object.fromEntries(
+        positions.map((p) => [p.design_id, p]),
+      );
+      const companyMap = Object.fromEntries(
+        companies.map((c) => [c.id_company, c]),
+      );
 
       let mappedData = await Promise.all(
-        data.map(async (d, index) => {
-          const runningNumber = total - (skip + index);
-
-          const project = d.project_id
-            ? await this.projectRepo.findOne({
-                where: { project_id: d.project_id },
-              })
-            : null;
-
-          const department = d.dept_id
-            ? await this.departmentRepo.findOne({
-                where: { dept_id: d.dept_id },
-              })
-            : null;
-
-          const position = d.design_id
-            ? await this.positionRepo.findOne({
-                where: { design_id: d.design_id },
-              })
-            : null;
-
-          const company = d.id_company
-            ? await this.companyRepo.findOne({
-                where: { id_company: d.id_company },
-              })
-            : null;
-
-          let requestorName = null;
-          if (d.created_by) {
-            const user = await this.userRepo.findOne({
-              where: { id_user: d.created_by },
-            });
-            requestorName = user?.full_name || null;
-          }
-
-          // const btnCancel = [0, 1, 2].includes(d.request_status) || user.permissions.includes(2);
-          // const btnEdit = [0, 1, 2].includes(d.request_status) || user.permissions.includes(2);
+        data.map(async (d) => {
+          const project = projectMap[d.project_id];
+          const department = departmentMap[d.dept_id];
+          const position = positionMap[d.design_id];
+          const company = companyMap[d.id_company];
+          const requestorName =
+            d.created_by_user?.full_name || d.requestor_name || "-";
 
           return {
             id_request: d.id_request,
-            no_request: runningNumber,
             created_date: d.created_date,
             requestor_name: requestorName,
             full_name: d.full_name,
             badge_no: d.badge_no,
             email: d.email,
-            type: d.type,
             company_name: company?.company_name || "-",
             project_name: project?.project_desc || "-",
             department_name: department?.dept || "-",
             position_name: position?.design_desc || "-",
+            type: d.type,
+            type_name: getStatusLabel("type", d.type),
             request_status: d.request_status,
+            request_status_name: getStatusLabel(
+              "request_status",
+              d.request_status,
+            ),
+            request_admin: d.request_admin,
+            request_admin_name: getStatusLabel("admin_status", d.request_admin),
             previous_status: d.previous_status,
-            category_account: d.category_account,
+            category_account: d.category?.id || null,
+            category_account_name: d.category?.name || "-",
             approval_hod: d.approval_hod_by
               ? `${d.approval_hod_by.id_user} - ${d.approval_hod_by.full_name}`
               : "-",
-
             approval_lead_it: d.approval_lead_it_by
               ? `${d.approval_lead_it_by.id_user} - ${d.approval_lead_it_by.full_name}`
               : "-",
-
             approval_it: d.approval_it_hod_by
               ? `${d.approval_it_hod_by.id_user} - ${d.approval_it_hod_by.full_name}`
               : "-",
-
-            request_admin: d.request_admin ?? 0,
-
             approval_hod_by: d.approval_hod_by
               ? {
                   id: d.approval_hod_by.id_user,
@@ -248,10 +264,8 @@ export class RequestService {
                   full_name: d.approval_hod_by.full_name,
                 }
               : null,
-
             approval_hod_date_at: d.approval_hod_date_at || null,
             rejected_hod_remarks: d.rejected_hod_remarks || null,
-
             approval_lead_it_by: d.approval_lead_it_by
               ? {
                   id: d.approval_lead_it_by.id_user,
@@ -259,10 +273,8 @@ export class RequestService {
                   full_name: d.approval_lead_it_by.full_name,
                 }
               : null,
-
             approval_lead_date_at: d.approval_lead_date_at || null,
             rejected_lead_remarks: d.rejected_lead_remarks || null,
-
             approval_it_hod_by: d.approval_it_hod_by
               ? {
                   id: d.approval_it_hod_by.id_user,
@@ -270,7 +282,6 @@ export class RequestService {
                   full_name: d.approval_it_hod_by.full_name,
                 }
               : null,
-
             approval_it_date_at: d.approval_it_date_at || null,
             rejected_it_remarks: d.rejected_it_remarks || null,
           };
@@ -279,27 +290,40 @@ export class RequestService {
 
       for (const { field, value } of manualSearchQueue) {
         const searchValue = String(value).toLowerCase();
-
-        mappedData = mappedData.filter((item) => {
-          const target = String(item[field] ?? "").toLowerCase();
-          return target.includes(searchValue);
-        });
+        mappedData = mappedData.filter((item) =>
+          String(item[field] ?? "")
+            .toLowerCase()
+            .includes(searchValue),
+        );
       }
 
       if (manualSortField) {
         const direction = manualSortDir === "DESC" ? -1 : 1;
-
-        mappedData.sort((a, b) => {
-          const A = a[manualSortField] ?? "";
-          const B = b[manualSortField] ?? "";
-          return A.localeCompare(B) * direction;
-        });
+        mappedData.sort(
+          (a, b) =>
+            String(a[manualSortField] ?? "").localeCompare(
+              String(b[manualSortField] ?? ""),
+            ) * direction,
+        );
       }
 
+      const filteredTotal =
+        hasManualFilter || hasManualSort ? mappedData.length : totalCount;
+
+      const paginatedData =
+        hasManualFilter || hasManualSort
+          ? mappedData.slice(skip, skip + take)
+          : mappedData;
+
+      const finalData = paginatedData.map((item, index) => ({
+        ...item,
+        no_request: skip + index + 1,
+      }));
+
       return {
-        data: mappedData,
-        total_records: total,
-        total_pages: Math.ceil(total / take),
+        data: finalData,
+        total_records: filteredTotal,
+        total_pages: Math.ceil(filteredTotal / take),
         page,
         size: take,
       };
@@ -382,6 +406,7 @@ export class RequestService {
         "approval_lead_it_by",
         "approval_it_hod_by",
         "company",
+        "category",
       ],
     });
 
@@ -407,9 +432,14 @@ export class RequestService {
       ? await this.userRepo.findOne({ where: { id_user: data.created_by } })
       : null;
 
+    const category = data.category_account
+      ? await this.categoryRepo.findOne({
+          where: { id: Number(data.category_account) },
+        })
+      : null;
+
     return {
       ...data,
-
       project: project ? project.project_desc : null,
       project_name: project ? project.project_desc : null,
       department: department ? department.dept : null,
@@ -417,6 +447,7 @@ export class RequestService {
       position: position ? position.design_desc : null,
       position_name: position ? position.design_desc : null,
       created_by_name: createdByUser ? createdByUser.full_name : null,
+      category_account_name: category?.name || "-",
       category_account: data.category_account,
       company: data.company
         ? {
@@ -543,11 +574,14 @@ export class RequestService {
   ): Promise<
     RequestEntity & { created_by_name?: string; no_request?: string }
   > {
+    const badgeInput = data.badge_no?.toString().trim();
+    const isNumericBadge = /^\d+$/.test(badgeInput || "");
+
     let employee = null;
 
-    if (data.badge_no) {
+    if (badgeInput && isNumericBadge) {
       employee = await this.employeeRepo.findOne({
-        where: { badge: Number(data.badge_no) },
+        where: { badge: Number(badgeInput) },
         relations: ["department", "project", "position"],
       });
     }
@@ -600,7 +634,7 @@ export class RequestService {
       full_name: data.full_name,
       request_reason: data.request_reason,
       email: data.email,
-      badge_no: data.badge_no,
+      badge_no: badgeInput,
       project_id: data.project_id || null,
       dept_id: data.dept_id || null,
       design_id: data.design_id || null,
@@ -608,7 +642,6 @@ export class RequestService {
       id_company: company?.id_company || null,
       access_yard_company: accessYardValue,
       access_nav_menu: accessNavMenuValue,
-      request_type: data.request_type ?? 1,
       request_status: data.request_status ?? 0,
       status_active: data.status_active ?? 1,
       created_date: new Date(),
@@ -653,6 +686,7 @@ export class RequestService {
 
     const newRequest = this.requestRepo.create({
       full_name: data.full_name,
+      requestor_name: data.requestor_name,
       request_reason: data.request_reason,
       email: data.email,
       badge_no: data.badge_no ? String(data.badge_no) : null,
@@ -663,7 +697,6 @@ export class RequestService {
       company: company || null,
       access_yard_company: accessYardValue,
       access_nav_menu: accessNavMenuValue,
-      request_type: data.request_type ?? 1,
       request_status: data.request_status ?? 0,
       status_active: data.status_active ?? 1,
       category_account: data.category_account ?? null,
@@ -711,6 +744,7 @@ export class RequestService {
         "approval_hod_by",
         "approval_lead_it_by",
         "approval_it_hod_by",
+        "category",
       ],
     });
 
@@ -821,26 +855,88 @@ export class RequestService {
       existing.category_account = data.category_account;
     }
 
-    // hapus field yg tidak boleh assign langsung
     delete rest.approval_hod_by;
     delete rest.approval_lead_it_by;
     delete rest.approval_it_hod_by;
     delete rest.access_yard_company;
     delete rest.access_nav_menu;
 
-    // assign sisa tanpa menimpa design_id
     Object.assign(existing, rest);
 
     return this.requestRepo.save(existing);
   }
 
   async updateAdminStatus(id_request: number, request_admin: number) {
-    const existing = await this.requestRepo.findOne({ where: { id_request } });
-    if (!existing)
+    const existing = await this.requestRepo.findOne({
+      where: { id_request },
+      relations: ["category", "created_by_user"],
+    });
+
+    if (!existing) {
       throw new NotFoundException(`Request with ID ${id_request} not found`);
+    }
 
     existing.request_admin = request_admin;
     await this.requestRepo.save(existing);
+
+    // kirim email hanya jika On Progress atau Completed
+    if (request_admin === 1 || request_admin === 2) {
+      await this.notifyRequestorStatus(existing);
+    }
+
+    return {
+      success: true,
+      message: "IT Action updated",
+    };
+  }
+
+  async notifyRequestorStatus(request: RequestEntity) {
+    const statusLabel =
+      request.request_admin === 1
+        ? "On Progress"
+        : request.request_admin === 2
+          ? "Completed"
+          : "On Queue";
+
+    const view_data = {
+      requestorName: request.created_by_user?.full_name || "-",
+      requestNumber: `ITF14-${String(request.id_request).padStart(6, "0")}`,
+      categoryAccount: request.category?.name || "-",
+      status: statusLabel,
+      requestDate: request.created_date
+        ? new Date(request.created_date).toLocaleDateString("en-GB")
+        : "-",
+      targetFullName: request.full_name,
+      targetBadgeNo: request.badge_no,
+      targetEmail: request.email,
+    };
+
+    const email = new sendEmailDto();
+
+    const recipients = [];
+
+    // email requestor
+    if (request.created_by_user?.email) {
+      recipients.push(request.created_by_user.email);
+    }
+
+    // email target user yang direquest
+    if (request.email) {
+      recipients.push(request.email);
+    }
+
+    email.email_to = [...new Set(recipients)];
+    email.email_cc = [];
+    email.email_bcc = [];
+
+    email.subject = `${view_data.requestNumber} - Request Status Updated`;
+
+    email.content = this.mailService.renderTemplate(
+      "it_action_update.ejs",
+      view_data,
+    );
+
+    await this.mailService.sendEmail(email);
   }
 
   async hodApproval(
@@ -851,7 +947,7 @@ export class RequestService {
   ) {
     const existing = await this.requestRepo.findOne({
       where: { id_request },
-      relations: ["approval_hod_by", "created_by_user"],
+      relations: ["approval_hod_by", "created_by_user", "category"],
     });
 
     if (!existing) {
@@ -914,7 +1010,7 @@ export class RequestService {
 
       const existing = await this.requestRepo.findOne({
         where: { id_request: id },
-        relations: ["approval_hod_by", "created_by_user"],
+        relations: ["approval_hod_by", "created_by_user", "category"],
       });
 
       if (!existing) continue;
@@ -968,7 +1064,7 @@ export class RequestService {
   private async submitToHodInternal(id_request: number, userId: number) {
     const existing = await this.requestRepo.findOne({
       where: { id_request },
-      relations: ["approval_hod_by", "created_by_user"],
+      relations: ["approval_hod_by", "created_by_user", "category"],
     });
 
     if (!existing)
@@ -979,7 +1075,6 @@ export class RequestService {
         "HOD not assigned for this request",
       );
 
-    // hanya update status, TANPA email
     existing.request_status = 1;
 
     return this.requestRepo.save(existing);
@@ -999,7 +1094,7 @@ export class RequestService {
     const approvalLink = `${process.env.LINK_PORTAL}/jump_url/redirect_v2/${encryptedTarget}`;
     const viewData = {
       approverName: hod.full_name,
-      categoryAccount: getCategoryAccountLabel(request.category_account),
+      categoryAccount: request.category?.name || "-",
       requestNumber: `ITF14-${String(request.id_request).padStart(6, "0")}`,
       requestDate: request.created_date
         ? new Date(request.created_date).toLocaleDateString("en-GB")
@@ -1025,7 +1120,7 @@ export class RequestService {
   async notifyLeadItApproval(id_request: number) {
     const request = await this.requestRepo.findOne({
       where: { id_request },
-      relations: ["created_by_user"],
+      relations: ["created_by_user", "category"],
     });
 
     if (!request) return;
@@ -1083,7 +1178,7 @@ export class RequestService {
 
     const viewData = {
       approverName: "Lead IT Approver",
-      categoryAccount: getCategoryAccountLabel(request.category_account),
+      categoryAccount: request.category?.name || "-",
       requestNumber: `ITF14-${String(request.id_request).padStart(6, "0")}`,
       requestDate: request.created_date
         ? new Date(request.created_date).toLocaleDateString("en-GB")
@@ -1109,7 +1204,7 @@ export class RequestService {
   async notifyItManagerApproval(id_request: number) {
     const request = await this.requestRepo.findOne({
       where: { id_request },
-      relations: ["created_by_user"],
+      relations: ["created_by_user", "category"],
     });
 
     if (!request) return;
@@ -1172,7 +1267,7 @@ export class RequestService {
 
     const viewData = {
       approverName: "IT Manager",
-      categoryAccount: getCategoryAccountLabel(request.category_account),
+      categoryAccount: request.category?.name || "-",
       requestNumber: `ITF14-${String(request.id_request).padStart(6, "0")}`,
       requestDate: request.created_date
         ? new Date(request.created_date).toLocaleDateString("en-GB")
@@ -1245,15 +1340,15 @@ export class RequestService {
       32,
     );
 
-    const leadItPermissions = permissions.filter((p) => p.index_key === "0");
+    const hasLeadIT = permissions.some((p) => Number(p.index_key) === 0);
 
-    if (!leadItPermissions.length) {
+    if (!hasLeadIT) {
       throw new ForbiddenException("Not allowed to approve as Lead IT");
     }
 
     const existing = await this.requestRepo.findOne({
       where: { id_request },
-      relations: ["created_by_user"],
+      relations: ["created_by_user", "category"],
     });
 
     if (!existing)
@@ -1329,11 +1424,11 @@ export class RequestService {
 
       const existing = await this.requestRepo.findOne({
         where: { id_request: id },
-        relations: ["created_by_user"],
+        relations: ["created_by_user", "category"],
       });
 
       if (!existing) continue;
-      if (existing.request_status !== 3) continue; // pending Lead IT
+      if (existing.request_status !== 3) continue;
 
       existing.previous_status = existing.request_status;
       existing.approval_lead_it_by = leadItUser;
@@ -1375,9 +1470,9 @@ export class RequestService {
       32,
     );
 
-    const itManagerPermissions = permissions.filter((p) => p.index_key === "1");
+    const hasITManager = permissions.some((p) => Number(p.index_key) === 1);
 
-    if (!itManagerPermissions.length) {
+    if (!hasITManager) {
       throw new ForbiddenException("Not allowed to approve as IT Manager");
     }
 
@@ -1387,6 +1482,7 @@ export class RequestService {
         "approval_it_hod_by",
         "approval_lead_it_by",
         "approval_hod_by",
+        "category",
       ],
     });
 
@@ -1537,61 +1633,190 @@ export class RequestService {
   }
 
   async exportList(filters: any, sort_by: string, sort_order: string) {
+    if (filters) {
+      Object.keys(filters).forEach((key) => {
+        if (
+          filters[key] === null ||
+          filters[key] === undefined ||
+          filters[key] === ""
+        ) {
+          delete filters[key];
+        }
+      });
+    }
+
     const qb = this.requestRepo
       .createQueryBuilder("r")
+      .select("r")
       .leftJoin("portal_user_db", "u", "u.id_user = r.created_by")
       .addSelect(["u.full_name"])
       .leftJoin("portal_company", "c", "c.id_company = r.id_company")
-      .addSelect(["c.company_name"]);
+      .addSelect(["c.company_name"])
+      .leftJoin("master_category_account", "cat", "cat.id = r.category_account")
+      .addSelect(["cat.name"]);
 
-    Object.keys(filters || {}).forEach((key) => {
-      const value = filters[key];
-      if (value !== undefined && value !== null && value !== "") {
-        if (key === "request_status" || key === "request_admin") {
-          const numValue = Number(value);
-          if (!isNaN(numValue)) {
-            qb.andWhere(`r.${key} = :${key}`, { [key]: numValue });
-          }
-        }
-        if (key === "category_account") {
-          qb.andWhere("r.category_account = :category_account", {
-            category_account: Number(value),
+    if (filters && Object.keys(filters).length > 0) {
+      const exactMatchFields: Record<string, string> = {
+        request_status: "r.request_status",
+        requestor_id: "r.created_by",
+        dept_id: "r.dept_id",
+        id_request: "r.id_request",
+      };
+
+      const likeFields: Record<string, string> = {
+        requestor_name: "u.full_name",
+        full_name: "r.full_name",
+        email: "r.email",
+        badge_no: "r.badge_no",
+        company_name: "c.company_name",
+      };
+
+      for (const key in exactMatchFields) {
+        if (
+          filters[key] !== undefined &&
+          filters[key] !== "" &&
+          filters[key] !== null
+        ) {
+          qb.andWhere(`${exactMatchFields[key]} = :${key}`, {
+            [key]: filters[key],
           });
-        } else if (isNaN(Number(value))) {
-          qb.andWhere(`r.${key} ILIKE :${key}`, { [key]: `%${value}%` });
-        } else {
-          qb.andWhere(`r.${key} = :${key}`, { [key]: Number(value) });
         }
       }
-    });
 
-    qb.orderBy(
-      `r.${sort_by || "id_request"}`,
-      (sort_order || "ASC") as "ASC" | "DESC",
-    );
+      for (const key in likeFields) {
+        if (filters[key]) {
+          qb.andWhere(`LOWER(${likeFields[key]}) LIKE :${key}`, {
+            [key]: `%${filters[key].toLowerCase()}%`,
+          });
+        }
+      }
+
+      if (filters.created_date) {
+        qb.andWhere(`EXTRACT(DAY FROM r.created_date) = :created_day`, {
+          created_day: Number(filters.created_date),
+        });
+      }
+
+      if (filters.department_name) {
+        const depts = await this.departmentRepo
+          .createQueryBuilder("d")
+          .where("LOWER(d.dept) LIKE :name", {
+            name: `%${filters.department_name.toLowerCase()}%`,
+          })
+          .getMany();
+
+        const deptIds = depts.map((d) => d.dept_id);
+
+        if (deptIds.length > 0) {
+          qb.andWhere("r.dept_id IN (:...deptIds)", { deptIds });
+        } else {
+          qb.andWhere("1=0");
+        }
+      }
+
+      if (filters.project_name) {
+        const projects = await this.projectRepo
+          .createQueryBuilder("p")
+          .where("LOWER(p.project_desc) LIKE :name", {
+            name: `%${filters.project_name.toLowerCase()}%`,
+          })
+          .getMany();
+
+        const projectIds = projects.map((p) => p.project_id);
+
+        if (projectIds.length > 0) {
+          qb.andWhere("r.project_id IN (:...projectIds)", { projectIds });
+        } else {
+          qb.andWhere("1=0");
+        }
+      }
+
+      if (filters.position_name) {
+        const positions = await this.positionRepo
+          .createQueryBuilder("p")
+          .where("LOWER(p.design_desc) LIKE :name", {
+            name: `%${filters.position_name.toLowerCase()}%`,
+          })
+          .getMany();
+
+        const positionIds = positions.map((p) => p.design_id);
+
+        if (positionIds.length > 0) {
+          qb.andWhere("r.design_id IN (:...positionIds)", { positionIds });
+        } else {
+          qb.andWhere("1=0");
+        }
+      }
+
+      if (filters.type !== undefined && filters.type !== null) {
+        const typeVal = String(filters.type).toLowerCase();
+        if ("internal".startsWith(typeVal)) {
+          qb.andWhere("r.type = :type", { type: 0 });
+        } else if ("external".startsWith(typeVal)) {
+          qb.andWhere("r.type = :type", { type: 1 });
+        } else if (!isNaN(Number(filters.type))) {
+          qb.andWhere("r.type = :type", { type: Number(filters.type) });
+        }
+      }
+
+      if (filters.keyword) {
+        const keyword = `%${filters.keyword.toLowerCase()}%`;
+        qb.andWhere(
+          `(
+          LOWER(r.full_name) LIKE :keyword OR
+          LOWER(r.email) LIKE :keyword OR
+          LOWER(r.badge_no) LIKE :keyword OR
+          LOWER(u.full_name) LIKE :keyword OR
+          LOWER(c.company_name) LIKE :keyword OR
+          CAST(r.id_request AS TEXT) LIKE :keyword
+        )`,
+          { keyword },
+        );
+      }
+    }
+
+    if (sort_by) {
+      const sortColumnMap: Record<string, string> = {
+        category_account_name: "cat.name",
+        company_name: "c.company_name",
+        requestor_name: "u.full_name",
+        department_name: "r.dept_id",
+        position_name: "r.design_id",
+        project_name: "r.project_id",
+      };
+
+      const sortColumn = sortColumnMap[sort_by] ?? `r.${sort_by}`;
+      qb.orderBy(
+        sortColumn,
+        sort_order?.toUpperCase() === "DESC" ? "DESC" : "ASC",
+      );
+    } else {
+      qb.orderBy("r.created_date", "DESC");
+    }
 
     const requests = await qb.getRawMany();
 
-    const [depts, positions, projects] = await Promise.all([
+    const [depts, projects, positions] = await Promise.all([
       this.departmentRepo.find(),
-      this.positionRepo.find(),
       this.projectRepo.find(),
+      this.positionRepo.find(),
     ]);
 
     const deptMap = new Map(depts.map((d) => [d.dept_id, d.dept]));
-    const positionMap = new Map(
-      positions.map((p) => [p.design_id, p.design_desc]),
-    );
     const projectMap = new Map(
       projects.map((p) => [p.project_id, p.project_desc]),
+    );
+    const positionMap = new Map(
+      positions.map((p) => [p.design_id, p.design_desc]),
     );
 
     return requests.map((r) => ({
       ...r,
       department_name: deptMap.get(r.r_dept_id) || "-",
-      position_name: positionMap.get(r.r_design_id) || "-",
       project_name: projectMap.get(r.r_project_id) || "-",
-      category_account: r.r_category_account,
+      position_name: positionMap.get(r.r_design_id) || "-",
+      requestor_name: r.u_full_name || "-",
+      type_label: getStatusLabel("type", r.r_type),
     }));
   }
 
@@ -1615,6 +1840,7 @@ export class RequestService {
           "approval_lead_it_by",
           "approval_it_hod_by",
           "created_by_user",
+          "category",
         ],
       });
 
@@ -1673,7 +1899,7 @@ export class RequestService {
         requestedBy: isPublicRequest
           ? request.full_name
           : (requestor?.full_name ?? "-"),
-        categoryAccount: getCategoryAccountLabel(request.category_account),
+        categoryAccount: request.category?.name || "-",
         badge: request.badge_no,
         fullName: request.full_name,
         email: request.email,
@@ -1738,6 +1964,158 @@ export class RequestService {
     existing.canceled_date = new Date();
 
     return this.requestRepo.save(existing);
+  }
+
+  async getLatestPeriod() {
+    const result = await this.requestRepo
+      .createQueryBuilder("r")
+      .select("MAX(r.created_date)", "max")
+      .where("r.status_active = :active", { active: 1 })
+      .getRawOne();
+
+    if (!result?.max) {
+      return null;
+    }
+
+    const date = new Date(result.max);
+
+    return {
+      month: date.getMonth() + 1,
+      year: date.getFullYear(),
+    };
+  }
+
+  async getSummary(month: any, year: number) {
+    const baseQuery = this.requestRepo
+      .createQueryBuilder("r")
+      .where("r.status_active = :active", { active: 1 });
+
+    if (month && month !== "all" && month !== "null") {
+      const m = Number(month);
+      const startDate = new Date(year, m - 1, 1);
+      const endDate = new Date(year, m, 0, 23, 59, 59);
+      baseQuery.andWhere("r.created_date BETWEEN :start AND :end", {
+        start: startDate,
+        end: endDate,
+      });
+    } else {
+      const startOfYear = new Date(year, 0, 1);
+      const endOfYear = new Date(year, 11, 31, 23, 59, 59);
+      baseQuery.andWhere("r.created_date BETWEEN :start AND :end", {
+        start: startOfYear,
+        end: endOfYear,
+      });
+    }
+
+    const [total, onQueue, onProgress, completed, rawRequests] =
+      await Promise.all([
+        baseQuery.getCount(),
+        baseQuery.clone().andWhere("r.request_admin = 0").getCount(),
+        baseQuery.clone().andWhere("r.request_admin = 1").getCount(),
+        baseQuery.clone().andWhere("r.request_admin = 2").getCount(),
+        baseQuery
+          .clone()
+          .select([
+            "r.id_request",
+            "r.dept_id",
+            "r.id_company",
+            "r.access_yard_company",
+            "r.request_admin",
+          ])
+          .getMany(),
+      ]);
+
+    const allCompanies = await this.companyRepo.find({
+      select: ["id_company", "company_name"],
+    });
+
+    const companyCounts = new Map<string, number>();
+    rawRequests.forEach((req) => {
+      if (req.access_yard_company && req.access_yard_company.trim() !== "") {
+        const ids = req.access_yard_company.split(",");
+        ids.forEach((id) => {
+          const found = allCompanies.find(
+            (c) => c.id_company === Number(id.trim()),
+          );
+          const name = found ? found.company_name : "Unknown Company";
+          companyCounts.set(name, (companyCounts.get(name) || 0) + 1);
+        });
+      } else if (req.id_company) {
+        const found = allCompanies.find((c) => c.id_company === req.id_company);
+        const name = found ? found.company_name : "Unknown Company";
+        companyCounts.set(name, (companyCounts.get(name) || 0) + 1);
+      }
+    });
+
+    const allDepts = await this.departmentRepo.find({
+      select: ["dept_id", "dept"],
+    });
+
+    const deptMap = new Map<
+      string,
+      { count: number; onQueue: number; onProgress: number }
+    >();
+
+    rawRequests.forEach((req) => {
+      const dept = allDepts.find((d) => d.dept_id === req.dept_id);
+      const name = dept ? dept.dept : "Unknown Dept";
+
+      const current = deptMap.get(name) ?? {
+        count: 0,
+        onQueue: 0,
+        onProgress: 0,
+      };
+
+      deptMap.set(name, {
+        count: current.count + 1,
+        onQueue: current.onQueue + (req.request_admin === 0 ? 1 : 0),
+        onProgress: current.onProgress + (req.request_admin === 1 ? 1 : 0),
+      });
+    });
+
+    return {
+      total,
+      onQueue,
+      onProgress,
+      completed,
+      deptStats: Array.from(deptMap)
+        .map(([name, data]) => ({ name, ...data }))
+        .sort((a, b) => b.count - a.count),
+      companyStats: Array.from(companyCounts)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value),
+    };
+  }
+
+  async getAnalyticsByDeptAndCompany(month: number, year: number) {
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59);
+
+    const deptStats = await this.requestRepo
+      .createQueryBuilder("r")
+      .leftJoin("iss_dept", "d", "r.dept_id = d.id")
+      .select("d.dept_name", "label")
+      .addSelect("COUNT(r.id_request)", "value")
+      .where("r.created_date BETWEEN :start AND :end", {
+        start: startDate,
+        end: endDate,
+      })
+      .groupBy("d.dept_name")
+      .getRawMany();
+
+    const companyStats = await this.requestRepo
+      .createQueryBuilder("r")
+      .leftJoin("portal_company", "c", "r.id_company = c.id_company")
+      .select("c.company_name", "label")
+      .addSelect("COUNT(r.id_request)", "value")
+      .where("r.created_date BETWEEN :start AND :end", {
+        start: startDate,
+        end: endDate,
+      })
+      .groupBy("c.company_name")
+      .getRawMany();
+
+    return { deptStats, companyStats };
   }
 
   async remove(id: number): Promise<void> {

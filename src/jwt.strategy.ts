@@ -28,7 +28,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     if (!user) return null;
 
-    // simpan di ALS
     const store = requestStorage.getStore();
     if (store) {
       store.userId = user.id_user;

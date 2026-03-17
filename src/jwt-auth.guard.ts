@@ -17,19 +17,17 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     ]);
 
     if (isPublic) {
-      return true; // bypass auth
+      return true;
     }
 
     return super.canActivate(context);
   }
 
   handleRequest(err: any, user: any, info: any) {
-    // Jika auth gagal, lempar error sesuai behavior default
     if (err || !user) {
       return null;
     }
 
-    // Store ke ALS agar bisa dibaca subscriber
     requestStorage.enterWith({ userId: user.id_user });
 
     return user;

@@ -7,11 +7,6 @@ import { Public } from 'auth/public.decorator';
 export class CompanyController {
   constructor(private readonly companyService: CompanyService) { }
 
-  // @Get('list')
-  // async getAll(): Promise<Company[]> {
-  //   return this.companyService.findAll();
-  // }
-
   @Public()
   @Get('list')
   async getAll(): Promise<Company[]> {

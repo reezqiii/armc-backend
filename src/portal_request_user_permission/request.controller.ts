@@ -148,7 +148,7 @@ export class RequestController {
       body.encryptedIds,
       body.action,
       body.remarks,
-      req.user.id,
+      req.user.id_user,
     );
   }
 
@@ -165,7 +165,7 @@ export class RequestController {
     @Body() body: { encryptedIds: string[] },
     @Req() req: any,
   ) {
-    const userId = req.user?.id_user; // sesuai JWTStrategy
+    const userId = req.user?.id_user; 
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
@@ -270,6 +270,18 @@ export class RequestController {
       type: "application/pdf",
       disposition: 'attachment; filename="pcms_request.pdf"',
     });
+  }
+
+  @Get("dashboard/latest-period")
+  @UseGuards(JwtAuthGuard)
+  getLatestPeriod() {
+    return this.requestService.getLatestPeriod();
+  }
+
+  @Get("dashboard/summary")
+  @UseGuards(JwtAuthGuard)
+  getDashboardSummary(@Query() query) {
+    return this.requestService.getSummary(query.month, query.year);
   }
 
   @Delete(":id")

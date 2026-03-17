@@ -26,6 +26,7 @@ import { ServeStaticModule } from "@nestjs/serve-static";
 import { PortalProjectModule } from './portal_project/portal_project.module';
 import { PortalDepartmentModule } from './portal_department/portal_department.module';
 import { PortalRoleDbModule } from './portal_role_db/portal_role_db.module';
+import { PortalCategoryAccountModule } from "portal_category_account/portal_category_account.module";
 
 @Module({
   imports: [
@@ -53,19 +54,6 @@ import { PortalRoleDbModule } from './portal_role_db/portal_role_db.module';
       }),
     }),
 
-    //   imports: [ConfigModule],
-    //   inject: [ConfigService],
-    //   useFactory: (config: ConfigService) => ({
-    //     type: 'postgres',
-    //     host: config.get('DB_PORTAL_HOST'),
-    //     port: config.get('DB_PORTAL_PORT'),
-    //     username: config.get('DB_PORTAL_USERNAME'),
-    //     password: config.get('DB_PORTAL_PASSWORD'),
-    //     database: config.get('DB_PORTAL_NAME'),
-    //     autoLoadEntities: true,
-    //     synchronize: false,
-    //   }),
-    // }),
     TypeOrmModule.forRootAsync({
       name: "db_iss",
       imports: [ConfigModule],
@@ -118,6 +106,7 @@ import { PortalRoleDbModule } from './portal_role_db/portal_role_db.module';
     PortalProjectModule,
     PortalDepartmentModule,
     PortalRoleDbModule,
+    PortalCategoryAccountModule,
   ],
 
   providers: [RequestSubscriber],

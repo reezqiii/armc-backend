@@ -7,11 +7,6 @@ import { Public } from 'auth/public.decorator';
 export class IssProjectController {
   constructor(private readonly projectService: IssProjectService) { }
 
-  // @Get()
-  // async getAll(): Promise<IssProject[]> {
-  //   return this.projectService.findAll();
-  // }
-
   @Public()
   @Get()
   async getAll(): Promise<IssProject[]> {

@@ -80,9 +80,9 @@ export class UserService {
           let deptName = "-";
           if (u.department) {
             const dept = await this._portalDeptRepo.findOne({
-              where: { temp_iss_id: u.department },
+              where: { id_department: u.department },
             });
-            deptName = dept?.name_of_department ?? "-";
+            deptName = dept?.name_department ?? "-";
           }
 
           return {
@@ -107,25 +107,21 @@ export class UserService {
   }
 
   async getUsersByRoles(roleNames: string[]) {
-  if (!roleNames?.length) {
-    return [];
-  }
+    if (!roleNames?.length) {
+      return [];
+    }
 
-  return this._user
-    .createQueryBuilder("user")
-    .leftJoin("user.role", "role")
-    .where("LOWER(role.role_name) IN (:...roles)", {
-      roles: roleNames.map(r => r.toLowerCase()),
-    })
-    .andWhere("user.status_user = :status", { status: 1 })
-    .select([
-      "user.id_user",
-      "user.full_name",
-      "user.badge_no",
-    ])
-    .orderBy("user.full_name", "ASC")
-    .getMany();
-}
+    return this._user
+      .createQueryBuilder("user")
+      .leftJoin("user.role", "role")
+      .where("LOWER(role.role_name) IN (:...roles)", {
+        roles: roleNames.map((r) => r.toLowerCase()),
+      })
+      .andWhere("user.status_user = :status", { status: 1 })
+      .select(["user.id_user", "user.full_name", "user.badge_no"])
+      .orderBy("user.full_name", "ASC")
+      .getMany();
+  }
 
   async findAll(): Promise<User[]> {
     try {
@@ -170,7 +166,7 @@ export class UserService {
         username: u.username,
         email: u.email,
         dept_id: u.department,
-        project_id: u.project?.id ?? null,
+        project_id: u.project?.id_project ?? null,
         company_id: u.company?.id_company ?? null,
         id_role: u.role?.id_role ?? null,
         status_user: u.status_user,
@@ -191,7 +187,7 @@ export class UserService {
 
   async createUser(data: any): Promise<User> {
     const project = data.project_id
-      ? await this._projectRepo.findOne({ where: { id: data.project_id } })
+      ? await this._projectRepo.findOne({ where: { id_project: data.project_id } })
       : null;
 
     const company = data.company_id
@@ -210,7 +206,7 @@ export class UserService {
         })
       : [];
     const addonProjects = data.project_ids?.length
-      ? await this._projectRepo.findBy({ id: In(data.project_ids) })
+      ? await this._projectRepo.findBy({ id_project: In(data.project_ids) })
       : [];
 
     const newUser = this._user.create({

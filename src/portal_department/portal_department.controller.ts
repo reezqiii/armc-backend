@@ -27,21 +27,21 @@ export class PortalDepartmentController {
     return this.portalDepartmentService.findAll();
   }
 
-  @Get(":tempIssId")
-  findOne(@Param("tempIssId") tempIssId: string) {
-    return this.portalDepartmentService.findOne(+tempIssId);
+  @Get(":id")
+  findOne(@Param("id") id: string) {
+    return this.portalDepartmentService.findOne(+id);
   }
 
-  @Patch(":tempIssId")
+  @Patch(":id")
   update(
-    @Param("tempIssId") tempIssId: string,
+    @Param("id") id: string,
     @Body() updatePortalDepartmentDto: UpdatePortalDepartmentDto,
   ) {
-    return this.portalDepartmentService.update(+tempIssId, updatePortalDepartmentDto);
+    return this.portalDepartmentService.update(+id, updatePortalDepartmentDto);
   }
 
-  @Delete(":tempIssId")
-  remove(@Param("tempIssId") tempIssId: string) {
-    return this.portalDepartmentService.remove(+tempIssId);
+  @Delete(":id")
+  remove(@Param("id") id: string) {
+    return this.portalDepartmentService.remove(+id);
   }
 }
