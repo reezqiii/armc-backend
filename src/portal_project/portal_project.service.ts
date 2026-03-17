@@ -25,7 +25,7 @@ export class PortalProjectService {
 
   async findOne(id: number) {
     const project = await this.projectRepository.findOne({
-      where: { id_project: id },
+      where: { id: id },
     });
     if (!project) throw new NotFoundException("Project not found");
     return project;
@@ -33,7 +33,7 @@ export class PortalProjectService {
 
   async update(id: number, updatePortalProjectDto: UpdatePortalProjectDto) {
     const result = await this.projectRepository.update(
-      { id_project: id },
+      { id: id },
       updatePortalProjectDto,
     );
     if (result.affected === 0) throw new NotFoundException("Project not found");
@@ -41,7 +41,7 @@ export class PortalProjectService {
   }
 
   async remove(id: number) {
-    const result = await this.projectRepository.delete({ id_project: id });
+    const result = await this.projectRepository.delete({ id: id });
     if (result.affected === 0) throw new NotFoundException("Project not found");
     return { message: "Project deleted successfully" };
   }

@@ -15,7 +15,7 @@ import { JwtAuthGuard } from "jwt-auth.guard";
 import { ServerSideDTO } from "DTO/dto.serverside";
 import { AesEcbService } from "crypto/aes-ecb.service";
 
-@Controller("api/user")
+@Controller("user")
 export class UserController {
   constructor(
     private readonly _user: UserService,
@@ -48,6 +48,13 @@ export class UserController {
     return await this._user.createUser(data);
   }
 
+  @Put("/update/:id")
+  @UseGuards(JwtAuthGuard)
+  async updateUser(@Param("id") id: string, @Body() data: any) {
+    const realId = Number(this.aesEcbService.decryptBase64Url(id));
+    return await this._user.updateUser(realId, data);
+  }
+
   @Get("/search")
   async searchUsers(@Query("q") query: string) {
     return await this._user.searchUsers(query);
@@ -61,24 +68,17 @@ export class UserController {
     return await this._user.findOneById(realId);
   }
 
+  @Post("/reset-password")
+@UseGuards(JwtAuthGuard)
+async resetPasswordByAdmin(@Body() body: { id_user: number }) {
+  return await this._user.resetPasswordByAdmin(body.id_user);
+}
+
   @Post("/serverside_list")
   async serverSide(@Query() queryDto: ServerSideDTO) {
     const data = await this._user.serverSideList(queryDto);
     return data;
   }
 
-  // @Post()
-  // async createUser(@Body() data: Partial<User>) {
-  //   return await this._user.createUser(data);
-  // }
 
-  // @Put('/:id')
-  // async updateUser(@Param('id') id: number, @Body() data: Partial<User>) {
-  //   return await this._user.updateUser(id, data);
-  // }
-
-  // @Delete('/:id')
-  // async deleteUser(@Param('id') id: number) {
-  //   return await this._user.deleteUser(id);
-  // }
 }

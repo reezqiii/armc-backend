@@ -55,12 +55,7 @@ export class User {
   })
   addon_project: string;
 
-  @Column({
-    name: "dept_alt",
-    type: "varchar",
-    length: 200,
-    nullable: true,
-  })
+  @Column({ name: "dept_alt", type: "varchar", length: 200, nullable: true })
   dept_alt: string;
 
   @Column({ name: "outside_access", type: "int", nullable: true })
@@ -71,6 +66,16 @@ export class User {
 
   @Column({ name: "department", type: "int", nullable: true })
   department: number;
+
+  // ← Tambahan kolom reset password
+  @Column({ name: "reset_token", type: "varchar", length: 200, nullable: true })
+  reset_token: string;
+
+  @Column({ name: "reset_token_expired", type: "timestamp", nullable: true })
+  reset_token_expired: Date;
+
+  @Column({ name: "last_update_password", type: "timestamp", nullable: true })
+  last_update_password: Date;
 
   @ManyToOne(() => PortalProject, { nullable: true })
   @JoinColumn({ name: "project_id" })

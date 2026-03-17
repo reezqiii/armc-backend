@@ -21,7 +21,7 @@ export class PortalDepartmentService {
 
   async findAll() {
     return this.departmentRepository.find({
-      order: { name_department: "ASC" },
+      order: { name_of_department: "ASC" },
     });
   }
 

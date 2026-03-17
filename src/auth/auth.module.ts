@@ -7,9 +7,10 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtStrategy } from '../jwt.strategy';
-import { User } from '../portal/user.entity';
 import { CryptoModule } from '../crypto/crypto.module';
 import { PortalUserPermissionModule } from 'portal_user_permission/user_permission.module';
+import { User } from 'portal_user_db/user.entity';
+import { EmailModule } from 'email/email.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { PortalUserPermissionModule } from 'portal_user_permission/user_permissi
     TypeOrmModule.forFeature([User]),
     CryptoModule,
     PortalUserPermissionModule,
+    EmailModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],

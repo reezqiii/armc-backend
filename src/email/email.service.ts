@@ -3,35 +3,42 @@ import axios from "axios";
 import { ConfigService } from "@nestjs/config";
 import * as jwt from "jsonwebtoken";
 import { sendEmailDto } from "./dto/send-email.dto";
-import * as path from 'path';
-import * as ejs from 'ejs';
-import * as fs from 'fs';
+import * as path from "path";
+import * as ejs from "ejs";
+import * as fs from "fs";
+import * as nodemailer from "nodemailer";
 import { Repository } from "typeorm";
 import { Email } from "./entities/email.entity";
 import { InjectRepository } from "@nestjs/typeorm";
-
 
 @Injectable()
 export class EmailService {
   private EMAIL_API_URL: string;
   private JWT_SECRET: string;
   private JWT_EMAIL_TOKEN: string;
+  private gmailTransporter: nodemailer.Transporter;
 
   constructor(
     private configService: ConfigService,
 
     @InjectRepository(Email)
     private readonly _portalEmail: Repository<Email>,
-
   ) {
     this.EMAIL_API_URL = this.configService.get<string>("EMAIL_API");
     this.JWT_SECRET = this.configService.get<string>("JWT_SECRET");
     this.JWT_EMAIL_TOKEN = this.configService.get<string>("JWT_TOKEN_EMAIL");
+
+    this.gmailTransporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: this.configService.get<string>("GMAIL_USER"),
+        pass: this.configService.get<string>("GMAIL_PASS"),
+      },
+    });
   }
 
-  // Mendapatkan list email dari portal
   async getPortalEmailList(where?: Record<string, any>) {
-    const qb = this._portalEmail.createQueryBuilder('email');
+    const qb = this._portalEmail.createQueryBuilder("email");
 
     if (where) {
       Object.entries(where).forEach(([key, value]) => {
@@ -46,7 +53,21 @@ export class EmailService {
     return jwt.sign({ app: secret }, this.JWT_SECRET, { expiresIn: "1h" });
   }
 
-  // Email Helper
+  async sendSimpleEmail(to: string, subject: string, html: string) {
+    try {
+      await this.gmailTransporter.sendMail({
+        from: `"ARMC Portal" <${this.configService.get("GMAIL_USER")}>`,
+        to,
+        subject,
+        html,
+      });
+      return { success: true };
+    } catch (error) {
+      console.error("Gmail Error:", error.message);
+      throw error;
+    }
+  }
+
   async sendEmail(data: sendEmailDto) {
     try {
       const jwtToken = this.generateJwtToken("SEATRIUM EMAIL");
@@ -71,10 +92,14 @@ export class EmailService {
   }
 
   renderTemplate(filename: string, data: any) {
-    const filePath = path.join(process.cwd(), "src", "email", "views", filename);
+    const filePath = path.join(
+      process.cwd(),
+      "src",
+      "email",
+      "views",
+      filename,
+    );
     const template = fs.readFileSync(filePath, "utf8");
     return ejs.render(template, data);
   }
-
 }
-

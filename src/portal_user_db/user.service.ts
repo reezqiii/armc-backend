@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -11,7 +12,8 @@ import { PortalDepartment } from "portal_department/entities/portal_department.e
 import { PortalProject } from "portal_project/entities/portal_project.entity";
 import { Company } from "portal_company/company.entity";
 import { PortalRole } from "portal_role_db/entities/portal_role_db.entity";
-import { IssDept } from "iss_dept/iss_dept.entity";
+import * as md5 from "md5";
+import { EmailService } from "email/email.service";
 
 @Injectable()
 export class UserService {
@@ -25,6 +27,7 @@ export class UserService {
     private readonly _companyRepo: Repository<Company>,
     @InjectRepository(PortalRole)
     private readonly _roleRepo: Repository<PortalRole>,
+    private readonly emailService: EmailService, 
   ) {}
 
   async serverSideList(queryDto: ServerSideDTO) {
@@ -82,7 +85,7 @@ export class UserService {
             const dept = await this._portalDeptRepo.findOne({
               where: { id_department: u.department },
             });
-            deptName = dept?.name_department ?? "-";
+            deptName = dept?.name_of_department ?? "-";
           }
 
           return {
@@ -166,7 +169,7 @@ export class UserService {
         username: u.username,
         email: u.email,
         dept_id: u.department,
-        project_id: u.project?.id_project ?? null,
+        project_id: u.project?.id ?? null,
         company_id: u.company?.id_company ?? null,
         id_role: u.role?.id_role ?? null,
         status_user: u.status_user,
@@ -187,7 +190,7 @@ export class UserService {
 
   async createUser(data: any): Promise<User> {
     const project = data.project_id
-      ? await this._projectRepo.findOne({ where: { id_project: data.project_id } })
+      ? await this._projectRepo.findOne({ where: { id: data.project_id } })
       : null;
 
     const company = data.company_id
@@ -206,7 +209,7 @@ export class UserService {
         })
       : [];
     const addonProjects = data.project_ids?.length
-      ? await this._projectRepo.findBy({ id_project: In(data.project_ids) })
+      ? await this._projectRepo.findBy({ id: In(data.project_ids) })
       : [];
 
     const newUser = this._user.create({
@@ -227,6 +230,90 @@ export class UserService {
     });
 
     return await this._user.save(newUser);
+  }
+
+  async updateUser(id: number, data: any): Promise<User> {
+    const user = await this._user.findOne({
+      where: { id_user: id },
+      relations: ["project", "company", "role"],
+    });
+
+    if (!user) throw new NotFoundException("User not found");
+
+    const project = data.project_id
+      ? await this._projectRepo.findOne({ where: { id: data.project_id } })
+      : null;
+
+    const company = data.company_id
+      ? await this._companyRepo.findOne({
+          where: { id_company: data.company_id },
+        })
+      : null;
+
+    const role = data.id_role
+      ? await this._roleRepo.findOne({ where: { id_role: data.id_role } })
+      : null;
+
+    Object.assign(user, {
+      full_name: data.full_name,
+      email: data.email,
+      badge_no: data.badge_no,
+      username: data.username,
+      department: data.department ?? null,
+      project,
+      company,
+      role,
+      outside_access: data.outside_access ?? null,
+      portal_type: data.portal_type ?? null,
+      status_user: data.status_user ?? 1,
+      yard_company: data.access_yard_company?.join(";") ?? null,
+      addon_project: data.project_ids?.join(";") ?? null,
+    });
+
+    return await this._user.save(user);
+  }
+
+  async resetPasswordByAdmin(id_user: number) {
+    const user = await this._user.findOne({ where: { id_user } });
+    if (!user) throw new NotFoundException("User not found");
+
+    const newPassword = Math.random().toString(36).slice(-8);
+
+    if (newPassword.length < 8) {
+      throw new BadRequestException("Password must be at least 8 characters");
+    }
+
+    await this._user.update(
+      { id_user },
+      {
+        password: md5(newPassword),
+        last_update_password: new Date(),
+      },
+    );
+
+    // Kirim email ke user
+    if (user.email) {
+      const htmlContent = this.emailService.renderTemplate(
+        "reset_password_admin.ejs",
+        {
+          fullName: user.full_name,
+          username: user.username,
+          newPassword,
+        },
+      );
+
+      await this.emailService.sendSimpleEmail(
+        user.email,
+        "Password Reset by Admin - ARMC Portal",
+        htmlContent,
+      );
+    }
+
+    return {
+      success: true,
+      message: "Password has been reset",
+      new_password: newPassword,
+    };
   }
 
   async bulkUpdateUsers(

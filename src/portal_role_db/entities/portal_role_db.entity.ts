@@ -14,9 +14,9 @@ export class PortalRole {
   @Column({ name: "role_name", type: "varchar", length: 200 })
   role_name: string;
 
-  @Column({ name: "created_date", type: "timestamp", nullable: true })
-  created_date: Date;
+  // @Column({ name: "created_date", type: "timestamp", nullable: true })
+  // created_date: Date;
 
-  @Column({ name: "updated_date", type: "timestamp", nullable: true })
-  updated_date: Date;
+  // @Column({ name: "updated_date", type: "timestamp", nullable: true })
+  // updated_date: Date;
 }
