@@ -55,9 +55,20 @@ export class UserController {
     return await this._user.updateUser(realId, data);
   }
 
+  @Get("stats")
+  async getStats() {
+    return this._user.getStats();
+  }
+
   @Get("/search")
   async searchUsers(@Query("q") query: string) {
     return await this._user.searchUsers(query);
+  }
+
+  @Post("/reset-password")
+  @UseGuards(JwtAuthGuard)
+  async resetPasswordByAdmin(@Body() body: { id_user: number }) {
+    return await this._user.resetPasswordByAdmin(body.id_user);
   }
 
   @Get("/:id")
@@ -68,17 +79,9 @@ export class UserController {
     return await this._user.findOneById(realId);
   }
 
-  @Post("/reset-password")
-@UseGuards(JwtAuthGuard)
-async resetPasswordByAdmin(@Body() body: { id_user: number }) {
-  return await this._user.resetPasswordByAdmin(body.id_user);
-}
-
   @Post("/serverside_list")
   async serverSide(@Query() queryDto: ServerSideDTO) {
     const data = await this._user.serverSideList(queryDto);
     return data;
   }
-
-
 }

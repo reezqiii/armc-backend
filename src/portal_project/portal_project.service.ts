@@ -2,8 +2,7 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { PortalProject } from "./entities/portal_project.entity";
-import { CreatePortalProjectDto } from "./dto/create-portal_project.dto";
-import { UpdatePortalProjectDto } from "./dto/update-portal_project.dto";
+import { ServerSideDTO } from "DTO/dto.serverside";
 
 @Injectable()
 export class PortalProjectService {
@@ -12,37 +11,81 @@ export class PortalProjectService {
     private readonly projectRepository: Repository<PortalProject>,
   ) {}
 
-  create(createPortalProjectDto: CreatePortalProjectDto) {
-    const project = this.projectRepository.create(createPortalProjectDto);
-    return this.projectRepository.save(project);
+  async serverSideList(queryDto: ServerSideDTO) {
+    const { sort, search, page = 0, size = 10 } = queryDto;
+    const take = size;
+    const skip = page * take;
+
+    const qb = this.projectRepository
+      .createQueryBuilder("project")
+      .where("project.is_active = :active", { active: 1 });
+
+    const columnMap: Record<string, string> = {
+      project_name: "project.project_name",
+    };
+
+    if (sort) {
+      const [col, dir] = sort.split(",");
+      const column = columnMap[col];
+      if (column) qb.orderBy(column, dir.toUpperCase() as "ASC" | "DESC");
+    }
+
+    if (search) {
+      const searchObj = JSON.parse(search);
+      Object.keys(searchObj).forEach((key) => {
+        const column = columnMap[key];
+        if (!column) return;
+        qb.andWhere(`CAST(${column} AS TEXT) ILIKE :${key}`, {
+          [key]: `%${searchObj[key]}%`,
+        });
+      });
+    }
+
+    const [data, total] = await qb.skip(skip).take(take).getManyAndCount();
+    return {
+      data,
+      total,
+      page,
+      limit: take,
+      total_pages: Math.ceil(total / take),
+    };
   }
 
   async findAll() {
     return this.projectRepository.find({
+      where: { is_active: 1 },
       order: { project_name: "ASC" },
     });
   }
 
   async findOne(id: number) {
     const project = await this.projectRepository.findOne({
-      where: { id: id },
+      where: { id, is_active: 1 },
     });
     if (!project) throw new NotFoundException("Project not found");
     return project;
   }
 
-  async update(id: number, updatePortalProjectDto: UpdatePortalProjectDto) {
-    const result = await this.projectRepository.update(
-      { id: id },
-      updatePortalProjectDto,
-    );
-    if (result.affected === 0) throw new NotFoundException("Project not found");
-    return { message: "Project updated successfully" };
+  async create(data: any, userId?: number) {
+    const project = this.projectRepository.create({
+      project_name: data.project_name,
+      is_active: 1,
+      created_by: userId ?? null,
+    });
+    return this.projectRepository.save(project);
   }
 
-  async remove(id: number) {
-    const result = await this.projectRepository.delete({ id: id });
-    if (result.affected === 0) throw new NotFoundException("Project not found");
-    return { message: "Project deleted successfully" };
+  async update(id: number, data: any, userId?: number) {
+    const project = await this.findOne(id);
+    project.project_name = data.project_name;
+    project.updated_by = userId ?? null;
+    return this.projectRepository.save(project);
+  }
+
+  async remove(id: number, userId?: number) {
+    const project = await this.findOne(id);
+    project.is_active = 0;
+    project.deleted_by = userId ?? null;
+    return this.projectRepository.save(project);
   }
 }

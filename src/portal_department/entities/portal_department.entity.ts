@@ -8,9 +8,15 @@ export class PortalDepartment {
   @Column({ name: "name_of_department", type: "varchar", length: 200 })
   name_of_department: string;
 
-  // @Column({ name: "created_date", type: "timestamp", nullable: true })
-  // created_date: Date;
+  @Column({ name: "is_active", type: "int", default: 1 })
+  is_active: number;
 
-  // @Column({ name: "updated_date", type: "timestamp", nullable: true })
-  // updated_date: Date;
+  @Column({ name: "created_by", type: "int", nullable: true })
+  created_by: number;
+
+  @Column({ name: "updated_by", type: "int", nullable: true })
+  updated_by: number;
+
+  @Column({ name: "deleted_by", type: "int", nullable: true })
+  deleted_by: number;
 }

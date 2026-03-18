@@ -6,14 +6,17 @@ import {
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { User } from "./user.entity";
-import { Repository, ILike, FindOptionsWhere, In } from "typeorm";
+import { Repository, ILike, FindOptionsWhere, In, IsNull, Not } from "typeorm";
 import { ServerSideDTO } from "DTO/dto.serverside";
 import { PortalDepartment } from "portal_department/entities/portal_department.entity";
 import { PortalProject } from "portal_project/entities/portal_project.entity";
 import { Company } from "portal_company/company.entity";
 import { PortalRole } from "portal_role_db/entities/portal_role_db.entity";
 import * as md5 from "md5";
+import * as crypto from "crypto";
 import { EmailService } from "email/email.service";
+import * as jwt from "jsonwebtoken";
+import { ConfigService } from "@nestjs/config";
 
 @Injectable()
 export class UserService {
@@ -27,7 +30,8 @@ export class UserService {
     private readonly _companyRepo: Repository<Company>,
     @InjectRepository(PortalRole)
     private readonly _roleRepo: Repository<PortalRole>,
-    private readonly emailService: EmailService, 
+    private readonly emailService: EmailService,
+    private readonly configService: ConfigService,
   ) {}
 
   async serverSideList(queryDto: ServerSideDTO) {
@@ -47,7 +51,7 @@ export class UserService {
         username: "user.username",
         full_name: "user.full_name",
         email: "user.email",
-        department_name: "user.department",
+        department_name: "dept.name_of_department",
         project_name: "project.project_name",
         company_name: "company.company_name",
         role_name: "role.role_name",
@@ -97,6 +101,7 @@ export class UserService {
           };
         }),
       );
+
       return {
         data: mappedData,
         total,
@@ -283,15 +288,18 @@ export class UserService {
       throw new BadRequestException("Password must be at least 8 characters");
     }
 
-    await this._user.update(
-      { id_user },
-      {
-        password: md5(newPassword),
-        last_update_password: new Date(),
-      },
-    );
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const expiredAt = new Date(Date.now() + 60 * 60 * 1000); // 1 jam
 
-    // Kirim email ke user
+    await this._user.update({ id_user }, {
+      password: md5(newPassword),
+      last_update_password: new Date(),
+      reset_token: resetToken,
+      reset_token_expired: expiredAt,
+    } as any);
+
+    const resetLink = `${process.env.ARMC_BASE_URL}/reset_password?token=${resetToken}`;
+
     if (user.email) {
       const htmlContent = this.emailService.renderTemplate(
         "reset_password_admin.ejs",
@@ -299,6 +307,7 @@ export class UserService {
           fullName: user.full_name,
           username: user.username,
           newPassword,
+          resetLink,
         },
       );
 
@@ -312,7 +321,6 @@ export class UserService {
     return {
       success: true,
       message: "Password has been reset",
-      new_password: newPassword,
     };
   }
 
@@ -362,4 +370,31 @@ export class UserService {
       updated_count: users.length,
     };
   }
+
+  async getStats() {
+  const active = await this._user.count({ where: { status_user: 1 } });
+  const totalRoles = await this._roleRepo.count({ where: { is_active: 1 } });
+  const totalDept = await this._portalDeptRepo.count({ where: { is_active: 1 } });
+  const totalProject = await this._projectRepo.count({ where: { is_active: 1 } });
+
+  // User per role
+  const userPerRole = await this._user
+    .createQueryBuilder("user")
+    .leftJoin("user.role", "role")
+    .select("role.role_name", "role_name")
+    .addSelect("COUNT(user.id_user)", "total")
+    .where("user.status_user = :status", { status: 1 })
+    .groupBy("role.role_name")
+    .getRawMany();
+
+  // Recent password reset
+  const recentReset = await this._user.find({
+    where: { last_update_password: Not(IsNull()) },
+    order: { last_update_password: "DESC" },
+    take: 5,
+    select: ["id_user", "full_name", "username", "last_update_password"],
+  });
+
+  return { active, totalRoles, totalDept, totalProject, userPerRole, recentReset };
+}
 }

@@ -26,6 +26,7 @@ import { PortalProjectModule } from './portal_project/portal_project.module';
 import { PortalDepartmentModule } from './portal_department/portal_department.module';
 import { PortalRoleDbModule } from './portal_role_db/portal_role_db.module';
 import { PortalCategoryAccountModule } from "portal_category_account/portal_category_account.module";
+import { RolePermissionModule } from './role_has_permission/role_has_permission.module';
 
 @Module({
   imports: [
@@ -106,6 +107,7 @@ import { PortalCategoryAccountModule } from "portal_category_account/portal_cate
     PortalDepartmentModule,
     PortalRoleDbModule,
     PortalCategoryAccountModule,
+    RolePermissionModule
   ],
 
   providers: [RequestSubscriber],

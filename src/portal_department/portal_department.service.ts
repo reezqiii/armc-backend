@@ -1,9 +1,8 @@
-import { Injectable } from "@nestjs/common";
-import { CreatePortalDepartmentDto } from "./dto/create-portal_department.dto";
-import { UpdatePortalDepartmentDto } from "./dto/update-portal_department.dto";
-import { PortalDepartment } from "./entities/portal_department.entity";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
+import { PortalDepartment } from "./entities/portal_department.entity";
+import { ServerSideDTO } from "DTO/dto.serverside";
 
 @Injectable()
 export class PortalDepartmentService {
@@ -12,30 +11,81 @@ export class PortalDepartmentService {
     private readonly departmentRepository: Repository<PortalDepartment>,
   ) {}
 
-  create(createPortalDepartmentDto: CreatePortalDepartmentDto) {
-    const department = this.departmentRepository.create(
-      createPortalDepartmentDto,
-    );
-    return this.departmentRepository.save(department);
+  async serverSideList(queryDto: ServerSideDTO) {
+    const { sort, search, page = 0, size = 10 } = queryDto;
+    const take = size;
+    const skip = page * take;
+
+    const qb = this.departmentRepository
+      .createQueryBuilder("dept")
+      .where("dept.is_active = :active", { active: 1 });
+
+    const columnMap: Record<string, string> = {
+      name_of_department: "dept.name_of_department",
+    };
+
+    if (sort) {
+      const [col, dir] = sort.split(",");
+      const column = columnMap[col];
+      if (column) qb.orderBy(column, dir.toUpperCase() as "ASC" | "DESC");
+    }
+
+    if (search) {
+      const searchObj = JSON.parse(search);
+      Object.keys(searchObj).forEach((key) => {
+        const column = columnMap[key];
+        if (!column) return;
+        qb.andWhere(`CAST(${column} AS TEXT) ILIKE :${key}`, {
+          [key]: `%${searchObj[key]}%`,
+        });
+      });
+    }
+
+    const [data, total] = await qb.skip(skip).take(take).getManyAndCount();
+    return {
+      data,
+      total,
+      page,
+      limit: take,
+      total_pages: Math.ceil(total / take),
+    };
   }
 
   async findAll() {
     return this.departmentRepository.find({
+      where: { is_active: 1 },
       order: { name_of_department: "ASC" },
     });
   }
 
-  findOne(id: number) {
-    return this.departmentRepository.findOne({
-      where: { id_department: id },
+  async findOne(id: number) {
+    const dept = await this.departmentRepository.findOne({
+      where: { id_department: id, is_active: 1 },
     });
+    if (!dept) throw new NotFoundException("Department not found");
+    return dept;
   }
 
-  update(id: number, updatePortalDepartmentDto: UpdatePortalDepartmentDto) {
-    return this.departmentRepository.update(id, updatePortalDepartmentDto);
+  async create(data: any, userId?: number) {
+    const dept = this.departmentRepository.create({
+      name_of_department: data.name_of_department,
+      is_active: 1,
+      created_by: userId ?? null,
+    });
+    return this.departmentRepository.save(dept);
   }
 
-  remove(id: number) {
-    return this.departmentRepository.delete(id);
+  async update(id: number, data: any, userId?: number) {
+    const dept = await this.findOne(id);
+    dept.name_of_department = data.name_of_department;
+    dept.updated_by = userId ?? null;
+    return this.departmentRepository.save(dept);
+  }
+
+  async remove(id: number, userId?: number) {
+    const dept = await this.findOne(id);
+    dept.is_active = 0;
+    dept.deleted_by = userId ?? null;
+    return this.departmentRepository.save(dept);
   }
 }

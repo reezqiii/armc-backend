@@ -1,19 +1,28 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column } from "typeorm";
 
-@Entity('portal_permission')
+@Entity("portal_permission")
 export class PortalPermission {
-  @PrimaryGeneratedColumn({ name: 'id_permission', type: 'int' })
+  @PrimaryGeneratedColumn({ name: "id_permission", type: "int" })
   id_permission: number;
 
-  @Column({ name: 'permission_name', type: 'varchar', nullable: true })
+  @Column({ name: "permission_name", type: "varchar", nullable: true })
   permission_name: string;
 
-  @Column({ name: 'index_key', type: 'varchar', nullable: true })
+  @Column({ name: "index_key", type: "varchar", nullable: true })
   index_key: string;
 
-  @Column({ name: 'created_date', type: 'timestamp', nullable: true })
-  created_date: Date;
+  @Column({ name: "permission_group", type: "varchar", nullable: true })
+  permission_group: string;
 
-  @Column({ name: 'updated_date', type: 'timestamp', nullable: true })
-  updated_date: Date;
+  @Column({ name: "is_active", type: "int", default: 1 })
+  is_active: number;
+
+  @Column({ name: "created_by", type: "int", nullable: true })
+  created_by: number;
+
+  @Column({ name: "updated_by", type: "int", nullable: true })
+  updated_by: number;
+
+  @Column({ name: "deleted_by", type: "int", nullable: true })
+  deleted_by: number;
 }
