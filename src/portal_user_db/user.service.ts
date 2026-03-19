@@ -17,6 +17,8 @@ import * as crypto from "crypto";
 import { EmailService } from "email/email.service";
 import * as jwt from "jsonwebtoken";
 import { ConfigService } from "@nestjs/config";
+import { PortalPermission } from "portal_permission/permission.entity";
+import { PortalUserPermission } from "portal_user_permission/user_permission.entity";
 
 @Injectable()
 export class UserService {
@@ -30,6 +32,10 @@ export class UserService {
     private readonly _companyRepo: Repository<Company>,
     @InjectRepository(PortalRole)
     private readonly _roleRepo: Repository<PortalRole>,
+    @InjectRepository(PortalUserPermission)
+    private readonly _userPermRepo: Repository<PortalUserPermission>,
+    @InjectRepository(PortalPermission)
+    private readonly _permissionRepo: Repository<PortalPermission>,
     private readonly emailService: EmailService,
     private readonly configService: ConfigService,
   ) {}
@@ -324,77 +330,111 @@ export class UserService {
     };
   }
 
-  async bulkUpdateUsers(
-    users: {
-      id_user: number;
-      outside_access?: number;
-      status_user?: number;
-      role_id?: number;
-      department_id?: number;
-    }[],
+  async getStats() {
+    const active = await this._user.count({ where: { status_user: 1 } });
+    const totalRoles = await this._roleRepo.count({ where: { is_active: 1 } });
+    const totalDept = await this._portalDeptRepo.count({
+      where: { is_active: 1 },
+    });
+    const totalProject = await this._projectRepo.count({
+      where: { is_active: 1 },
+    });
+
+    // User per role
+    const userPerRole = await this._user
+      .createQueryBuilder("user")
+      .leftJoin("user.role", "role")
+      .select("role.role_name", "role_name")
+      .addSelect("COUNT(user.id_user)", "total")
+      .where("user.status_user = :status", { status: 1 })
+      .groupBy("role.role_name")
+      .getRawMany();
+
+    // Recent password reset
+    const recentReset = await this._user.find({
+      where: { last_update_password: Not(IsNull()) },
+      order: { last_update_password: "DESC" },
+      take: 5,
+      select: ["id_user", "full_name", "username", "last_update_password"],
+    });
+
+    return {
+      active,
+      totalRoles,
+      totalDept,
+      totalProject,
+      userPerRole,
+      recentReset,
+    };
+  }
+
+  async getUserExtraPermissions(id_user: number) {
+    // Ambil semua permission yang tersedia
+    const allPermissions = await this._permissionRepo.find({
+      where: { is_active: 1 },
+      order: { id_permission: "ASC" },
+    });
+
+    // Ambil permission tambahan yang sudah dimiliki user ini
+    const userExtraPerms = await this._userPermRepo.find({
+      where: { id_user },
+    });
+
+    const userPermKeys = userExtraPerms
+      .map((p) => p.permission_key)
+      .filter((k) => k !== null && k !== undefined);
+
+    // Return semua permission + flag is_granted untuk checklist frontend
+    return allPermissions.map((p) => ({
+      id_permission: p.id_permission,
+      permission_name: p.permission_name,
+      index_key: p.index_key,
+      is_granted: userPermKeys.includes(p.index_key),
+    }));
+  }
+
+  // PUT — update permission tambahan user dari checklist
+  async updateUserExtraPermissions(
+    id_user: number,
+    permission_keys: string[],
+    created_by: number,
   ) {
-    if (!users?.length) {
-      return { success: false, message: "No data to update" };
-    }
+    // Hapus semua permission_key lama milik user ini
+    await this._userPermRepo
+      .createQueryBuilder()
+      .delete()
+      .where("id_user = :id_user AND permission_key IS NOT NULL", { id_user })
+      .execute();
 
-    for (const u of users) {
-      const updateData: any = {};
-
-      if (u.outside_access !== undefined) {
-        updateData.outside_access = u.outside_access;
-      }
-
-      if (u.status_user !== undefined) {
-        updateData.status_user = u.status_user;
-      }
-
-      if (u.department_id !== undefined) {
-        updateData.department = u.department_id;
-      }
-
-      if (u.role_id !== undefined) {
-        const role = await this._roleRepo.findOne({
-          where: { id_role: u.role_id },
-        });
-        if (!role) {
-          throw new NotFoundException("Role not found");
-        }
-        updateData.role = role;
-      }
-
-      await this._user.update({ id_user: u.id_user }, updateData);
+    // Insert yang baru dari checklist (kalau ada)
+    if (permission_keys.length > 0) {
+      const newPerms = permission_keys.map((key) =>
+        this._userPermRepo.create({
+          id_user,
+          permission_key: key,
+          create_by: created_by,
+          create_date: new Date(),
+        }),
+      );
+      await this._userPermRepo.save(newPerms);
     }
 
     return {
       success: true,
-      updated_count: users.length,
+      message: `Updated ${permission_keys.length} extra permissions for user ${id_user}`,
+      permission_keys,
     };
   }
 
-  async getStats() {
-  const active = await this._user.count({ where: { status_user: 1 } });
-  const totalRoles = await this._roleRepo.count({ where: { is_active: 1 } });
-  const totalDept = await this._portalDeptRepo.count({ where: { is_active: 1 } });
-  const totalProject = await this._projectRepo.count({ where: { is_active: 1 } });
-
-  // User per role
-  const userPerRole = await this._user
-    .createQueryBuilder("user")
-    .leftJoin("user.role", "role")
-    .select("role.role_name", "role_name")
-    .addSelect("COUNT(user.id_user)", "total")
-    .where("user.status_user = :status", { status: 1 })
-    .groupBy("role.role_name")
-    .getRawMany();
-
-  // Recent password reset
-  const recentReset = await this._user.find({
-    where: { last_update_password: Not(IsNull()) },
-    order: { last_update_password: "DESC" },
-    take: 5,
-    select: ["id_user", "full_name", "username", "last_update_password"],
-  });
-
-  return { active, totalRoles, totalDept, totalProject, userPerRole, recentReset };
-}
+  async getHodsByDept(dept_id: number) {
+    return this._user
+      .createQueryBuilder("user")
+      .leftJoin("user.role", "role")
+      .where("LOWER(role.role_name) = :role", { role: "head of department" })
+      .andWhere("user.status_user = :status", { status: 1 })
+      .andWhere("user.department = :dept_id", { dept_id })
+      .select(["user.id_user", "user.full_name", "user.badge_no"])
+      .orderBy("user.full_name", "ASC")
+      .getMany();
+  }
 }

@@ -158,7 +158,6 @@ export class SftpController {
 
     const exists = await this.sftpService.exists(remotePath);
     if (!exists) {
-      console.log("NOT FOUND ON SFTP:", remotePath);
       throw new BadRequestException("File not found on SFTP");
     }
 

@@ -4,13 +4,11 @@ export const STATUS_REGISTRY = {
   request_status: {
     0: "Draft",
     1: "Awaiting HOD Approval",
-    2: "Rejected HOD Approval",
-    3: "Awaiting Lead IT Approval",
-    4: "Rejected Lead IT Approval",
-    5: "Awaiting IT Manager Approval",
-    6: "Rejected IT Manager Approval",
-    7: "Completed",
-    8: "Returned",
+    2: "Rejected HOD",
+    3: "Awaiting HOD IT Approval",
+    4: "Rejected HOD IT",
+    5: "Completed",
+    6: "Canceled",
   },
 
   admin_status: {
@@ -25,11 +23,11 @@ export const STATUS_REGISTRY = {
   },
 } as const;
 
+// ← Pastikan function ini ada dan di-export
 export function getStatusLabel(
   group: keyof typeof STATUS_REGISTRY,
   value?: number | null,
 ): string {
   if (value === null || value === undefined) return "-";
-  return STATUS_REGISTRY[group]?.[value] ?? "-";
+  return (STATUS_REGISTRY[group] as Record<number, string>)?.[value] ?? "-";
 }
-

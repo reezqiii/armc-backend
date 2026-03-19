@@ -6,7 +6,7 @@ import { IssDept } from './iss_dept.entity';
 @Injectable()
 export class IssDeptService {
   constructor(
-    @InjectRepository(IssDept, 'db_iss')
+    @InjectRepository(IssDept)
     private readonly deptRepo: Repository<IssDept>,
   ) { }
 

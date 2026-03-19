@@ -23,6 +23,7 @@ import { AesEcbService } from "../crypto/aes-ecb.service";
 import { UserService } from "../portal_user_db/user.service";
 import { Public } from "auth/public.decorator";
 import { response } from "express";
+import { PermissionGuard, RequirePermissions } from "permission.guard";
 
 @Controller("requests")
 @ApiBearerAuth("access-token")
@@ -42,12 +43,6 @@ export class RequestController {
     ]);
   }
 
-  @Get("employee/:badge")
-  @UseGuards(JwtAuthGuard)
-  async getEmployeeByBadge(@Param("badge") badge: number) {
-    return this.requestService.getEmployeeByBadge(badge);
-  }
-
   @Post("/create")
   @UseGuards(JwtAuthGuard)
   async create(
@@ -56,39 +51,6 @@ export class RequestController {
   ): Promise<RequestEntity> {
     const userId = req.user.id_user;
     return this.requestService.create(data, userId);
-  }
-
-  @Post(":id/return")
-  async return(@Param("id") encryptedId: string, @Req() req: any) {
-    const id = Number(this.aesEcb.decryptBase64Url(encryptedId));
-    return this.requestService.return(id, req.user);
-  }
-
-  @Public()
-  @Get("public/track/:id")
-  async trackPublic(@Param("id") id: number) {
-    if (isNaN(id)) {
-      throw new BadRequestException("Invalid request ID");
-    }
-
-    return this.requestService.findPublicTrack(id);
-  }
-
-  @Put(":id/submit-return")
-  @UseGuards(JwtAuthGuard)
-  async submitReturn(@Param("id") encryptedId: string, @Req() req: any) {
-    const id = Number(this.aesEcb.decryptBase64Url(encryptedId));
-    if (isNaN(id)) throw new BadRequestException("Invalid request ID");
-
-    const userId = req.user.id_user;
-
-    return this.requestService.submitReturn(id, userId);
-  }
-
-  @Public()
-  @Post("public/create")
-  async createPublic(@Body() data: Partial<RequestEntity>) {
-    return this.requestService.createPublic(data);
   }
 
   @Put(":id")
@@ -116,7 +78,8 @@ export class RequestController {
   }
 
   @Put(":id/hod-approval")
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequirePermissions("request.approve_hod") // ← TAMBAH
   async hodApproval(
     @Param("id") id: string,
     @Body() body: { action: string; remarks?: string },
@@ -124,17 +87,17 @@ export class RequestController {
   ) {
     const decId = Number(this.aesEcb.decryptBase64Url(id));
     if (isNaN(decId)) throw new BadRequestException("Invalid request ID");
-
-    const userId = req.user.id_user;
     return this.requestService.hodApproval(
       decId,
       body.action,
       body.remarks,
-      userId,
+      req.user.id_user,
     );
   }
 
   @Put("hod-approval/bulk")
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequirePermissions("request.approve_hod") // ← TAMBAH
   hodApprovalBulk(
     @Body()
     body: {
@@ -165,7 +128,7 @@ export class RequestController {
     @Body() body: { encryptedIds: string[] },
     @Req() req: any,
   ) {
-    const userId = req.user?.id_user; 
+    const userId = req.user?.id_user;
     if (!userId) {
       throw new UnauthorizedException("User not authenticated");
     }
@@ -173,64 +136,26 @@ export class RequestController {
     return this.requestService.submitBulkToHod(body.encryptedIds, userId);
   }
 
-  @Put(":id/lead-it-approval")
-  async leadItApproval(@Param("id") id: string, @Body() body, @Req() req) {
-    const decId = Number(this.aesEcb.decryptBase64Url(id));
-    const userId = req.user.id_user;
-
-    return this.requestService.leadItApproval(
-      decId,
-      body.action,
-      body.remarks,
-      userId,
-    );
-  }
-
-  @Put("lead-it-approval/bulk")
-  @UseGuards(JwtAuthGuard)
-  async leadItApprovalBulk(
-    @Body()
-    body: {
-      encryptedIds: string[];
-      action: "approve" | "reject";
-      remarks?: string;
-    },
-    @Req() req,
-  ) {
-    const userId = req.user.id_user;
-
-    if (!Array.isArray(body.encryptedIds)) {
-      throw new BadRequestException("encryptedIds must be array");
-    }
-
-    return this.requestService.leadItApprovalBulk(
-      body.encryptedIds,
-      body.action,
-      body.remarks,
-      userId,
-    );
-  }
-
   @Put(":id/it-approval")
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequirePermissions("request.approve_it") // ← TAMBAH
   async itApproval(
     @Param("id") id: string,
     @Body() body: { action: string; remarks?: string },
     @Req() req,
   ) {
     const decId = Number(this.aesEcb.decryptBase64Url(id));
-    const userId = req.user.id_user;
-
     return this.requestService.itApproval(
       decId,
       body.action,
       body.remarks,
-      userId,
+      req.user.id_user,
     );
   }
 
   @Put("it-approval/bulk")
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequirePermissions("request.approve_it") // ← TAMBAH
   async itApprovalBulk(
     @Body()
     body: {
@@ -240,18 +165,17 @@ export class RequestController {
     },
     @Req() req,
   ) {
-    const userId = req.user.id_user;
-
     return this.requestService.itApprovalBulk(
       body.encryptedIds,
       body.action,
       body.remarks,
-      userId,
+      req.user.id_user,
     );
   }
 
   @Patch(":id/admin-status")
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequirePermissions("user.manage") // ← TAMBAH
   async updateAdminStatus(
     @Param("id") id_request: number,
     @Body("request_admin") request_admin: number,

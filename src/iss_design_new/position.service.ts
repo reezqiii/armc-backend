@@ -6,7 +6,7 @@ import { Position } from './position.entity';
 @Injectable()
 export class PositionService {
   constructor(
-    @InjectRepository(Position, 'db_iss')
+    @InjectRepository(Position)
     private readonly _positionRepo: Repository<Position>,
   ) {}
 

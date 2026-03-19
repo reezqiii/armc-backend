@@ -1,11 +1,10 @@
-import { Injectable, ExecutionContext } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
-import { Reflector } from '@nestjs/core';
-import { IS_PUBLIC_KEY } from 'auth/public.decorator';
-import { requestStorage } from 'portal_request_user_permission/subscribers/async_local_storage';
+import { Injectable, ExecutionContext } from "@nestjs/common";
+import { AuthGuard } from "@nestjs/passport";
+import { Reflector } from "@nestjs/core";
+import { IS_PUBLIC_KEY } from "auth/public.decorator";
 
 @Injectable()
-export class JwtAuthGuard extends AuthGuard('jwt') {
+export class JwtAuthGuard extends AuthGuard("jwt") {
   constructor(private reflector: Reflector) {
     super();
   }
@@ -15,11 +14,9 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       context.getHandler(),
       context.getClass(),
     ]);
-
     if (isPublic) {
       return true;
     }
-
     return super.canActivate(context);
   }
 
@@ -27,9 +24,6 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     if (err || !user) {
       return null;
     }
-
-    requestStorage.enterWith({ userId: user.id_user });
-
     return user;
   }
 }

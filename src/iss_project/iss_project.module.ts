@@ -5,7 +5,7 @@ import { IssProjectController } from './iss_project.controller';
 import { IssProject } from './iss_project.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([IssProject], 'db_iss')],
+  imports: [TypeOrmModule.forFeature([IssProject])],
   providers: [IssProjectService],
   controllers: [IssProjectController],
   exports: [IssProjectService],

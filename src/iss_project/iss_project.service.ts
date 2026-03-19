@@ -6,7 +6,7 @@ import { IssProject } from './iss_project.entity';
 @Injectable()
 export class IssProjectService {
   constructor(
-    @InjectRepository(IssProject, 'db_iss')
+    @InjectRepository(IssProject)
     private readonly projectRepo: Repository<IssProject>,
   ) { }
 

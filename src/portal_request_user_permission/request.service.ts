@@ -4,17 +4,12 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
-  UnauthorizedException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { In, Repository } from "typeorm";
 import { RequestEntity } from "./request.entity";
 import { User } from "../portal_user_db/user.entity";
 import { ServerSideDTO } from "DTO/dto.serverside";
-import { IssProject } from "iss_project/iss_project.entity";
-import { IssDept } from "iss_dept/iss_dept.entity";
-import { Position } from "iss_design_new/position.entity";
-import { IssEmployee } from "iss_employee/employee.entity";
 import { EmailService } from "../email/email.service";
 import { Company } from "portal_company/company.entity";
 import { NavMenu } from "portal_nav_menu/menu.entity";
@@ -23,12 +18,13 @@ import { PortalUserPermissionService } from "portal_user_permission/user_permiss
 import { sendEmailDto } from "email/dto/send-email.dto";
 import { AesEcbService } from "crypto/aes-ecb.service";
 import { ConfigService } from "@nestjs/config";
-import { LogPortalService } from "log_portal/log_portal.service";
 import { getStatusLabel } from "utils/status-helper";
 import { PdfService } from "pdf/pdf.service";
 import { formatDate } from "utils/format-date";
 import * as path from "path";
 import { CategoryAccount } from "portal_category_account/entities/portal_category_account.entity";
+import { PortalProject } from "portal_project/entities/portal_project.entity";
+import { PortalDepartment } from "portal_department/entities/portal_department.entity";
 
 @Injectable()
 export class RequestService {
@@ -37,14 +33,10 @@ export class RequestService {
     private readonly aesEcbService: AesEcbService,
     @InjectRepository(RequestEntity)
     private readonly requestRepo: Repository<RequestEntity>,
-    @InjectRepository(IssProject, "db_iss")
-    private readonly projectRepo: Repository<IssProject>,
-    @InjectRepository(IssDept, "db_iss")
-    private readonly departmentRepo: Repository<IssDept>,
-    @InjectRepository(Position, "db_iss")
-    private readonly positionRepo: Repository<Position>,
-    @InjectRepository(IssEmployee, "db_iss")
-    private readonly employeeRepo: Repository<IssEmployee>,
+    @InjectRepository(PortalProject)
+    private readonly projectRepo: Repository<PortalProject>,
+    @InjectRepository(PortalDepartment)
+    private readonly departmentRepo: Repository<PortalDepartment>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     private readonly permissionService: PortalUserPermissionService,
@@ -56,7 +48,6 @@ export class RequestService {
     private readonly navMenuRepo: Repository<NavMenu>,
     private readonly mailService: EmailService,
     private configService: ConfigService,
-    private readonly logPortalService: LogPortalService,
     private readonly pdf: PdfService,
     @InjectRepository(CategoryAccount)
     private readonly categoryRepo: Repository<CategoryAccount>,
@@ -64,6 +55,7 @@ export class RequestService {
     this.PORTAL_LINK = this.configService.get<string>("LINK_PORTAL");
   }
 
+  // ── Server-side list ──────────────────────────────────────────
   async serverSideList(queryDto: ServerSideDTO, user?: any) {
     try {
       const { page = 0, size = 10, search, sort } = queryDto;
@@ -75,7 +67,6 @@ export class RequestService {
         .leftJoinAndSelect("request.category", "category")
         .leftJoinAndSelect("request.approval_hod_by", "approvalHod")
         .leftJoinAndSelect("request.approval_it_hod_by", "approvalIt")
-        .leftJoinAndSelect("request.approval_lead_it_by", "approvalLeadIt")
         .leftJoinAndSelect("request.created_by_user", "requestor")
         .leftJoinAndSelect("request.company", "company")
         .where("request.status_active = :active", { active: 1 });
@@ -96,36 +87,25 @@ export class RequestService {
         approval_hod: "approvalHod.full_name",
         approval_hod_by: "approvalHod.id_user",
         approval_it: "approvalIt.full_name",
-        approval_lead_it: "approvalLeadIt.full_name",
         category_account: "category.id",
         category_account_name: "category.name",
-        type: "request.type",
+        dept_id: "request.dept_id",
       };
 
-      const manualSortFields = [
-        "department_name",
-        "project_name",
-        "position_name",
-      ];
-
+      const manualSortFields = ["department_name", "project_name"];
       let manualSearchQueue: Array<{ field: string; value: any }> = [];
       let manualSortField: string | null = null;
       let manualSortDir: "ASC" | "DESC" = "ASC";
 
       if (search) {
         let filters: Record<string, any> = {};
-
         try {
           filters = JSON.parse(search);
         } catch {
           throw new InternalServerErrorException("Invalid JSON search format");
         }
 
-        const manualFields = [
-          "department_name",
-          "project_name",
-          "position_name",
-        ];
+        const manualFields = ["department_name", "project_name"];
 
         for (const [key, value] of Object.entries(filters)) {
           if (value === undefined || value === null) continue;
@@ -136,19 +116,9 @@ export class RequestService {
           }
 
           if (key === "requestor" || key === "requestor_name") {
-            qb.andWhere(
-              `(requestor.full_name ILIKE :req_name OR request.requestor_name ILIKE :req_name)`,
-              { req_name: `%${value}%` },
-            );
-            continue;
-          }
-
-          if (key === "type") {
-            const val = String(value).toLowerCase();
-            if ("internal".includes(val))
-              qb.andWhere("request.type = :type", { type: 0 });
-            if ("external".includes(val))
-              qb.andWhere("request.type = :type", { type: 1 });
+            qb.andWhere(`requestor.full_name ILIKE :req_name`, {
+              req_name: `%${value}%`,
+            });
             continue;
           }
 
@@ -164,7 +134,8 @@ export class RequestService {
         }
       }
 
-      if (!user.permissions.includes(2)) {
+      // Filter by dept jika bukan admin/IT
+      if (!user.permissions_key?.includes("request.view_all")) {
         qb.andWhere(
           "(request.created_by = :uid OR request.approval_hod_by = :uid)",
           { uid: user.id_user },
@@ -200,93 +171,66 @@ export class RequestService {
 
       const projects = await this.projectRepo.find();
       const departments = await this.departmentRepo.find();
-      const positions = await this.positionRepo.find();
       const companies = await this.companyRepo.find();
 
-      const projectMap = Object.fromEntries(
-        projects.map((p) => [p.project_id, p]),
-      );
+      const projectMap = Object.fromEntries(projects.map((p) => [p.id, p]));
       const departmentMap = Object.fromEntries(
-        departments.map((d) => [d.dept_id, d]),
-      );
-      const positionMap = Object.fromEntries(
-        positions.map((p) => [p.design_id, p]),
+        departments.map((d) => [d.id_department, d]),
       );
       const companyMap = Object.fromEntries(
         companies.map((c) => [c.id_company, c]),
       );
 
-      let mappedData = await Promise.all(
-        data.map(async (d) => {
-          const project = projectMap[d.project_id];
-          const department = departmentMap[d.dept_id];
-          const position = positionMap[d.design_id];
-          const company = companyMap[d.id_company];
-          const requestorName =
-            d.created_by_user?.full_name || d.requestor_name || "-";
+      let mappedData = data.map((d) => {
+        const project = projectMap[d.project_id];
+        const department = departmentMap[d.dept_id];
+        const company = companyMap[d.id_company];
+        const requestorName = d.created_by_user?.full_name || "-";
 
-          return {
-            id_request: d.id_request,
-            created_date: d.created_date,
-            requestor_name: requestorName,
-            full_name: d.full_name,
-            badge_no: d.badge_no,
-            email: d.email,
-            company_name: company?.company_name || "-",
-            project_name: project?.project_desc || "-",
-            department_name: department?.dept || "-",
-            position_name: position?.design_desc || "-",
-            type: d.type,
-            type_name: getStatusLabel("type", d.type),
-            request_status: d.request_status,
-            request_status_name: getStatusLabel(
-              "request_status",
-              d.request_status,
-            ),
-            request_admin: d.request_admin,
-            request_admin_name: getStatusLabel("admin_status", d.request_admin),
-            previous_status: d.previous_status,
-            category_account: d.category?.id || null,
-            category_account_name: d.category?.name || "-",
-            approval_hod: d.approval_hod_by
-              ? `${d.approval_hod_by.id_user} - ${d.approval_hod_by.full_name}`
-              : "-",
-            approval_lead_it: d.approval_lead_it_by
-              ? `${d.approval_lead_it_by.id_user} - ${d.approval_lead_it_by.full_name}`
-              : "-",
-            approval_it: d.approval_it_hod_by
-              ? `${d.approval_it_hod_by.id_user} - ${d.approval_it_hod_by.full_name}`
-              : "-",
-            approval_hod_by: d.approval_hod_by
-              ? {
-                  id: d.approval_hod_by.id_user,
-                  badge_no: d.approval_hod_by.badge_no,
-                  full_name: d.approval_hod_by.full_name,
-                }
-              : null,
-            approval_hod_date_at: d.approval_hod_date_at || null,
-            rejected_hod_remarks: d.rejected_hod_remarks || null,
-            approval_lead_it_by: d.approval_lead_it_by
-              ? {
-                  id: d.approval_lead_it_by.id_user,
-                  badge_no: d.approval_lead_it_by.badge_no,
-                  full_name: d.approval_lead_it_by.full_name,
-                }
-              : null,
-            approval_lead_date_at: d.approval_lead_date_at || null,
-            rejected_lead_remarks: d.rejected_lead_remarks || null,
-            approval_it_hod_by: d.approval_it_hod_by
-              ? {
-                  id: d.approval_it_hod_by.id_user,
-                  badge_no: d.approval_it_hod_by.badge_no,
-                  full_name: d.approval_it_hod_by.full_name,
-                }
-              : null,
-            approval_it_date_at: d.approval_it_date_at || null,
-            rejected_it_remarks: d.rejected_it_remarks || null,
-          };
-        }),
-      );
+        // FIX: category id bisa 0, gunakan != null
+        const categoryName =
+          d.category?.name || (d.category_account != null ? null : null) || "-";
+
+        return {
+          id_request: d.id_request,
+          created_date: d.created_date,
+          created_by_name: requestorName,
+          full_name: d.full_name,
+          badge_no: d.badge_no,
+          email: d.email,
+          company_name: company?.company_name || "-",
+          project_name: project?.project_name || "-",
+          department_name: department?.name_of_department || "-",
+          request_status: d.request_status,
+          request_status_name: getStatusLabel(
+            "request_status",
+            d.request_status,
+          ),
+          request_admin: d.request_admin,
+          request_admin_name: getStatusLabel("admin_status", d.request_admin),
+          // FIX category: id bisa 0
+          category_account: d.category?.id ?? d.category_account,
+          category_account_name: d.category?.name || "-",
+          approval_hod_by: d.approval_hod_by
+            ? {
+                id: d.approval_hod_by.id_user,
+                badge_no: d.approval_hod_by.badge_no,
+                full_name: d.approval_hod_by.full_name,
+              }
+            : null,
+          approval_hod_date_at: d.approval_hod_date_at || null,
+          rejected_hod_remarks: d.rejected_hod_remarks || null,
+          approval_it_hod_by: d.approval_it_hod_by
+            ? {
+                id: d.approval_it_hod_by.id_user,
+                badge_no: d.approval_it_hod_by.badge_no,
+                full_name: d.approval_it_hod_by.full_name,
+              }
+            : null,
+          approval_it_date_at: d.approval_it_date_at || null,
+          rejected_it_remarks: d.rejected_it_remarks || null,
+        };
+      });
 
       for (const { field, value } of manualSearchQueue) {
         const searchValue = String(value).toLowerCase();
@@ -332,6 +276,7 @@ export class RequestService {
     }
   }
 
+  // ── Find all ──────────────────────────────────────────────────
   async findAll(): Promise<any[]> {
     const data = await this.requestRepo.find({
       order: { created_date: "DESC" },
@@ -340,70 +285,41 @@ export class RequestService {
     if (data.length === 0) return [];
 
     const projectIds = Array.from(
-      new Set(
-        data
-          .map((d) => d.project_id)
-          .filter((id) => id !== null && id !== undefined),
-      ),
+      new Set(data.map((d) => d.project_id).filter((id) => id != null)),
     );
-
     const deptIds = Array.from(
-      new Set(
-        data
-          .map((d) => d.dept_id)
-          .filter((id) => id !== null && id !== undefined),
-      ),
+      new Set(data.map((d) => d.dept_id).filter((id) => id != null)),
     );
 
-    const positionIds = Array.from(
-      new Set(
-        data
-          .map((d) => d.design_id)
-          .filter((id) => id !== null && id !== undefined),
-      ),
-    );
-
-    const [projects, departments, positions] = await Promise.all([
+    const [projects, departments] = await Promise.all([
       projectIds.length > 0
-        ? this.projectRepo.find({ where: { project_id: In(projectIds) } })
+        ? this.projectRepo.find({ where: { id: In(projectIds) } })
         : [],
       deptIds.length > 0
-        ? this.departmentRepo.find({ where: { dept_id: In(deptIds) } })
-        : [],
-      positionIds.length > 0
-        ? this.positionRepo.find({ where: { design_id: In(positionIds) } })
+        ? this.departmentRepo.find({ where: { id_department: In(deptIds) } })
         : [],
     ]);
 
     const projectMap = new Map<number, string>();
-    for (const p of projects) {
-      projectMap.set(p.project_id, p.project_desc);
-    }
+    for (const p of projects) projectMap.set(p.id, p.project_name);
 
     const deptMap = new Map<number, string>();
-    for (const d of departments) {
-      deptMap.set(d.dept_id, d.dept);
-    }
-
-    const positionMap = new Map<number, string>();
-    for (const p of positions) {
-      positionMap.set(p.design_id, p.design_desc);
-    }
+    for (const d of departments)
+      deptMap.set(d.id_department, d.name_of_department);
 
     return data.map((d) => ({
       ...d,
-      project_name: projectMap.get(d.project_id) ?? "",
-      department_name: deptMap.get(d.dept_id) ?? "",
-      position_name: positionMap.get(d.design_id) ?? "",
+      project_name: projectMap.get(d.project_id) ?? "-",
+      department_name: deptMap.get(d.dept_id) ?? "-",
     }));
   }
 
+  // ── Find one ──────────────────────────────────────────────────
   async findOne(id: number): Promise<any> {
     const data = await this.requestRepo.findOne({
       where: { id_request: id },
       relations: [
         "approval_hod_by",
-        "approval_lead_it_by",
         "approval_it_hod_by",
         "company",
         "category",
@@ -413,18 +329,12 @@ export class RequestService {
     if (!data) throw new NotFoundException(`Request with ID ${id} not found`);
 
     const project = data.project_id
-      ? await this.projectRepo.findOne({
-          where: { project_id: data.project_id },
-        })
+      ? await this.projectRepo.findOne({ where: { id: data.project_id } })
       : null;
 
     const department = data.dept_id
-      ? await this.departmentRepo.findOne({ where: { dept_id: data.dept_id } })
-      : null;
-
-    const position = data.design_id
-      ? await this.positionRepo.findOne({
-          where: { design_id: data.design_id },
+      ? await this.departmentRepo.findOne({
+          where: { id_department: data.dept_id },
         })
       : null;
 
@@ -432,29 +342,55 @@ export class RequestService {
       ? await this.userRepo.findOne({ where: { id_user: data.created_by } })
       : null;
 
-    const category = data.category_account
-      ? await this.categoryRepo.findOne({
-          where: { id: Number(data.category_account) },
-        })
-      : null;
+    // FIX: category_account bisa 0, gunakan != null bukan truthy check
+    const category =
+      data.category_account != null
+        ? await this.categoryRepo.findOne({
+            where: { id: Number(data.category_account) },
+          })
+        : null;
 
     return {
-      ...data,
-      project: project ? project.project_desc : null,
-      project_name: project ? project.project_desc : null,
-      department: department ? department.dept : null,
-      department_name: department ? department.dept : null,
-      position: position ? position.design_desc : null,
-      position_name: position ? position.design_desc : null,
-      created_by_name: createdByUser ? createdByUser.full_name : null,
-      category_account_name: category?.name || "-",
-      category_account: data.category_account,
+      id_request: data.id_request,
+      created_date: data.created_date,
+      created_by: data.created_by,
+      created_by_name: createdByUser?.full_name || null,
+      full_name: data.full_name,
+      badge_no: data.badge_no,
+      email: data.email,
+      request_reason: data.request_reason,
+      remarks: data.remarks,
+      request_status: data.request_status,
+      status_active: data.status_active,
+      request_admin: data.request_admin,
+      dept_id: data.dept_id,
+      project_id: data.project_id,
+      id_company: data.id_company,
+      canceled_by: data.canceled_by,
+      canceled_date: data.canceled_date,
+      rejected_hod_remarks: data.rejected_hod_remarks,
+      rejected_it_remarks: data.rejected_it_remarks,
+
+      // Relasi
+      project: project?.project_name || null,
+      project_name: project?.project_name || null,
+      department: department?.name_of_department || null,
+      department_name: department?.name_of_department || null,
       company: data.company
         ? {
             id_company: data.company.id_company,
             company_name: data.company.company_name,
           }
         : null,
+
+      // FIX category: pakai relasi dulu, fallback ke query manual
+      category: data.category
+        ? { id: data.category.id, name: data.category.name }
+        : null,
+      category_account: data.category_account,
+      category_account_name: data.category?.name || category?.name || "-",
+
+      // Approval
       approval_hod_by: data.approval_hod_by
         ? {
             id: data.approval_hod_by.id_user,
@@ -462,6 +398,7 @@ export class RequestService {
             badge_no: data.approval_hod_by.badge_no,
           }
         : null,
+      approval_hod_date_at: data.approval_hod_date_at || null,
       approval_it_hod_by: data.approval_it_hod_by
         ? {
             id: data.approval_it_hod_by.id_user,
@@ -469,71 +406,20 @@ export class RequestService {
             badge_no: data.approval_it_hod_by.badge_no,
           }
         : null,
-      approval_lead_it_by: data.approval_lead_it_by
-        ? {
-            id: data.approval_lead_it_by.id_user,
-            full_name: data.approval_lead_it_by.full_name,
-            badge_no: data.approval_lead_it_by.badge_no,
-          }
-        : null,
-      access_yard_company: await this.getYardCompanyList(
-        data.access_yard_company,
-      ),
+      approval_it_date_at: data.approval_it_date_at || null,
+
+      // Access nav menu parsed dari CSV string
       access_nav_menu: await this.getNavMenuList(data.access_nav_menu),
     };
   }
 
-  async findPublicTrack(id_request: number) {
-    const data = await this.requestRepo.findOne({
-      where: {
-        id_request,
-        type: 1,
-        created_by: null,
-        status_active: 1,
-      },
-      relations: ["company"],
-    });
-
-    if (!data) {
-      throw new NotFoundException("Public request not found");
-    }
-
-    const department = data.dept_id
-      ? await this.departmentRepo.findOne({
-          where: { dept_id: data.dept_id },
-        })
-      : null;
-
-    const project = data.project_id
-      ? await this.projectRepo.findOne({
-          where: { project_id: data.project_id },
-        })
-      : null;
-
-    const position = data.design_id
-      ? await this.positionRepo.findOne({
-          where: { design_id: data.design_id },
-        })
-      : null;
-
-    return {
-      ...data,
-      request_status: data.request_status,
-      department_name: department?.dept ?? "-",
-      project_name: project?.project_desc ?? "-",
-      position_name: position?.design_desc ?? "-",
-      category_account: data.category_account,
-    };
-  }
-
+  // ── Private helpers ───────────────────────────────────────────
   private async getNavMenuList(access: string): Promise<any[]> {
     if (!access) return [];
-
     const ids = String(access)
       .split(",")
       .map((id) => Number(id.trim()))
       .filter((id) => !isNaN(id));
-
     return Promise.all(
       ids.map(async (id) => {
         const menu = await this.navMenuRepo.findOne({
@@ -547,60 +433,19 @@ export class RequestService {
     );
   }
 
-  private async getYardCompanyList(access: string): Promise<any[]> {
-    if (!access) return [];
-
-    const ids = String(access)
-      .split(",")
-      .map((id) => Number(id.trim()))
-      .filter((id) => !isNaN(id));
-
-    return Promise.all(
-      ids.map(async (id) => {
-        const company = await this.companyRepo.findOne({
-          where: { id_company: id },
-        });
-        return {
-          id,
-          company_name: company?.company_name || `Unknown (${id})`,
-        };
-      }),
-    );
-  }
-
+  // ── Create ────────────────────────────────────────────────────
   async create(
     data: Partial<RequestEntity>,
     userId: number,
-  ): Promise<
-    RequestEntity & { created_by_name?: string; no_request?: string }
-  > {
+  ): Promise<RequestEntity & { created_by_name?: string }> {
     const badgeInput = data.badge_no?.toString().trim();
-    const isNumericBadge = /^\d+$/.test(badgeInput || "");
-
-    let employee = null;
-
-    if (badgeInput && isNumericBadge) {
-      employee = await this.employeeRepo.findOne({
-        where: { badge: Number(badgeInput) },
-        relations: ["department", "project", "position"],
-      });
-    }
 
     let company = null;
-
-    if (employee?.company) {
-      company = await this.companyRepo.findOne({
-        where: { id_company: employee.company },
-      });
-    } else if (data.id_company) {
+    if (data.id_company) {
       company = await this.companyRepo.findOne({
         where: { id_company: Number(data.id_company) },
       });
     }
-
-    const accessYardValue = Array.isArray(data.access_yard_company)
-      ? data.access_yard_company.join(",")
-      : data.access_yard_company || null;
 
     const accessNavMenuValue = Array.isArray(data.access_nav_menu)
       ? data.access_nav_menu.join(",")
@@ -618,17 +463,6 @@ export class RequestService {
       });
     }
 
-    const approvalItUser = data.approval_it_hod_by
-      ? await this.userRepo.findOne({
-          where: {
-            id_user:
-              typeof data.approval_it_hod_by === "object"
-                ? data.approval_it_hod_by.id_user
-                : data.approval_it_hod_by,
-          },
-        })
-      : null;
-
     const newRequest = this.requestRepo.create({
       ...data,
       full_name: data.full_name,
@@ -637,10 +471,10 @@ export class RequestService {
       badge_no: badgeInput,
       project_id: data.project_id || null,
       dept_id: data.dept_id || null,
-      design_id: data.design_id || null,
+      design_id: null,
       company: company || null,
       id_company: company?.id_company || null,
-      access_yard_company: accessYardValue,
+      access_yard_company: null,
       access_nav_menu: accessNavMenuValue,
       request_status: data.request_status ?? 0,
       status_active: data.status_active ?? 1,
@@ -650,11 +484,10 @@ export class RequestService {
       remarks: data.remarks,
       category_account: data.category_account,
       approval_hod_by: approvalHodUser,
-      approval_it_hod_by: approvalItUser,
+      approval_it_hod_by: null,
     });
 
     const savedRequest = await this.requestRepo.save(newRequest);
-
     const createdByUser = await this.userRepo.findOne({
       where: { id_user: userId },
     });
@@ -665,229 +498,83 @@ export class RequestService {
     };
   }
 
-  async createPublic(data: Partial<RequestEntity>): Promise<RequestEntity> {
-    const company = await this.companyRepo.findOne({
-      where: { id_company: data.id_company || null },
-    });
-
-    const accessYardValue = Array.isArray(data.access_yard_company)
-      ? data.access_yard_company.join(",")
-      : data.access_yard_company || null;
-
-    const accessNavMenuValue = Array.isArray(data.access_nav_menu)
-      ? data.access_nav_menu.join(",")
-      : data.access_nav_menu || null;
-    let approvalLeadItUser: User | null = null;
-    if (data.approval_lead_it_by) {
-      approvalLeadItUser = await this.userRepo.findOne({
-        where: { id_user: Number(data.approval_lead_it_by) },
-      });
-    }
-
-    const newRequest = this.requestRepo.create({
-      full_name: data.full_name,
-      requestor_name: data.requestor_name,
-      request_reason: data.request_reason,
-      email: data.email,
-      badge_no: data.badge_no ? String(data.badge_no) : null,
-      project_id: data.project_id ? Number(data.project_id) : null,
-      dept_id: data.dept_id ? Number(data.dept_id) : null,
-      design_id: data.design_id ? Number(data.design_id) : null,
-      id_company: data.id_company ? Number(data.id_company) : null,
-      company: company || null,
-      access_yard_company: accessYardValue,
-      access_nav_menu: accessNavMenuValue,
-      request_status: data.request_status ?? 0,
-      status_active: data.status_active ?? 1,
-      category_account: data.category_account ?? null,
-      created_date: new Date(),
-      created_by: null, // publik
-      type: 1,
-      remarks: data.remarks,
-      approval_hod_by: null,
-      approval_it_hod_by: null,
-      approval_lead_it_by: approvalLeadItUser,
-    });
-
-    return this.requestRepo.save(newRequest);
-  }
-
-  async getEmployeeByBadge(badge: number) {
-    const employee = await this.employeeRepo.findOne({
-      where: { badge },
-      relations: ["department", "project", "position"],
-    });
-
-    if (!employee) {
-      throw new NotFoundException(`Employee with badge ${badge} not found`);
-    }
-
-    return {
-      badge: employee.badge,
-      full_name: employee.name,
-      project_id: employee.project?.project_id || null,
-      project_name: employee.project?.project_desc || "-",
-      dept_id: employee.department?.dept_id || null,
-      dept_name: employee.department?.dept || "-",
-      design_id: employee.position?.design_id || null,
-      position_name: employee.position?.design_desc || "-",
-    };
-  }
-
+  // ── Update ────────────────────────────────────────────────────
   async update(
     id_request: number,
     data: Partial<RequestEntity>,
   ): Promise<RequestEntity> {
     const existing = await this.requestRepo.findOne({
       where: { id_request },
-      relations: [
-        "approval_hod_by",
-        "approval_lead_it_by",
-        "approval_it_hod_by",
-        "category",
-      ],
+      relations: ["approval_hod_by", "approval_it_hod_by", "category"],
     });
 
     if (!existing)
       throw new NotFoundException(`Request with ID ${id_request} not found`);
 
-    // handle yard company
-    if (data.access_yard_company !== undefined) {
-      existing.access_yard_company = Array.isArray(data.access_yard_company)
-        ? data.access_yard_company.join(",")
-        : data.access_yard_company;
-    }
-
-    // handle nav menu
     if (data.access_nav_menu !== undefined) {
       existing.access_nav_menu = Array.isArray(data.access_nav_menu)
         ? data.access_nav_menu.join(",")
         : data.access_nav_menu;
     }
 
-    // approval HOD
     if (data.approval_hod_by) {
       const hodId =
         typeof data.approval_hod_by === "object"
           ? data.approval_hod_by.id_user
           : data.approval_hod_by;
-
       const parsedId = Number(hodId);
-
-      if (!parsedId || isNaN(parsedId)) {
-      } else {
+      if (parsedId && !isNaN(parsedId)) {
         const userHod = await this.userRepo.findOne({
           where: { id_user: parsedId },
         });
-        if (userHod) {
-          existing.approval_hod_by = userHod;
-          // existing.approval_hod_date_at = new Date();
-        }
+        if (userHod) existing.approval_hod_by = userHod;
       }
     }
 
-    // approval Lead IT
-    if (data.approval_lead_it_by) {
-      const leadItId =
-        typeof data.approval_lead_it_by === "object"
-          ? data.approval_lead_it_by.id_user
-          : data.approval_lead_it_by;
-
-      const parsedId = Number(leadItId);
-
-      if (!parsedId || isNaN(parsedId)) {
-      } else {
-        const userLeadIt = await this.userRepo.findOne({
-          where: { id_user: parsedId },
-        });
-        if (userLeadIt) {
-          existing.approval_lead_it_by = userLeadIt;
-          existing.approval_lead_date_at = new Date();
-        }
-      }
-    }
-
-    // approval IT HOD
-    if (data.approval_it_hod_by) {
-      const itId =
-        typeof data.approval_it_hod_by === "object"
-          ? data.approval_it_hod_by.id_user
-          : data.approval_it_hod_by;
-
-      const parsedId = Number(itId);
-
-      if (!parsedId || isNaN(parsedId)) {
-      } else {
-        const userIt = await this.userRepo.findOne({
-          where: { id_user: parsedId },
-        });
-
-        if (userIt) {
-          existing.approval_it_hod_by = userIt;
-          existing.approval_it_date_at = new Date();
-        }
-      }
-    }
-
-    // rejected notes
     if (data.rejected_hod_remarks) {
       existing.rejected_hod_remarks = data.rejected_hod_remarks;
       existing.approval_hod_date_at = new Date();
     }
-
-    if (data.rejected_lead_remarks) {
-      existing.rejected_lead_remarks = data.rejected_lead_remarks;
-      existing.approval_lead_date_at = new Date();
-    }
-
     if (data.rejected_it_remarks) {
       existing.rejected_it_remarks = data.rejected_it_remarks;
       existing.approval_it_date_at = new Date();
     }
 
-    const { design_id, ...rest } = data;
-
-    if (design_id !== undefined) {
-      existing.design_id = Number(design_id);
-    }
-
-    if (data.category_account !== undefined) {
+    if (data.category_account !== undefined)
       existing.category_account = data.category_account;
-    }
 
-    delete rest.approval_hod_by;
-    delete rest.approval_lead_it_by;
-    delete rest.approval_it_hod_by;
-    delete rest.access_yard_company;
-    delete rest.access_nav_menu;
+    // Hapus field yang tidak boleh di-assign langsung
+    const {
+      design_id,
+      approval_hod_by,
+      approval_it_hod_by,
+      access_yard_company,
+      access_nav_menu,
+      ...rest
+    } = data;
 
     Object.assign(existing, rest);
-
     return this.requestRepo.save(existing);
   }
 
+  // ── Update admin status ───────────────────────────────────────
   async updateAdminStatus(id_request: number, request_admin: number) {
     const existing = await this.requestRepo.findOne({
       where: { id_request },
       relations: ["category", "created_by_user"],
     });
 
-    if (!existing) {
+    if (!existing)
       throw new NotFoundException(`Request with ID ${id_request} not found`);
-    }
 
     existing.request_admin = request_admin;
     await this.requestRepo.save(existing);
 
-    // kirim email hanya jika On Progress atau Completed
     if (request_admin === 1 || request_admin === 2) {
       await this.notifyRequestorStatus(existing);
     }
 
-    return {
-      success: true,
-      message: "IT Action updated",
-    };
+    return { success: true, message: "IT Action updated" };
   }
 
   async notifyRequestorStatus(request: RequestEntity) {
@@ -912,33 +599,23 @@ export class RequestService {
     };
 
     const email = new sendEmailDto();
-
     const recipients = [];
-
-    // email requestor
-    if (request.created_by_user?.email) {
+    if (request.created_by_user?.email)
       recipients.push(request.created_by_user.email);
-    }
-
-    // email target user yang direquest
-    if (request.email) {
-      recipients.push(request.email);
-    }
+    if (request.email) recipients.push(request.email);
 
     email.email_to = [...new Set(recipients)];
     email.email_cc = [];
     email.email_bcc = [];
-
     email.subject = `${view_data.requestNumber} - Request Status Updated`;
-
     email.content = this.mailService.renderTemplate(
       "it_action_update.ejs",
       view_data,
     );
-
     await this.mailService.sendEmail(email);
   }
 
+  // ── HOD Approval ──────────────────────────────────────────────
   async hodApproval(
     id_request: number,
     action: string,
@@ -950,30 +627,28 @@ export class RequestService {
       relations: ["approval_hod_by", "created_by_user", "category"],
     });
 
-    if (!existing) {
+    if (!existing)
       throw new NotFoundException(`Request with ID ${id_request} not found`);
-    }
-
-    if (existing.request_status !== 1) {
+    if (existing.request_status !== 1)
       throw new BadRequestException("Request is not pending HOD approval");
+
+    const hodUser = await this.userRepo.findOne({ where: { id_user: userId } });
+    if (!hodUser) throw new BadRequestException("Invalid HOD user");
+
+    if (existing.dept_id !== hodUser.department) {
+      throw new ForbiddenException(
+        "You can only approve requests from your own department",
+      );
     }
 
-    const hodUser = await this.userRepo.findOne({
-      where: { id_user: userId },
-    });
-
-    if (!hodUser) {
-      throw new BadRequestException("Invalid HOD user");
-    }
-
-    existing.previous_status = existing.request_status;
     existing.approval_hod_date_at = new Date();
+    existing.approval_hod_by = hodUser;
 
     if (action === "approve") {
-      existing.request_status = 3;
+      // Langsung ke IT Manager (skip lead IT)
+      existing.request_status = 5;
       await this.requestRepo.save(existing);
-
-      await this.notifyLeadItApproval(existing.id_request);
+      await this.notifyItApproval(existing.id_request);
     } else if (action === "reject") {
       existing.request_status = 2;
       existing.rejected_hod_remarks = remarks;
@@ -985,29 +660,22 @@ export class RequestService {
     return true;
   }
 
+  // ── HOD Approval Bulk ─────────────────────────────────────────
   async hodApprovalBulk(
     encryptedIds: string[],
     action: string,
     remarks: string,
     userId: number,
   ) {
-    if (!Array.isArray(encryptedIds)) {
+    if (!Array.isArray(encryptedIds))
       throw new BadRequestException("encryptedIds must be an array");
-    }
 
     const approvedRequests = [];
-
-    const hodUser = await this.userRepo.findOne({
-      where: { id_user: userId },
-    });
-
-    if (!hodUser) {
-      throw new BadRequestException("Invalid HOD user");
-    }
+    const hodUser = await this.userRepo.findOne({ where: { id_user: userId } });
+    if (!hodUser) throw new BadRequestException("Invalid HOD user");
 
     for (const encryptedId of encryptedIds) {
       const id = Number(this.aesEcbService.decryptBase64Url(encryptedId));
-
       const existing = await this.requestRepo.findOne({
         where: { id_request: id },
         relations: ["approval_hod_by", "created_by_user", "category"],
@@ -1015,16 +683,17 @@ export class RequestService {
 
       if (!existing) continue;
       if (existing.request_status !== 1) continue;
-      existing.previous_status = existing.request_status;
+      if (existing.dept_id !== hodUser.department) continue;
+
       existing.approval_hod_date_at = new Date();
+      existing.approval_hod_by = hodUser;
 
       if (action === "approve") {
-        existing.request_status = 3;
+        // Langsung ke IT Manager (skip lead IT)
+        existing.request_status = 5;
         await this.requestRepo.save(existing);
         approvedRequests.push(existing);
-      }
-
-      if (action === "reject") {
+      } else if (action === "reject") {
         existing.request_status = 2;
         existing.rejected_hod_remarks = remarks;
         await this.requestRepo.save(existing);
@@ -1032,7 +701,7 @@ export class RequestService {
     }
 
     for (const req of approvedRequests) {
-      await this.notifyLeadItApproval(req.id_request);
+      await this.notifyItApproval(req.id_request);
     }
 
     return {
@@ -1042,13 +711,13 @@ export class RequestService {
     };
   }
 
+  // ── Submit to HOD ─────────────────────────────────────────────
   async submitToHod(encryptedId: string, userId: number) {
     const decrypted = this.aesEcbService.decryptBase64Url(encryptedId);
     const id_request = Number(decrypted);
 
-    if (!decrypted || isNaN(id_request)) {
+    if (!decrypted || isNaN(id_request))
       throw new BadRequestException("Invalid encrypted request ID");
-    }
 
     const saved = await this.submitToHodInternal(id_request, userId);
 
@@ -1069,29 +738,24 @@ export class RequestService {
 
     if (!existing)
       throw new NotFoundException(`Request with ID ${id_request} not found`);
-
     if (!existing.approval_hod_by)
       throw new InternalServerErrorException(
         "HOD not assigned for this request",
       );
 
     existing.request_status = 1;
-
     return this.requestRepo.save(existing);
   }
 
   private async notifyHod(request: any) {
     const hod = request.approval_hod_by;
-
     const encryptedId = this.aesEcbService.encryptToBase64Url(
       String(request.id_request),
     );
-
     const targetUrl = `${process.env.ARMC_BASE_URL}/user_request/detail_req/${encryptedId}`;
-
     const encryptedTarget = this.aesEcbService.encryptToBase64Url(targetUrl);
-
     const approvalLink = `${process.env.LINK_PORTAL}/jump_url/redirect_v2/${encryptedTarget}`;
+
     const viewData = {
       approverName: hod.full_name,
       categoryAccount: request.category?.name || "-",
@@ -1110,98 +774,13 @@ export class RequestService {
     const email = new sendEmailDto();
     email.email_to = [hod.email];
     email.email_cc = [];
-    email.email_bcc = ["it.developer@gmail.com", "habib.syuhada@seatrium.com"];
+    email.email_bcc = [];
     email.subject = `${viewData.requestNumber} - Request Need Your Approval`;
     email.content = this.mailService.renderTemplate("approval.ejs", viewData);
-
     await this.mailService.sendEmail(email);
   }
 
-  async notifyLeadItApproval(id_request: number) {
-    const request = await this.requestRepo.findOne({
-      where: { id_request },
-      relations: ["created_by_user", "category"],
-    });
-
-    if (!request) return;
-
-    const portalEmails = await this.mailService.getPortalEmailList({
-      process: "IT Lead Approval",
-      group_name: 24,
-    });
-
-    const encryptedId = this.aesEcbService.encryptToBase64Url(
-      String(request.id_request),
-    );
-
-    const targetUrl = `${process.env.ARMC_BASE_URL}/user_request/detail_req/${encryptedId}`;
-
-    const encryptedTarget = this.aesEcbService.encryptToBase64Url(targetUrl);
-
-    const approvalLink = `${process.env.LINK_PORTAL}/jump_url/redirect_v2/${encryptedTarget}`;
-
-    const emailTo: string[] = [];
-    const emailCc: string[] = [];
-    const emailBcc: string[] = [];
-
-    portalEmails.forEach((row) => {
-      // TO
-      if (row.email_to) {
-        emailTo.push(
-          ...row.email_to
-            .split(",")
-            .map((v) => v.trim())
-            .filter((v) => v),
-        );
-      }
-
-      // CC
-      if (row.email_cc) {
-        emailCc.push(
-          ...row.email_cc
-            .split(",")
-            .map((v) => v.trim())
-            .filter((v) => v),
-        );
-      }
-
-      // BCC
-      if (row.email_bcc) {
-        emailBcc.push(
-          ...row.email_bcc
-            .split(",")
-            .map((v) => v.trim())
-            .filter((v) => v),
-        );
-      }
-    });
-
-    const viewData = {
-      approverName: "Lead IT Approver",
-      categoryAccount: request.category?.name || "-",
-      requestNumber: `ITF14-${String(request.id_request).padStart(6, "0")}`,
-      requestDate: request.created_date
-        ? new Date(request.created_date).toLocaleDateString("en-GB")
-        : "-",
-      requestorName: request.created_by_user?.full_name || "-",
-      targetBadgeNo: request.badge_no || "-",
-      targetFullName: request.full_name || "-",
-      targetEmail: request.email || "-",
-      requestDescription: request.request_reason || "-",
-      approvalLink: `${process.env.LINK_PORTAL}/jump_url/redirect_v2/${encryptedTarget}`,
-    };
-
-    const email = new sendEmailDto();
-    email.email_to = [...new Set(emailTo)];
-    email.email_cc = [...new Set(emailCc)];
-    email.email_bcc = [...new Set(emailBcc)];
-    email.subject = `${viewData.requestNumber} - Request Need Lead IT Approval`;
-    email.content = this.mailService.renderTemplate("approval.ejs", viewData);
-
-    await this.mailService.sendEmail(email);
-  }
-
-  async notifyItManagerApproval(id_request: number) {
+  private async notifyItApproval(id_request: number) {
     const request = await this.requestRepo.findOne({
       where: { id_request },
       relations: ["created_by_user", "category"],
@@ -1214,59 +793,43 @@ export class RequestService {
       group_name: 24,
     });
 
+    const encryptedId = this.aesEcbService.encryptToBase64Url(
+      String(request.id_request),
+    );
+    const targetUrl = `${process.env.ARMC_BASE_URL}/user_request/detail_req/${encryptedId}`;
+    const encryptedTarget = this.aesEcbService.encryptToBase64Url(targetUrl);
+    const approvalLink = `${process.env.LINK_PORTAL}/jump_url/redirect_v2/${encryptedTarget}`;
+
     const emailTo: string[] = [];
     const emailCc: string[] = [];
     const emailBcc: string[] = [];
 
     portalEmails.forEach((row) => {
-      // TO
-      if (row.email_to) {
+      if (row.email_to)
         emailTo.push(
           ...row.email_to
             .split(",")
             .map((v) => v.trim())
             .filter((v) => v),
         );
-      }
-
-      // CC
-      if (row.email_cc) {
+      if (row.email_cc)
         emailCc.push(
           ...row.email_cc
             .split(",")
             .map((v) => v.trim())
             .filter((v) => v),
         );
-      }
-
-      // BCC
-      if (row.email_bcc) {
+      if (row.email_bcc)
         emailBcc.push(
           ...row.email_bcc
             .split(",")
             .map((v) => v.trim())
             .filter((v) => v),
         );
-      }
     });
 
-    if (!emailTo.length) {
-      console.warn("No IT Manager email configured");
-      return;
-    }
-
-    const encryptedId = this.aesEcbService.encryptToBase64Url(
-      String(request.id_request),
-    );
-
-    const targetUrl = `${process.env.ARMC_BASE_URL}/user_request/detail_req/${encryptedId}`;
-
-    const encryptedTarget = this.aesEcbService.encryptToBase64Url(targetUrl);
-
-    const approvalLink = `${process.env.LINK_PORTAL}/jump_url/redirect_v2/${encryptedTarget}`;
-
     const viewData = {
-      approverName: "IT Manager",
+      approverName: "HOD IT",
       categoryAccount: request.category?.name || "-",
       requestNumber: `ITF14-${String(request.id_request).padStart(6, "0")}`,
       requestDate: request.created_date
@@ -1284,12 +847,12 @@ export class RequestService {
     email.email_to = [...new Set(emailTo)];
     email.email_cc = [...new Set(emailCc)];
     email.email_bcc = [...new Set(emailBcc)];
-    email.subject = `${viewData.requestNumber} - Request Need IT Manager Approval`;
+    email.subject = `${viewData.requestNumber} - Request Need HOD IT Approval`;
     email.content = this.mailService.renderTemplate("approval.ejs", viewData);
-
     await this.mailService.sendEmail(email);
   }
 
+  // ── Submit Bulk to HOD ────────────────────────────────────────
   async submitBulkToHod(encryptedIds: string[], userId: number) {
     return this.requestRepo.manager.transaction(async (manager) => {
       const results = [];
@@ -1317,200 +880,42 @@ export class RequestService {
       }
 
       for (const [, requests] of hodMap) {
-        for (const req of requests) {
-          await this.notifyHod(req);
-        }
+        for (const req of requests) await this.notifyHod(req);
       }
 
-      return {
-        success: true,
-        count: results.length,
-      };
+      return { success: true, count: results.length };
     });
   }
 
-  async leadItApproval(
-    id_request: number,
-    action: string,
-    remarks: string,
-    userId: number,
-  ) {
-    const permissions = await this.permissionService.getUserPermissionsForApp(
-      userId,
-      32,
-    );
-
-    const hasLeadIT = permissions.some((p) => Number(p.index_key) === 0);
-
-    if (!hasLeadIT) {
-      throw new ForbiddenException("Not allowed to approve as Lead IT");
-    }
-
-    const existing = await this.requestRepo.findOne({
-      where: { id_request },
-      relations: ["created_by_user", "category"],
-    });
-
-    if (!existing)
-      throw new NotFoundException(`Request with ID ${id_request} not found`);
-
-    if (existing.request_status !== 3) {
-      throw new BadRequestException("Request is not pending Lead IT approval");
-    }
-
-    if (action === "approve") {
-      existing.previous_status = existing.request_status;
-      existing.request_status = 5;
-      existing.approval_lead_date_at = new Date();
-      existing.approval_lead_it_by = await this.userRepo.findOne({
-        where: { id_user: userId },
-      });
-
-      await this.requestRepo.save(existing);
-
-      await this.notifyItManagerApproval(existing.id_request);
-    } else if (action === "reject") {
-      existing.previous_status = existing.request_status;
-      existing.request_status = 4;
-      existing.rejected_lead_remarks = remarks;
-      existing.approval_lead_date_at = new Date();
-      existing.approval_lead_it_by = await this.userRepo.findOne({
-        where: { id_user: userId },
-      });
-
-      await this.requestRepo.save(existing);
-    } else {
-      throw new InternalServerErrorException("Invalid action");
-    }
-
-    return true;
-  }
-
-  async leadItApprovalBulk(
-    encryptedIds: string[],
-    action: "approve" | "reject",
-    remarks: string,
-    userId: number,
-  ) {
-    if (!Array.isArray(encryptedIds)) {
-      throw new BadRequestException("encryptedIds must be an array");
-    }
-
-    // cek permission Lead IT
-    const permissions = await this.permissionService.getUserPermissionsForApp(
-      userId,
-      32,
-    );
-
-    const leadItPermissions = permissions.filter((p) => p.index_key === "0");
-
-    if (!leadItPermissions.length) {
-      throw new ForbiddenException("Not allowed to approve as Lead IT");
-    }
-
-    const leadItUser = await this.userRepo.findOne({
-      where: { id_user: userId },
-    });
-
-    if (!leadItUser) {
-      throw new BadRequestException("Invalid Lead IT user");
-    }
-
-    const approvedRequests: RequestEntity[] = [];
-
-    for (const encId of encryptedIds) {
-      const id = Number(this.aesEcbService.decryptBase64Url(encId));
-      if (isNaN(id)) continue;
-
-      const existing = await this.requestRepo.findOne({
-        where: { id_request: id },
-        relations: ["created_by_user", "category"],
-      });
-
-      if (!existing) continue;
-      if (existing.request_status !== 3) continue;
-
-      existing.previous_status = existing.request_status;
-      existing.approval_lead_it_by = leadItUser;
-      existing.approval_lead_date_at = new Date();
-
-      if (action === "approve") {
-        existing.request_status = 5;
-        await this.requestRepo.save(existing);
-        approvedRequests.push(existing);
-      }
-
-      if (action === "reject") {
-        existing.request_status = 4;
-        existing.rejected_lead_remarks = remarks;
-        await this.requestRepo.save(existing);
-      }
-    }
-
-    // kirim email ke IT Manager
-    for (const req of approvedRequests) {
-      await this.notifyItManagerApproval(req.id_request);
-    }
-
-    return {
-      success: true,
-      count: approvedRequests.length,
-      message: `Processed ${approvedRequests.length} Lead IT approvals`,
-    };
-  }
-
+  // ── IT Approval ───────────────────────────────────────────────
   async itApproval(
     id_request: number,
     action: string,
     remarks: string,
     userId: number,
   ) {
-    const permissions = await this.permissionService.getUserPermissionsForApp(
-      userId,
-      32,
-    );
-
-    const hasITManager = permissions.some((p) => Number(p.index_key) === 1);
-
-    if (!hasITManager) {
-      throw new ForbiddenException("Not allowed to approve as IT Manager");
-    }
-
     const existing = await this.requestRepo.findOne({
       where: { id_request },
-      relations: [
-        "approval_it_hod_by",
-        "approval_lead_it_by",
-        "approval_hod_by",
-        "category",
-      ],
+      relations: ["approval_it_hod_by", "approval_hod_by", "category"],
     });
 
     if (!existing)
       throw new NotFoundException(`Request with ID ${id_request} not found`);
+    if (existing.request_status !== 5)
+      throw new BadRequestException("Request is not pending IT approval");
 
-    if (existing.request_status !== 5) {
-      throw new BadRequestException(
-        "Request is not pending IT Manager approval",
-      );
-    }
+    const itUser = await this.userRepo.findOne({ where: { id_user: userId } });
 
     if (action === "approve") {
-      existing.previous_status = existing.request_status;
       existing.request_status = 7;
       existing.approval_it_date_at = new Date();
-      existing.approval_it_hod_by = await this.userRepo.findOne({
-        where: { id_user: userId },
-      });
+      existing.approval_it_hod_by = itUser;
       existing.request_admin = 0;
     } else if (action === "reject") {
-      existing.previous_status = existing.request_status;
-      existing.request_status = 4;
+      existing.request_status = 6;
       existing.rejected_it_remarks = remarks;
       existing.approval_it_date_at = new Date();
-      existing.approval_it_hod_by = await this.userRepo.findOne({
-        where: { id_user: userId },
-      });
+      existing.approval_it_hod_by = itUser;
     } else {
       throw new InternalServerErrorException("Invalid action");
     }
@@ -1518,34 +923,18 @@ export class RequestService {
     return this.requestRepo.save(existing);
   }
 
+  // ── IT Approval Bulk ──────────────────────────────────────────
   async itApprovalBulk(
     encryptedIds: string[],
     action: "approve" | "reject",
     remarks: string,
     userId: number,
   ) {
-    if (!Array.isArray(encryptedIds)) {
+    if (!Array.isArray(encryptedIds))
       throw new BadRequestException("encryptedIds must be an array");
-    }
 
-    const permissions = await this.permissionService.getUserPermissionsForApp(
-      userId,
-      32,
-    );
-
-    const itManagerPermissions = permissions.filter((p) => p.index_key === "1");
-
-    if (!itManagerPermissions.length) {
-      throw new ForbiddenException("Not allowed to approve as IT Manager");
-    }
-
-    const itUser = await this.userRepo.findOne({
-      where: { id_user: userId },
-    });
-
-    if (!itUser) {
-      throw new BadRequestException("Invalid IT Manager user");
-    }
+    const itUser = await this.userRepo.findOne({ where: { id_user: userId } });
+    if (!itUser) throw new BadRequestException("Invalid IT user");
 
     const approvedRequests = [];
 
@@ -1556,11 +945,9 @@ export class RequestService {
       const existing = await this.requestRepo.findOne({
         where: { id_request: id },
       });
-
       if (!existing) continue;
       if (existing.request_status !== 5) continue;
 
-      existing.previous_status = existing.request_status;
       existing.approval_it_date_at = new Date();
       existing.approval_it_hod_by = itUser;
 
@@ -1568,10 +955,8 @@ export class RequestService {
         existing.request_status = 7;
         existing.request_admin = 0;
         approvedRequests.push(existing);
-      }
-
-      if (action === "reject") {
-        existing.request_status = 4;
+      } else if (action === "reject") {
+        existing.request_status = 6;
         existing.rejected_it_remarks = remarks;
       }
 
@@ -1581,57 +966,11 @@ export class RequestService {
     return {
       success: true,
       count: approvedRequests.length,
-      message: `Processed ${approvedRequests.length} IT Manager approvals`,
+      message: `Processed ${approvedRequests.length} IT approvals`,
     };
   }
 
-  async return(id_request: number, user: any) {
-    if (!user.permissions.includes(2)) {
-      throw new UnauthorizedException("Forbidden");
-    }
-
-    const request = await this.requestRepo.findOne({
-      where: { id_request },
-    });
-
-    if (!request) {
-      throw new NotFoundException("Request not found");
-    }
-
-    if (![3, 5, 7].includes(request.request_status)) {
-      throw new BadRequestException("Request cannot be returned");
-    }
-
-    request.previous_status = request.request_status;
-
-    request.request_status = 8;
-
-    return this.requestRepo.save(request);
-  }
-
-  async submitReturn(id: number, userId: number) {
-    const request = await this.requestRepo.findOneBy({ id_request: id });
-    if (!request) throw new NotFoundException("Request not found");
-
-    if (request.request_status !== 8) {
-      throw new BadRequestException("Request is not in Returned status");
-    }
-
-    if (request.created_by !== userId) {
-      throw new ForbiddenException(
-        "You are not allowed to submit this return request",
-      );
-    }
-
-    request.request_status = request.previous_status ?? request.request_status;
-    await this.requestRepo.save(request);
-
-    return {
-      message: "Return request submitted successfully",
-      request_status: request.request_status,
-    };
-  }
-
+  // ── Export list ───────────────────────────────────────────────
   async exportList(filters: any, sort_by: string, sort_order: string) {
     if (filters) {
       Object.keys(filters).forEach((key) => {
@@ -1639,9 +978,8 @@ export class RequestService {
           filters[key] === null ||
           filters[key] === undefined ||
           filters[key] === ""
-        ) {
+        )
           delete filters[key];
-        }
       });
     }
 
@@ -1700,13 +1038,12 @@ export class RequestService {
       if (filters.department_name) {
         const depts = await this.departmentRepo
           .createQueryBuilder("d")
-          .where("LOWER(d.dept) LIKE :name", {
+          .where("LOWER(d.name_of_department) LIKE :name", {
             name: `%${filters.department_name.toLowerCase()}%`,
           })
           .getMany();
 
-        const deptIds = depts.map((d) => d.dept_id);
-
+        const deptIds = depts.map((d) => d.id_department);
         if (deptIds.length > 0) {
           qb.andWhere("r.dept_id IN (:...deptIds)", { deptIds });
         } else {
@@ -1717,13 +1054,12 @@ export class RequestService {
       if (filters.project_name) {
         const projects = await this.projectRepo
           .createQueryBuilder("p")
-          .where("LOWER(p.project_desc) LIKE :name", {
+          .where("LOWER(p.project_name) LIKE :name", {
             name: `%${filters.project_name.toLowerCase()}%`,
           })
           .getMany();
 
-        const projectIds = projects.map((p) => p.project_id);
-
+        const projectIds = projects.map((p) => p.id);
         if (projectIds.length > 0) {
           qb.andWhere("r.project_id IN (:...projectIds)", { projectIds });
         } else {
@@ -1731,45 +1067,12 @@ export class RequestService {
         }
       }
 
-      if (filters.position_name) {
-        const positions = await this.positionRepo
-          .createQueryBuilder("p")
-          .where("LOWER(p.design_desc) LIKE :name", {
-            name: `%${filters.position_name.toLowerCase()}%`,
-          })
-          .getMany();
-
-        const positionIds = positions.map((p) => p.design_id);
-
-        if (positionIds.length > 0) {
-          qb.andWhere("r.design_id IN (:...positionIds)", { positionIds });
-        } else {
-          qb.andWhere("1=0");
-        }
-      }
-
-      if (filters.type !== undefined && filters.type !== null) {
-        const typeVal = String(filters.type).toLowerCase();
-        if ("internal".startsWith(typeVal)) {
-          qb.andWhere("r.type = :type", { type: 0 });
-        } else if ("external".startsWith(typeVal)) {
-          qb.andWhere("r.type = :type", { type: 1 });
-        } else if (!isNaN(Number(filters.type))) {
-          qb.andWhere("r.type = :type", { type: Number(filters.type) });
-        }
-      }
-
       if (filters.keyword) {
         const keyword = `%${filters.keyword.toLowerCase()}%`;
         qb.andWhere(
-          `(
-          LOWER(r.full_name) LIKE :keyword OR
-          LOWER(r.email) LIKE :keyword OR
-          LOWER(r.badge_no) LIKE :keyword OR
-          LOWER(u.full_name) LIKE :keyword OR
-          LOWER(c.company_name) LIKE :keyword OR
-          CAST(r.id_request AS TEXT) LIKE :keyword
-        )`,
+          `(LOWER(r.full_name) LIKE :keyword OR LOWER(r.email) LIKE :keyword OR
+          LOWER(r.badge_no) LIKE :keyword OR LOWER(u.full_name) LIKE :keyword OR
+          LOWER(c.company_name) LIKE :keyword OR CAST(r.id_request AS TEXT) LIKE :keyword)`,
           { keyword },
         );
       }
@@ -1781,10 +1084,8 @@ export class RequestService {
         company_name: "c.company_name",
         requestor_name: "u.full_name",
         department_name: "r.dept_id",
-        position_name: "r.design_id",
         project_name: "r.project_id",
       };
-
       const sortColumn = sortColumnMap[sort_by] ?? `r.${sort_by}`;
       qb.orderBy(
         sortColumn,
@@ -1796,161 +1097,111 @@ export class RequestService {
 
     const requests = await qb.getRawMany();
 
-    const [depts, projects, positions] = await Promise.all([
+    const [depts, projects] = await Promise.all([
       this.departmentRepo.find(),
       this.projectRepo.find(),
-      this.positionRepo.find(),
     ]);
 
-    const deptMap = new Map(depts.map((d) => [d.dept_id, d.dept]));
-    const projectMap = new Map(
-      projects.map((p) => [p.project_id, p.project_desc]),
+    const deptMap = new Map(
+      depts.map((d) => [d.id_department, d.name_of_department]),
     );
-    const positionMap = new Map(
-      positions.map((p) => [p.design_id, p.design_desc]),
-    );
+    const projectMap = new Map(projects.map((p) => [p.id, p.project_name]));
 
     return requests.map((r) => ({
       ...r,
       department_name: deptMap.get(r.r_dept_id) || "-",
       project_name: projectMap.get(r.r_project_id) || "-",
-      position_name: positionMap.get(r.r_design_id) || "-",
       requestor_name: r.u_full_name || "-",
-      type_label: getStatusLabel("type", r.r_type),
     }));
   }
 
+  // ── Generate PDF ──────────────────────────────────────────────
   async generateRequestPdf(enc_request_id: string): Promise<Buffer> {
     try {
       const dec_request_id = Number(
         this.aesEcbService.decryptBase64Url(enc_request_id),
       );
-
-      if (isNaN(dec_request_id)) {
+      if (isNaN(dec_request_id))
         throw new BadRequestException("Invalid request ID");
-      }
 
       const request = await this.requestRepo.findOne({
-        where: {
-          id_request: dec_request_id,
-          status_active: 1,
-        },
+        where: { id_request: dec_request_id, status_active: 1 },
         relations: [
           "approval_hod_by",
-          "approval_lead_it_by",
           "approval_it_hod_by",
           "created_by_user",
           "category",
         ],
       });
 
-      if (!request) {
-        throw new NotFoundException("Request not found");
-      }
+      if (!request) throw new NotFoundException("Request not found");
 
-      const [dept, project, position, company, requestor] = await Promise.all([
+      const [dept, project, company, requestor] = await Promise.all([
         request.dept_id
-          ? this.departmentRepo.findOne({ where: { dept_id: request.dept_id } })
+          ? this.departmentRepo.findOne({
+              where: { id_department: request.dept_id },
+            })
           : null,
-
         request.project_id
-          ? this.projectRepo.findOne({
-              where: { project_id: request.project_id },
-            })
+          ? this.projectRepo.findOne({ where: { id: request.project_id } })
           : null,
-
-        request.design_id
-          ? this.positionRepo.findOne({
-              where: { design_id: request.design_id },
-            })
-          : null,
-
         request.id_company
           ? this.companyRepo.findOne({
               where: { id_company: request.id_company },
             })
           : null,
-
         request.created_by
           ? this.userRepo.findOne({ where: { id_user: request.created_by } })
           : null,
       ]);
 
-      const formattedRequestId = `ITF14-${String(request.id_request).padStart(
-        6,
-        "0",
-      )}`;
-
+      const formattedRequestId = `ITF14-${String(request.id_request).padStart(6, "0")}`;
       const logoPath = path.join(
         process.cwd(),
         "public",
         "img",
         "pcms_logo.png",
       );
-
       const logoBase64 = this.pdf.getBase64Image(logoPath);
-
-      const isPublicRequest = !request.created_by;
 
       const view_data = {
         logoBase64,
         requestId: formattedRequestId,
         requestedDate: formatDate(request.created_date),
-        requestedBy: isPublicRequest
-          ? request.full_name
-          : (requestor?.full_name ?? "-"),
+        requestedBy: requestor?.full_name ?? "-",
         categoryAccount: request.category?.name || "-",
         badge: request.badge_no,
         fullName: request.full_name,
         email: request.email,
-        dept: dept?.dept ?? "-",
-        position: position?.design_desc ?? "-",
-        project: project?.project_desc ?? "-",
+        dept: dept?.name_of_department ?? "-",
+        project: project?.project_name ?? "-",
         company: company?.company_name ?? "-",
-        yardAccess: request.access_yard_company
-          ? await this.getYardCompanyList(request.access_yard_company)
-          : [],
         appAccess: request.access_nav_menu
           ? await this.getNavMenuList(request.access_nav_menu)
           : [],
         purpose: request.request_reason,
         remarks: request.remarks,
-
-        // HOD
-        deptHeadName: isPublicRequest
-          ? null
-          : (request.approval_hod_by?.full_name ?? "-"),
-        deptHeadDate: isPublicRequest
-          ? null
-          : request.approval_hod_date_at
-            ? formatDate(request.approval_hod_date_at)
-            : null,
-
-        // LEAD IT
-        leadItName: request.approval_lead_it_by?.full_name ?? "-",
-        leadItDate: request.approval_lead_date_at
-          ? formatDate(request.approval_lead_date_at)
+        deptHeadName: request.approval_hod_by?.full_name ?? "-",
+        deptHeadDate: request.approval_hod_date_at
+          ? formatDate(request.approval_hod_date_at)
           : null,
-
-        // IT MANAGER / ASST IT MGR
         itManagerName: request.approval_it_hod_by?.full_name ?? "-",
         itManagerDate: request.approval_it_date_at
           ? formatDate(request.approval_it_date_at)
           : null,
-        isPublicRequest,
       };
 
       const htmlContent = this.pdf.renderTemplate(
         "request_report.ejs",
         view_data,
       );
-
       return this.pdf.generatePdf2(htmlContent);
     } catch (error) {
       throw new InternalServerErrorException(error.message);
     }
   }
 
+  // ── Cancel ────────────────────────────────────────────────────
   async cancelRequest(
     id_request: number,
     userId: number,
@@ -1962,10 +1213,10 @@ export class RequestService {
     existing.status_active = 0;
     existing.canceled_by = userId;
     existing.canceled_date = new Date();
-
     return this.requestRepo.save(existing);
   }
 
+  // ── Summary & Analytics ───────────────────────────────────────
   async getLatestPeriod() {
     const result = await this.requestRepo
       .createQueryBuilder("r")
@@ -1973,16 +1224,9 @@ export class RequestService {
       .where("r.status_active = :active", { active: 1 })
       .getRawOne();
 
-    if (!result?.max) {
-      return null;
-    }
-
+    if (!result?.max) return null;
     const date = new Date(result.max);
-
-    return {
-      month: date.getMonth() + 1,
-      year: date.getFullYear(),
-    };
+    return { month: date.getMonth() + 1, year: date.getFullYear() };
   }
 
   async getSummary(month: any, year: number) {
@@ -1992,18 +1236,14 @@ export class RequestService {
 
     if (month && month !== "all" && month !== "null") {
       const m = Number(month);
-      const startDate = new Date(year, m - 1, 1);
-      const endDate = new Date(year, m, 0, 23, 59, 59);
       baseQuery.andWhere("r.created_date BETWEEN :start AND :end", {
-        start: startDate,
-        end: endDate,
+        start: new Date(year, m - 1, 1),
+        end: new Date(year, m, 0, 23, 59, 59),
       });
     } else {
-      const startOfYear = new Date(year, 0, 1);
-      const endOfYear = new Date(year, 11, 31, 23, 59, 59);
       baseQuery.andWhere("r.created_date BETWEEN :start AND :end", {
-        start: startOfYear,
-        end: endOfYear,
+        start: new Date(year, 0, 1),
+        end: new Date(year, 11, 31, 23, 59, 59),
       });
     }
 
@@ -2019,7 +1259,6 @@ export class RequestService {
             "r.id_request",
             "r.dept_id",
             "r.id_company",
-            "r.access_yard_company",
             "r.request_admin",
           ])
           .getMany(),
@@ -2028,19 +1267,10 @@ export class RequestService {
     const allCompanies = await this.companyRepo.find({
       select: ["id_company", "company_name"],
     });
-
     const companyCounts = new Map<string, number>();
+
     rawRequests.forEach((req) => {
-      if (req.access_yard_company && req.access_yard_company.trim() !== "") {
-        const ids = req.access_yard_company.split(",");
-        ids.forEach((id) => {
-          const found = allCompanies.find(
-            (c) => c.id_company === Number(id.trim()),
-          );
-          const name = found ? found.company_name : "Unknown Company";
-          companyCounts.set(name, (companyCounts.get(name) || 0) + 1);
-        });
-      } else if (req.id_company) {
+      if (req.id_company) {
         const found = allCompanies.find((c) => c.id_company === req.id_company);
         const name = found ? found.company_name : "Unknown Company";
         companyCounts.set(name, (companyCounts.get(name) || 0) + 1);
@@ -2048,24 +1278,21 @@ export class RequestService {
     });
 
     const allDepts = await this.departmentRepo.find({
-      select: ["dept_id", "dept"],
+      select: ["id_department", "name_of_department"],
     });
-
     const deptMap = new Map<
       string,
       { count: number; onQueue: number; onProgress: number }
     >();
 
     rawRequests.forEach((req) => {
-      const dept = allDepts.find((d) => d.dept_id === req.dept_id);
-      const name = dept ? dept.dept : "Unknown Dept";
-
+      const dept = allDepts.find((d) => d.id_department === req.dept_id);
+      const name = dept ? dept.name_of_department : "Unknown Dept";
       const current = deptMap.get(name) ?? {
         count: 0,
         onQueue: 0,
         onProgress: 0,
       };
-
       deptMap.set(name, {
         count: current.count + 1,
         onQueue: current.onQueue + (req.request_admin === 0 ? 1 : 0),
@@ -2093,14 +1320,14 @@ export class RequestService {
 
     const deptStats = await this.requestRepo
       .createQueryBuilder("r")
-      .leftJoin("iss_dept", "d", "r.dept_id = d.id")
-      .select("d.dept_name", "label")
+      .leftJoin("portal_department", "d", "r.dept_id = d.id_department")
+      .select("d.name_of_department", "label")
       .addSelect("COUNT(r.id_request)", "value")
       .where("r.created_date BETWEEN :start AND :end", {
         start: startDate,
         end: endDate,
       })
-      .groupBy("d.dept_name")
+      .groupBy("d.name_of_department")
       .getRawMany();
 
     const companyStats = await this.requestRepo
@@ -2118,6 +1345,7 @@ export class RequestService {
     return { deptStats, companyStats };
   }
 
+  // ── Remove ────────────────────────────────────────────────────
   async remove(id: number): Promise<void> {
     const result = await this.requestRepo.delete(id);
     if (result.affected === 0)

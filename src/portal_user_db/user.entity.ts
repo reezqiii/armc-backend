@@ -1,5 +1,4 @@
 import { Company } from "portal_company/company.entity";
-import { PortalDepartment } from "portal_department/entities/portal_department.entity";
 import { PortalProject } from "portal_project/entities/portal_project.entity";
 import { PortalRole } from "portal_role_db/entities/portal_role_db.entity";
 import {
@@ -67,7 +66,6 @@ export class User {
   @Column({ name: "department", type: "int", nullable: true })
   department: number;
 
-  // ← Tambahan kolom reset password
   @Column({ name: "reset_token", type: "varchar", length: 200, nullable: true })
   reset_token: string;
 

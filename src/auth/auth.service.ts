@@ -28,6 +28,7 @@ export class AuthService {
 
     const login = await this._user.findOne({
       where: { username, status_user: 1 },
+      relations: ["role"], // ← tambah relasi role
     });
 
     if (!login) throw new UnauthorizedException("Invalid username or password");
@@ -35,6 +36,9 @@ export class AuthService {
     const hashedPassword = md5(password);
     if (login.password !== hashedPassword)
       throw new UnauthorizedException("Invalid username or password");
+
+    // Get permissions dari role
+    const permissions_key = await this.getRolePermissionKeys(login.id_user);
 
     const payload = { id_user: login.id_user };
     const token = this.jwtService.sign(payload);
@@ -45,10 +49,45 @@ export class AuthService {
       user: {
         id: login.id_user,
         full_name: login.full_name,
-        permissions: [],
+        department: login.department,
+        role: login.role?.role_name ?? null,
+        role_id: login.role?.id_role ?? null,
+        permissions_key,
       },
     };
   }
+
+ private async getRolePermissionKeys(id_user: number): Promise<string[]> {
+  try {
+    // 1. Permissions dari role
+    const rolePerms = await this._user.query(`
+      SELECT pp.index_key 
+      FROM portal_user_db u
+      JOIN portal_role_db r ON r.id_role = u.id_role
+      JOIN role_permission rp ON rp.id_role = r.id_role
+      JOIN portal_permission pp ON pp.id_permission = rp.id_permission
+      WHERE u.id_user = $1 
+      AND pp.index_key IS NOT NULL
+      AND r.is_active = 1
+    `, [id_user]);
+
+    // 2. User-specific permissions — baca langsung dari kolom permission_key ← FIX
+    const userSpecificPerms = await this._user.query(`
+      SELECT permission_key as index_key
+      FROM portal_user_permission
+      WHERE id_user = $1 
+      AND permission_key IS NOT NULL
+    `, [id_user]);
+
+    const roleKeys = rolePerms.map((r: any) => r.index_key);
+    const userKeys = userSpecificPerms.map((r: any) => r.index_key);
+
+    return [...new Set([...roleKeys, ...userKeys])];
+  } catch (err) {
+    console.error("getRolePermissionKeys error:", err.message);
+    return [];
+  }
+}
 
   async forgotPassword(username: string, email: string) {
     const user = await this._user.findOne({

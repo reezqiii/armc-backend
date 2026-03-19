@@ -10,11 +10,21 @@ import { CryptoModule } from "crypto/crypto.module";
 import { PortalDepartment } from "portal_department/entities/portal_department.entity";
 import { EmailModule } from "email/email.module";
 import { ConfigModule } from "@nestjs/config";
+import { PortalUserPermission } from "portal_user_permission/user_permission.entity";
+import { PortalPermission } from "portal_permission/permission.entity";
 
 @Module({
   imports: [
     ConfigModule,
-    TypeOrmModule.forFeature([User, PortalProject, PortalDepartment, Company, PortalRole]),
+    TypeOrmModule.forFeature([
+      User,
+      PortalProject,
+      PortalDepartment,
+      Company,
+      PortalRole,
+      PortalUserPermission,
+      PortalPermission,
+    ]),
     CryptoModule,
     EmailModule,
   ],

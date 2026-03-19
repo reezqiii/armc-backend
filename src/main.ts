@@ -74,7 +74,6 @@ async function bootstrap() {
       crossOriginResourcePolicy: { policy: "cross-origin" },
     }),
   ); // security headers
-  app.useGlobalGuards(new JwtAuthGuard(new Reflector()));
   await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap();

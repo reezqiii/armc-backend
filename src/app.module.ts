@@ -1,4 +1,7 @@
 import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
+import { APP_GUARD } from "@nestjs/core";
+import { JwtAuthGuard } from "./jwt-auth.guard";
+import { PermissionGuard } from "./permission.guard";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { SftpModule } from "./sftp/sftp.module";
@@ -8,7 +11,10 @@ import { AuthModule } from "./auth/auth.module";
 import { BookingModule } from "./bookings/booking.module";
 import { CryptoModule } from "./crypto/crypto.module";
 import { RequestModule } from "./portal_request_user_permission/request.module";
-import { UserModule as UserDBModule, UserModule } from "./portal_user_db/user.module";
+import {
+  UserModule as UserDBModule,
+  UserModule,
+} from "./portal_user_db/user.module";
 import { PositionModule } from "iss_design_new/position.module";
 import { IssEmployeeModule } from "iss_employee/employee.module";
 import { IssProjectModule } from "iss_project/iss_project.module";
@@ -17,22 +23,20 @@ import { CompanyModule } from "portal_company/company.module";
 import { NavMenuModule } from "portal_nav_menu/menu.module";
 import { EmailModule } from "email/email.module";
 import { PortalUserPermissionModule } from "portal_user_permission/user_permission.module";
-import { LogPortalModule } from "log_portal/log_portal.module";
-import { RequestSubscriber } from "portal_request_user_permission/subscribers/generic_log.subscriber";
 import { PortalConfigModule } from "./portal_config/portal_config.module";
 import { join } from "node:path";
 import { ServeStaticModule } from "@nestjs/serve-static";
-import { PortalProjectModule } from './portal_project/portal_project.module';
-import { PortalDepartmentModule } from './portal_department/portal_department.module';
-import { PortalRoleDbModule } from './portal_role_db/portal_role_db.module';
+import { PortalProjectModule } from "./portal_project/portal_project.module";
+import { PortalDepartmentModule } from "./portal_department/portal_department.module";
+import { PortalRoleDbModule } from "./portal_role_db/portal_role_db.module";
 import { PortalCategoryAccountModule } from "portal_category_account/portal_category_account.module";
-import { RolePermissionModule } from './role_has_permission/role_has_permission.module';
+import { RolePermissionModule } from "./role_has_permission/role_has_permission.module";
 
 @Module({
   imports: [
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, "..", "public"),
-      serveRoot: "/", // penting
+      serveRoot: "/",
     }),
     SftpModule,
     ConfigModule.forRoot({
@@ -54,21 +58,22 @@ import { RolePermissionModule } from './role_has_permission/role_has_permission.
       }),
     }),
 
-    TypeOrmModule.forRootAsync({
-      name: "db_iss",
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: "postgres",
-        host: config.get("DB_ISS_HOST"),
-        port: config.get("DB_ISS_PORT"),
-        username: config.get("DB_ISS_USERNAME"),
-        password: config.get("DB_ISS_PASSWORD"),
-        database: config.get("DB_ISS_NAME"),
-        autoLoadEntities: true,
-        synchronize: false,
-      }),
-    }),
+    // TypeOrmModule.forRootAsync({
+    //   name: "db_iss",
+    //   imports: [ConfigModule],
+    //   inject: [ConfigService],
+    //   useFactory: (config: ConfigService) => ({
+    //     type: "postgres",
+    //     host: config.get("DB_ISS_HOST"),
+    //     port: config.get("DB_ISS_PORT"),
+    //     username: config.get("DB_ISS_USERNAME"),
+    //     password: config.get("DB_ISS_PASSWORD"),
+    //     database: config.get("DB_ISS_NAME"),
+    //     autoLoadEntities: true,
+    //     synchronize: false,
+    //   }),
+    // }),
+
     TypeOrmModule.forRootAsync({
       name: "alms",
       imports: [ConfigModule],
@@ -101,15 +106,23 @@ import { RolePermissionModule } from './role_has_permission/role_has_permission.
     EmailModule,
     CompanyModule,
     NavMenuModule,
-    LogPortalModule,
     PortalConfigModule,
     PortalProjectModule,
     PortalDepartmentModule,
     PortalRoleDbModule,
     PortalCategoryAccountModule,
-    RolePermissionModule
+    RolePermissionModule,
   ],
 
-  providers: [RequestSubscriber],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: PermissionGuard,
+    },
+  ],
 })
 export class AppModule {}

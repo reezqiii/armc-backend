@@ -7,7 +7,7 @@ import { Company } from '../portal_company/company.entity';
 @Injectable()
 export class IssEmployeeService {
   constructor(
-    @InjectRepository(IssEmployee, 'db_iss')
+    @InjectRepository(IssEmployee)
     private readonly employeeRepo: Repository<IssEmployee>,
     @InjectRepository(Company)
     private readonly companyRepo: Repository<Company>,

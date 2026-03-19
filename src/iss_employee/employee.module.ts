@@ -11,8 +11,7 @@ import { Company } from '../portal_company/company.entity';
 @Module({
   imports: [
     TypeOrmModule.forFeature(
-      [IssEmployee, IssDept, IssProject, Position],
-      'db_iss'
+      [IssEmployee, IssDept, IssProject, Position]
     ),
     TypeOrmModule.forFeature([Company]), 
   ],

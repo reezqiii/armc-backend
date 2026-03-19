@@ -70,7 +70,7 @@ export class EmailService {
 
   async sendEmail(data: sendEmailDto) {
     try {
-      const jwtToken = this.generateJwtToken("SEATRIUM EMAIL");
+      const jwtToken = this.generateJwtToken("ARMC EMAIL");
       const payload: any = {
         htmlContent: data.content,
         subject: data.subject,
