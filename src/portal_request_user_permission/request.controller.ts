@@ -44,7 +44,8 @@ export class RequestController {
   }
 
   @Post("/create")
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequirePermissions("request.create")
   async create(
     @Body() data: Partial<RequestEntity>,
     @Req() req,
@@ -54,7 +55,8 @@ export class RequestController {
   }
 
   @Put(":id")
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequirePermissions("request.update")
   async update(
     @Param("id") id: string,
     @Body() data: Partial<RequestEntity>,
@@ -70,7 +72,8 @@ export class RequestController {
   }
 
   @Put("cancel/:id")
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequirePermissions("request.update")
   async cancelRequest(@Param("id") id: string, @Req() req) {
     const decId = Number(this.aesEcb.decryptBase64Url(id));
     const userId = req.user.id_user;
@@ -116,14 +119,14 @@ export class RequestController {
   }
 
   @Put(":id/submit-to-hod")
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionGuard)
   async submitToHodRequest(@Param("id") encryptedId: string, @Req() req: any) {
     const userId = req.user?.id;
     return await this.requestService.submitToHod(encryptedId, userId);
   }
 
   @Put("submit-to-hod/bulk")
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionGuard)
   async submitBulkToHod(
     @Body() body: { encryptedIds: string[] },
     @Req() req: any,
@@ -209,6 +212,8 @@ export class RequestController {
   }
 
   @Delete(":id")
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequirePermissions("user.manage")
   remove(@Param("id") id: number): Promise<void> {
     return this.requestService.remove(id);
   }

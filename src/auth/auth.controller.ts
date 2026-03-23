@@ -4,10 +4,14 @@ import {
   Body,
   UsePipes,
   ValidationPipe,
+  Get,
+  UseGuards,
+  Req,
 } from "@nestjs/common";
 import { AuthService } from "./auth.service";
 import { AuthDTO } from "./DTO/auth.dto";
 import { Public } from "../public.decorator";
+import { JwtAuthGuard } from "jwt-auth.guard";
 
 @Controller("auth")
 export class AuthController {
@@ -17,6 +21,12 @@ export class AuthController {
   @Post("validate")
   async validate(@Body() authDTO: AuthDTO) {
     return this._auth.login(authDTO);
+  }
+
+  @Get("me")
+  @UseGuards(JwtAuthGuard)
+  getMe(@Req() req) {
+    return req.user;
   }
 
   @Public()

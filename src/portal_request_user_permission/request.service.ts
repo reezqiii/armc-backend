@@ -508,52 +508,56 @@ export class RequestService {
       relations: ["approval_hod_by", "approval_it_hod_by", "category"],
     });
 
-    if (!existing)
+    if (!existing) {
       throw new NotFoundException(`Request with ID ${id_request} not found`);
+    }
 
+    // ✅ hanya draft boleh update
+    if (existing.request_status !== 0) {
+      throw new BadRequestException("Only draft request can be updated");
+    }
+
+    // 🔐 BLOCK field sensitif
+    delete data.request_status;
+    delete data.approval_hod_by;
+    delete data.approval_it_hod_by;
+    delete data.approval_hod_date_at;
+    delete data.approval_it_date_at;
+    delete data.rejected_hod_remarks;
+    delete data.rejected_it_remarks;
+
+    // ✅ handle nav menu
     if (data.access_nav_menu !== undefined) {
       existing.access_nav_menu = Array.isArray(data.access_nav_menu)
         ? data.access_nav_menu.join(",")
         : data.access_nav_menu;
     }
 
+    // ✅ handle HOD assign (kalau memang boleh)
     if (data.approval_hod_by) {
       const hodId =
         typeof data.approval_hod_by === "object"
           ? data.approval_hod_by.id_user
           : data.approval_hod_by;
-      const parsedId = Number(hodId);
-      if (parsedId && !isNaN(parsedId)) {
-        const userHod = await this.userRepo.findOne({
-          where: { id_user: parsedId },
-        });
-        if (userHod) existing.approval_hod_by = userHod;
-      }
+
+      const userHod = await this.userRepo.findOne({
+        where: { id_user: Number(hodId) },
+      });
+
+      if (userHod) existing.approval_hod_by = userHod;
     }
 
-    if (data.rejected_hod_remarks) {
-      existing.rejected_hod_remarks = data.rejected_hod_remarks;
-      existing.approval_hod_date_at = new Date();
-    }
-    if (data.rejected_it_remarks) {
-      existing.rejected_it_remarks = data.rejected_it_remarks;
-      existing.approval_it_date_at = new Date();
-    }
-
-    if (data.category_account !== undefined)
-      existing.category_account = data.category_account;
-
-    // Hapus field yang tidak boleh di-assign langsung
+    // ❌ buang field tertentu
     const {
-      design_id,
       approval_hod_by,
       approval_it_hod_by,
       access_yard_company,
       access_nav_menu,
-      ...rest
+      ...safeData
     } = data;
 
-    Object.assign(existing, rest);
+    Object.assign(existing, safeData);
+
     return this.requestRepo.save(existing);
   }
 
