@@ -10,7 +10,6 @@ import { Repository, ILike, FindOptionsWhere, In, IsNull, Not } from "typeorm";
 import { ServerSideDTO } from "DTO/dto.serverside";
 import { PortalDepartment } from "portal_department/entities/portal_department.entity";
 import { PortalProject } from "portal_project/entities/portal_project.entity";
-import { Company } from "portal_company/company.entity";
 import { PortalRole } from "portal_role_db/entities/portal_role_db.entity";
 import * as md5 from "md5";
 import * as crypto from "crypto";
@@ -28,8 +27,6 @@ export class UserService {
     private readonly _portalDeptRepo: Repository<PortalDepartment>,
     @InjectRepository(PortalProject)
     private readonly _projectRepo: Repository<PortalProject>,
-    @InjectRepository(Company)
-    private readonly _companyRepo: Repository<Company>,
     @InjectRepository(PortalRole)
     private readonly _roleRepo: Repository<PortalRole>,
     @InjectRepository(PortalUserPermission)
@@ -49,7 +46,6 @@ export class UserService {
       const qb = this._user
         .createQueryBuilder("user")
         .leftJoinAndSelect("user.project", "project")
-        .leftJoinAndSelect("user.company", "company")
         .leftJoinAndSelect("user.role", "role");
 
       const columnMap: Record<string, string> = {
@@ -59,7 +55,6 @@ export class UserService {
         email: "user.email",
         department_name: "dept.name_of_department",
         project_name: "project.project_name",
-        company_name: "company.company_name",
         role_name: "role.role_name",
         created_date: "user.created_date",
         active: "user.active",
@@ -102,7 +97,6 @@ export class UserService {
             ...u,
             department_name: deptName,
             project_name: u.project?.project_name ?? "-",
-            company_name: u.company?.company_name ?? "-",
             role_name: u.role?.role_name ?? "-",
           };
         }),
@@ -168,7 +162,7 @@ export class UserService {
     try {
       const u = await this._user.findOne({
         where: { id_user: id },
-        relations: ["project", "company", "role"],
+        relations: ["project", "role"],
       });
 
       if (!u) return null;
@@ -181,7 +175,6 @@ export class UserService {
         email: u.email,
         dept_id: u.department,
         project_id: u.project?.id ?? null,
-        company_id: u.company?.id_company ?? null,
         id_role: u.role?.id_role ?? null,
         status_user: u.status_user,
         outside_access: u.outside_access,
@@ -189,9 +182,6 @@ export class UserService {
         dept_ids: u.dept_alt ? u.dept_alt.split(";").map(Number) : [],
         project_ids: u.addon_project
           ? u.addon_project.split(";").map(Number)
-          : [],
-        access_yard_company: u.yard_company
-          ? u.yard_company.split(";").map(Number)
           : [],
       };
     } catch (error) {
@@ -204,21 +194,11 @@ export class UserService {
       ? await this._projectRepo.findOne({ where: { id: data.project_id } })
       : null;
 
-    const company = data.company_id
-      ? await this._companyRepo.findOne({
-          where: { id_company: data.company_id },
-        })
-      : null;
 
     const role = data.id_role
       ? await this._roleRepo.findOne({ where: { id_role: data.id_role } })
       : null;
 
-    const yardAccessCompanies = data.access_yard_company?.length
-      ? await this._companyRepo.findBy({
-          id_company: In(data.access_yard_company),
-        })
-      : [];
     const addonProjects = data.project_ids?.length
       ? await this._projectRepo.findBy({ id: In(data.project_ids) })
       : [];
@@ -232,11 +212,9 @@ export class UserService {
       created_date: new Date(),
       department: data.department ?? null,
       project,
-      company,
       role,
       outside_access: data.outside_access ?? null,
       portal_type: data.portal_type ?? null,
-      yard_company: data.access_yard_company?.join(";") ?? null,
       addon_project: data.project_ids?.join(";") ?? null,
     });
 
@@ -246,7 +224,7 @@ export class UserService {
   async updateUser(id: number, data: any): Promise<User> {
     const user = await this._user.findOne({
       where: { id_user: id },
-      relations: ["project", "company", "role"],
+      relations: ["project", "role"],
     });
 
     if (!user) throw new NotFoundException("User not found");
@@ -255,11 +233,6 @@ export class UserService {
       ? await this._projectRepo.findOne({ where: { id: data.project_id } })
       : null;
 
-    const company = data.company_id
-      ? await this._companyRepo.findOne({
-          where: { id_company: data.company_id },
-        })
-      : null;
 
     const role = data.id_role
       ? await this._roleRepo.findOne({ where: { id_role: data.id_role } })
@@ -272,12 +245,10 @@ export class UserService {
       username: data.username,
       department: data.department ?? null,
       project,
-      company,
       role,
       outside_access: data.outside_access ?? null,
       portal_type: data.portal_type ?? null,
       status_user: data.status_user ?? 1,
-      yard_company: data.access_yard_company?.join(";") ?? null,
       addon_project: data.project_ids?.join(";") ?? null,
     });
 

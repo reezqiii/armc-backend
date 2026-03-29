@@ -6,11 +6,7 @@ import {
   JoinColumn,
 } from "typeorm";
 import { User } from "../portal_user_db/user.entity";
-import { Company } from "portal_company/company.entity";
 import { NavMenu } from "portal_nav_menu/menu.entity";
-import { IssDept } from "iss_dept/iss_dept.entity";
-import { Position } from "iss_design_new/position.entity";
-import { IssProject } from "iss_project/iss_project.entity";
 import { CategoryAccount } from "portal_category_account/entities/portal_category_account.entity";
 
 @Entity("portal_request_user_permission")
@@ -93,14 +89,8 @@ export class RequestEntity {
   @Column({ name: "design_id", type: "int", nullable: true })
   design_id: number;
 
-  @Column({ name: "id_company", type: "int", nullable: true })
-  id_company: number;
-
   @Column({ name: "approval_it_hod_by", type: "int", nullable: true })
   approval_it_hod_by_id: number;
-
-  @Column({ name: "access_yard_company", type: "varchar", nullable: true })
-  access_yard_company: string;
 
   @Column({ name: "access_nav_menu", type: "varchar", nullable: true })
   access_nav_menu: string;
@@ -133,8 +123,4 @@ export class RequestEntity {
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: "created_by" })
   created_by_user: User;
-
-  @ManyToOne(() => Company, { nullable: true })
-  @JoinColumn({ name: "id_company" })
-  company: Company;
 }

@@ -5,7 +5,6 @@ import { RequestController } from "./request.controller";
 import { RequestEntity } from "./request.entity";
 import { User } from "../portal_user_db/user.entity";
 import { EmailModule } from "email/email.module";
-import { Company } from "portal_company/company.entity";
 import { NavMenu } from "portal_nav_menu/menu.entity";
 import { PortalPermissionModule } from "portal_permission/permission.module";
 import { PortalUserPermissionModule } from "portal_user_permission/user_permission.module";
@@ -22,7 +21,6 @@ import { PortalDepartment } from "portal_department/entities/portal_department.e
     TypeOrmModule.forFeature([
       RequestEntity,
       User,
-      Company,
       NavMenu,
       CategoryAccount,
       PortalProject,

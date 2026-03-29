@@ -25,7 +25,6 @@ export class ExcelController {
     @Query("badge_no") badge_no: string,
     @Query("email") email: string,
     @Query("requestor_name") requestor_name: string,
-    @Query("company_name") company_name: string,
     @Query("department_name") department_name: string,
     @Query("project_name") project_name: string,
     @Query("position_name") position_name: string,
@@ -49,7 +48,6 @@ export class ExcelController {
       if (badge_no) filters.badge_no = badge_no;
       if (email) filters.email = email;
       if (requestor_name) filters.requestor_name = requestor_name;
-      if (company_name) filters.company_name = company_name;
       if (department_name) filters.department_name = department_name;
       if (project_name) filters.project_name = project_name;
       if (position_name) filters.position_name = position_name;

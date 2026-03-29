@@ -1,4 +1,3 @@
-import { Company } from "portal_company/company.entity";
 import { PortalProject } from "portal_project/entities/portal_project.entity";
 import { PortalRole } from "portal_role_db/entities/portal_role_db.entity";
 import {
@@ -39,14 +38,6 @@ export class User {
   update_by: number;
 
   @Column({
-    name: "yard_company",
-    type: "varchar",
-    length: 200,
-    nullable: true,
-  })
-  yard_company: string;
-
-  @Column({
     name: "addon_project",
     type: "varchar",
     length: 200,
@@ -78,10 +69,6 @@ export class User {
   @ManyToOne(() => PortalProject, { nullable: true })
   @JoinColumn({ name: "project_id" })
   project: PortalProject;
-
-  @ManyToOne(() => Company, { nullable: true })
-  @JoinColumn({ name: "company" })
-  company: Company;
 
   @ManyToOne(() => PortalRole, { nullable: true })
   @JoinColumn({ name: "id_role" })

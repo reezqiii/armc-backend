@@ -38,7 +38,4 @@ export class Email {
     @Column()
     dept_id: number;
 
-    @Column()
-    company_id: number;
-
 }

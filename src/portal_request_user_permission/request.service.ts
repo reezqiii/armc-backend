@@ -11,7 +11,6 @@ import { RequestEntity } from "./request.entity";
 import { User } from "../portal_user_db/user.entity";
 import { ServerSideDTO } from "DTO/dto.serverside";
 import { EmailService } from "../email/email.service";
-import { Company } from "portal_company/company.entity";
 import { NavMenu } from "portal_nav_menu/menu.entity";
 import { PortalPermission } from "portal_permission/permission.entity";
 import { PortalUserPermissionService } from "portal_user_permission/user_permission.service";
@@ -42,8 +41,6 @@ export class RequestService {
     private readonly permissionService: PortalUserPermissionService,
     @InjectRepository(PortalPermission)
     private readonly portalPermissionRepo: Repository<PortalPermission>,
-    @InjectRepository(Company)
-    private readonly companyRepo: Repository<Company>,
     @InjectRepository(NavMenu)
     private readonly navMenuRepo: Repository<NavMenu>,
     private readonly mailService: EmailService,
@@ -68,7 +65,6 @@ export class RequestService {
         .leftJoinAndSelect("request.approval_hod_by", "approvalHod")
         .leftJoinAndSelect("request.approval_it_hod_by", "approvalIt")
         .leftJoinAndSelect("request.created_by_user", "requestor")
-        .leftJoinAndSelect("request.company", "company")
         .where("request.status_active = :active", { active: 1 });
 
       const columnMap: Record<string, string> = {
@@ -83,7 +79,6 @@ export class RequestService {
         status_active: "request.status_active",
         request_admin: "request.request_admin",
         requestor_name: "requestor.full_name",
-        company_name: "company.company_name",
         approval_hod: "approvalHod.full_name",
         approval_hod_by: "approvalHod.id_user",
         approval_it: "approvalIt.full_name",
@@ -171,20 +166,15 @@ export class RequestService {
 
       const projects = await this.projectRepo.find();
       const departments = await this.departmentRepo.find();
-      const companies = await this.companyRepo.find();
 
       const projectMap = Object.fromEntries(projects.map((p) => [p.id, p]));
       const departmentMap = Object.fromEntries(
         departments.map((d) => [d.id_department, d]),
       );
-      const companyMap = Object.fromEntries(
-        companies.map((c) => [c.id_company, c]),
-      );
 
       let mappedData = data.map((d) => {
         const project = projectMap[d.project_id];
         const department = departmentMap[d.dept_id];
-        const company = companyMap[d.id_company];
         const requestorName = d.created_by_user?.full_name || "-";
 
         // FIX: category id bisa 0, gunakan != null
@@ -198,7 +188,6 @@ export class RequestService {
           full_name: d.full_name,
           badge_no: d.badge_no,
           email: d.email,
-          company_name: company?.company_name || "-",
           project_name: project?.project_name || "-",
           department_name: department?.name_of_department || "-",
           request_status: d.request_status,
@@ -321,7 +310,6 @@ export class RequestService {
       relations: [
         "approval_hod_by",
         "approval_it_hod_by",
-        "company",
         "category",
       ],
     });
@@ -365,7 +353,6 @@ export class RequestService {
       request_admin: data.request_admin,
       dept_id: data.dept_id,
       project_id: data.project_id,
-      id_company: data.id_company,
       canceled_by: data.canceled_by,
       canceled_date: data.canceled_date,
       rejected_hod_remarks: data.rejected_hod_remarks,
@@ -376,12 +363,6 @@ export class RequestService {
       project_name: project?.project_name || null,
       department: department?.name_of_department || null,
       department_name: department?.name_of_department || null,
-      company: data.company
-        ? {
-            id_company: data.company.id_company,
-            company_name: data.company.company_name,
-          }
-        : null,
 
       // FIX category: pakai relasi dulu, fallback ke query manual
       category: data.category
@@ -440,13 +421,6 @@ export class RequestService {
   ): Promise<RequestEntity & { created_by_name?: string }> {
     const badgeInput = data.badge_no?.toString().trim();
 
-    let company = null;
-    if (data.id_company) {
-      company = await this.companyRepo.findOne({
-        where: { id_company: Number(data.id_company) },
-      });
-    }
-
     const accessNavMenuValue = Array.isArray(data.access_nav_menu)
       ? data.access_nav_menu.join(",")
       : data.access_nav_menu || null;
@@ -472,9 +446,6 @@ export class RequestService {
       project_id: data.project_id || null,
       dept_id: data.dept_id || null,
       design_id: null,
-      company: company || null,
-      id_company: company?.id_company || null,
-      access_yard_company: null,
       access_nav_menu: accessNavMenuValue,
       request_status: data.request_status ?? 0,
       status_active: data.status_active ?? 1,
@@ -551,7 +522,6 @@ export class RequestService {
     const {
       approval_hod_by,
       approval_it_hod_by,
-      access_yard_company,
       access_nav_menu,
       ...safeData
     } = data;
@@ -992,8 +962,6 @@ export class RequestService {
       .select("r")
       .leftJoin("portal_user_db", "u", "u.id_user = r.created_by")
       .addSelect(["u.full_name"])
-      .leftJoin("portal_company", "c", "c.id_company = r.id_company")
-      .addSelect(["c.company_name"])
       .leftJoin("master_category_account", "cat", "cat.id = r.category_account")
       .addSelect(["cat.name"]);
 
@@ -1010,7 +978,6 @@ export class RequestService {
         full_name: "r.full_name",
         email: "r.email",
         badge_no: "r.badge_no",
-        company_name: "c.company_name",
       };
 
       for (const key in exactMatchFields) {
@@ -1075,8 +1042,7 @@ export class RequestService {
         const keyword = `%${filters.keyword.toLowerCase()}%`;
         qb.andWhere(
           `(LOWER(r.full_name) LIKE :keyword OR LOWER(r.email) LIKE :keyword OR
-          LOWER(r.badge_no) LIKE :keyword OR LOWER(u.full_name) LIKE :keyword OR
-          LOWER(c.company_name) LIKE :keyword OR CAST(r.id_request AS TEXT) LIKE :keyword)`,
+          LOWER(r.badge_no) LIKE :keyword OR LOWER(u.full_name) LIKE :keyword)`,
           { keyword },
         );
       }
@@ -1085,7 +1051,6 @@ export class RequestService {
     if (sort_by) {
       const sortColumnMap: Record<string, string> = {
         category_account_name: "cat.name",
-        company_name: "c.company_name",
         requestor_name: "u.full_name",
         department_name: "r.dept_id",
         project_name: "r.project_id",
@@ -1140,7 +1105,7 @@ export class RequestService {
 
       if (!request) throw new NotFoundException("Request not found");
 
-      const [dept, project, company, requestor] = await Promise.all([
+      const [dept, project, requestor] = await Promise.all([
         request.dept_id
           ? this.departmentRepo.findOne({
               where: { id_department: request.dept_id },
@@ -1148,11 +1113,6 @@ export class RequestService {
           : null,
         request.project_id
           ? this.projectRepo.findOne({ where: { id: request.project_id } })
-          : null,
-        request.id_company
-          ? this.companyRepo.findOne({
-              where: { id_company: request.id_company },
-            })
           : null,
         request.created_by
           ? this.userRepo.findOne({ where: { id_user: request.created_by } })
@@ -1179,7 +1139,6 @@ export class RequestService {
         email: request.email,
         dept: dept?.name_of_department ?? "-",
         project: project?.project_name ?? "-",
-        company: company?.company_name ?? "-",
         appAccess: request.access_nav_menu
           ? await this.getNavMenuList(request.access_nav_menu)
           : [],
@@ -1262,24 +1221,10 @@ export class RequestService {
           .select([
             "r.id_request",
             "r.dept_id",
-            "r.id_company",
             "r.request_admin",
           ])
           .getMany(),
       ]);
-
-    const allCompanies = await this.companyRepo.find({
-      select: ["id_company", "company_name"],
-    });
-    const companyCounts = new Map<string, number>();
-
-    rawRequests.forEach((req) => {
-      if (req.id_company) {
-        const found = allCompanies.find((c) => c.id_company === req.id_company);
-        const name = found ? found.company_name : "Unknown Company";
-        companyCounts.set(name, (companyCounts.get(name) || 0) + 1);
-      }
-    });
 
     const allDepts = await this.departmentRepo.find({
       select: ["id_department", "name_of_department"],
@@ -1312,13 +1257,10 @@ export class RequestService {
       deptStats: Array.from(deptMap)
         .map(([name, data]) => ({ name, ...data }))
         .sort((a, b) => b.count - a.count),
-      companyStats: Array.from(companyCounts)
-        .map(([name, value]) => ({ name, value }))
-        .sort((a, b) => b.value - a.value),
     };
   }
 
-  async getAnalyticsByDeptAndCompany(month: number, year: number) {
+  async getAnalyticsByDept(month: number, year: number) {
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0, 23, 59, 59);
 
@@ -1334,19 +1276,8 @@ export class RequestService {
       .groupBy("d.name_of_department")
       .getRawMany();
 
-    const companyStats = await this.requestRepo
-      .createQueryBuilder("r")
-      .leftJoin("portal_company", "c", "r.id_company = c.id_company")
-      .select("c.company_name", "label")
-      .addSelect("COUNT(r.id_request)", "value")
-      .where("r.created_date BETWEEN :start AND :end", {
-        start: startDate,
-        end: endDate,
-      })
-      .groupBy("c.company_name")
-      .getRawMany();
 
-    return { deptStats, companyStats };
+    return { deptStats};
   }
 
   // ── Remove ────────────────────────────────────────────────────

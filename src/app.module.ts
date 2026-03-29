@@ -15,11 +15,6 @@ import {
   UserModule as UserDBModule,
   UserModule,
 } from "./portal_user_db/user.module";
-import { PositionModule } from "iss_design_new/position.module";
-import { IssEmployeeModule } from "iss_employee/employee.module";
-import { IssProjectModule } from "iss_project/iss_project.module";
-import { IssDeptModule } from "iss_dept/iss_dept.module";
-import { CompanyModule } from "portal_company/company.module";
 import { NavMenuModule } from "portal_nav_menu/menu.module";
 import { EmailModule } from "email/email.module";
 import { PortalUserPermissionModule } from "portal_user_permission/user_permission.module";
@@ -99,12 +94,7 @@ import { RolePermissionModule } from "./role_has_permission/role_has_permission.
     RequestModule,
     UserDBModule,
     PortalUserPermissionModule,
-    PositionModule,
-    IssEmployeeModule,
-    IssProjectModule,
-    IssDeptModule,
     EmailModule,
-    CompanyModule,
     NavMenuModule,
     PortalConfigModule,
     PortalProjectModule,

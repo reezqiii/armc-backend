@@ -4,7 +4,6 @@ import { User } from "./user.entity";
 import { UserService } from "./user.service";
 import { UserController } from "./user.controller";
 import { PortalProject } from "portal_project/entities/portal_project.entity";
-import { Company } from "portal_company/company.entity";
 import { PortalRole } from "portal_role_db/entities/portal_role_db.entity";
 import { CryptoModule } from "crypto/crypto.module";
 import { PortalDepartment } from "portal_department/entities/portal_department.entity";
@@ -20,7 +19,6 @@ import { PortalPermission } from "portal_permission/permission.entity";
       User,
       PortalProject,
       PortalDepartment,
-      Company,
       PortalRole,
       PortalUserPermission,
       PortalPermission,
