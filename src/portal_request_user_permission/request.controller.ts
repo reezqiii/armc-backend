@@ -9,7 +9,6 @@ import {
   Query,
   Req,
   UseGuards,
-  Patch,
   BadRequestException,
   UnauthorizedException,
   StreamableFile,
@@ -21,8 +20,6 @@ import { ServerSideDTO } from "DTO/dto.serverside";
 import { JwtAuthGuard } from "jwt-auth.guard";
 import { AesEcbService } from "../crypto/aes-ecb.service";
 import { UserService } from "../portal_user_db/user.service";
-import { Public } from "auth/public.decorator";
-import { response } from "express";
 import { PermissionGuard, RequirePermissions } from "permission.guard";
 
 @Controller("requests")
@@ -121,7 +118,7 @@ export class RequestController {
   @Put(":id/submit-to-hod")
   @UseGuards(JwtAuthGuard, PermissionGuard)
   async submitToHodRequest(@Param("id") encryptedId: string, @Req() req: any) {
-    const userId = req.user?.id;
+    const userId = req.user?.id_user; // ← FIX: was req.user?.id
     return await this.requestService.submitToHod(encryptedId, userId);
   }
 
@@ -176,17 +173,6 @@ export class RequestController {
     );
   }
 
-  @Patch(":id/admin-status")
-  @UseGuards(JwtAuthGuard, PermissionGuard)
-  @RequirePermissions("user.manage") // ← TAMBAH
-  async updateAdminStatus(
-    @Param("id") id_request: number,
-    @Body("request_admin") request_admin: number,
-  ): Promise<{ message: string }> {
-    await this.requestService.updateAdminStatus(id_request, request_admin);
-    return { message: "Admin status updated successfully" };
-  }
-
   @Get(":id/generate-pdf")
   async generateRequestPdf(
     @Param("id") enc_id: string,
@@ -225,6 +211,7 @@ export class RequestController {
       numericId = Number(this.aesEcb.decryptBase64Url(id));
       if (isNaN(numericId)) throw new Error();
     } catch {
+      console.error("Invalid ID:", id);
       throw new BadRequestException("Invalid request ID");
     }
     return this.requestService.findOne(numericId);

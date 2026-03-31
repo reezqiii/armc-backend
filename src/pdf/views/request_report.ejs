@@ -370,7 +370,6 @@
           <% if (!isPublicRequest) { %>
             <th>REQUESTOR HOD</th>
             <% } %>
-          <th>LEAD IT DEPARTMENT</th>
           <th>IT MGR / ASST.IT MGR</th>
         </tr>
       </thead>
@@ -412,20 +411,6 @@
             <% } %>
           </td>
           <% } %>
-
-          <!-- LEAD IT -->
-          <td class="sig-space">
-            <% if (leadItName && leadItName !== '-') { %>
-            <img
-              src="data:image/png;base64,<%= logoBase64 %>"
-              class="sig-img"
-            />
-            <% } %>
-            <div class="sig-name"><%= leadItName || '-' %></div>
-            <% if (leadItDate) { %>
-            <div class="sig-date"><%= leadItDate %></div>
-            <% } %>
-          </td>
 
           <!-- IT MANAGER -->
           <td class="sig-space">

@@ -77,7 +77,6 @@ export class RequestService {
         request_status: "request.request_status",
         created_date: "request.created_date",
         status_active: "request.status_active",
-        request_admin: "request.request_admin",
         requestor_name: "requestor.full_name",
         approval_hod: "approvalHod.full_name",
         approval_hod_by: "approvalHod.id_user",
@@ -195,9 +194,6 @@ export class RequestService {
             "request_status",
             d.request_status,
           ),
-          request_admin: d.request_admin,
-          request_admin_name: getStatusLabel("admin_status", d.request_admin),
-          // FIX category: id bisa 0
           category_account: d.category?.id ?? d.category_account,
           category_account_name: d.category?.name || "-",
           approval_hod_by: d.approval_hod_by
@@ -307,11 +303,7 @@ export class RequestService {
   async findOne(id: number): Promise<any> {
     const data = await this.requestRepo.findOne({
       where: { id_request: id },
-      relations: [
-        "approval_hod_by",
-        "approval_it_hod_by",
-        "category",
-      ],
+      relations: ["approval_hod_by", "approval_it_hod_by", "category"],
     });
 
     if (!data) throw new NotFoundException(`Request with ID ${id} not found`);
@@ -350,7 +342,6 @@ export class RequestService {
       remarks: data.remarks,
       request_status: data.request_status,
       status_active: data.status_active,
-      request_admin: data.request_admin,
       dept_id: data.dept_id,
       project_id: data.project_id,
       canceled_by: data.canceled_by,
@@ -445,7 +436,6 @@ export class RequestService {
       badge_no: badgeInput,
       project_id: data.project_id || null,
       dept_id: data.dept_id || null,
-      design_id: null,
       access_nav_menu: accessNavMenuValue,
       request_status: data.request_status ?? 0,
       status_active: data.status_active ?? 1,
@@ -518,7 +508,6 @@ export class RequestService {
       if (userHod) existing.approval_hod_by = userHod;
     }
 
-    // ❌ buang field tertentu
     const {
       approval_hod_by,
       approval_it_hod_by,
@@ -531,65 +520,6 @@ export class RequestService {
     return this.requestRepo.save(existing);
   }
 
-  // ── Update admin status ───────────────────────────────────────
-  async updateAdminStatus(id_request: number, request_admin: number) {
-    const existing = await this.requestRepo.findOne({
-      where: { id_request },
-      relations: ["category", "created_by_user"],
-    });
-
-    if (!existing)
-      throw new NotFoundException(`Request with ID ${id_request} not found`);
-
-    existing.request_admin = request_admin;
-    await this.requestRepo.save(existing);
-
-    if (request_admin === 1 || request_admin === 2) {
-      await this.notifyRequestorStatus(existing);
-    }
-
-    return { success: true, message: "IT Action updated" };
-  }
-
-  async notifyRequestorStatus(request: RequestEntity) {
-    const statusLabel =
-      request.request_admin === 1
-        ? "On Progress"
-        : request.request_admin === 2
-          ? "Completed"
-          : "On Queue";
-
-    const view_data = {
-      requestorName: request.created_by_user?.full_name || "-",
-      requestNumber: `ITF14-${String(request.id_request).padStart(6, "0")}`,
-      categoryAccount: request.category?.name || "-",
-      status: statusLabel,
-      requestDate: request.created_date
-        ? new Date(request.created_date).toLocaleDateString("en-GB")
-        : "-",
-      targetFullName: request.full_name,
-      targetBadgeNo: request.badge_no,
-      targetEmail: request.email,
-    };
-
-    const email = new sendEmailDto();
-    const recipients = [];
-    if (request.created_by_user?.email)
-      recipients.push(request.created_by_user.email);
-    if (request.email) recipients.push(request.email);
-
-    email.email_to = [...new Set(recipients)];
-    email.email_cc = [];
-    email.email_bcc = [];
-    email.subject = `${view_data.requestNumber} - Request Status Updated`;
-    email.content = this.mailService.renderTemplate(
-      "it_action_update.ejs",
-      view_data,
-    );
-    await this.mailService.sendEmail(email);
-  }
-
-  // ── HOD Approval ──────────────────────────────────────────────
   async hodApproval(
     id_request: number,
     action: string,
@@ -600,7 +530,6 @@ export class RequestService {
       where: { id_request },
       relations: ["approval_hod_by", "created_by_user", "category"],
     });
-
     if (!existing)
       throw new NotFoundException(`Request with ID ${id_request} not found`);
     if (existing.request_status !== 1)
@@ -608,7 +537,6 @@ export class RequestService {
 
     const hodUser = await this.userRepo.findOne({ where: { id_user: userId } });
     if (!hodUser) throw new BadRequestException("Invalid HOD user");
-
     if (existing.dept_id !== hodUser.department) {
       throw new ForbiddenException(
         "You can only approve requests from your own department",
@@ -619,7 +547,6 @@ export class RequestService {
     existing.approval_hod_by = hodUser;
 
     if (action === "approve") {
-      // Langsung ke IT Manager (skip lead IT)
       existing.request_status = 5;
       await this.requestRepo.save(existing);
       await this.notifyItApproval(existing.id_request);
@@ -634,7 +561,6 @@ export class RequestService {
     return true;
   }
 
-  // ── HOD Approval Bulk ─────────────────────────────────────────
   async hodApprovalBulk(
     encryptedIds: string[],
     action: string,
@@ -663,7 +589,6 @@ export class RequestService {
       existing.approval_hod_by = hodUser;
 
       if (action === "approve") {
-        // Langsung ke IT Manager (skip lead IT)
         existing.request_status = 5;
         await this.requestRepo.save(existing);
         approvedRequests.push(existing);
@@ -685,7 +610,6 @@ export class RequestService {
     };
   }
 
-  // ── Submit to HOD ─────────────────────────────────────────────
   async submitToHod(encryptedId: string, userId: number) {
     const decrypted = this.aesEcbService.decryptBase64Url(encryptedId);
     const id_request = Number(decrypted);
@@ -723,17 +647,24 @@ export class RequestService {
 
   private async notifyHod(request: any) {
     const hod = request.approval_hod_by;
+    if (!hod?.email) {
+      console.warn("HOD email not found, skipping notification");
+      return;
+    }
+
     const encryptedId = this.aesEcbService.encryptToBase64Url(
       String(request.id_request),
     );
+
     const targetUrl = `${process.env.ARMC_BASE_URL}/user_request/detail_req/${encryptedId}`;
-    const encryptedTarget = this.aesEcbService.encryptToBase64Url(targetUrl);
-    const approvalLink = `${process.env.LINK_PORTAL}/jump_url/redirect_v2/${encryptedTarget}`;
+    const approvalLink = targetUrl;
+
+    const requestNumber = `ITF14-${String(request.id_request).padStart(6, "0")}`;
 
     const viewData = {
       approverName: hod.full_name,
       categoryAccount: request.category?.name || "-",
-      requestNumber: `ITF14-${String(request.id_request).padStart(6, "0")}`,
+      requestNumber,
       requestDate: request.created_date
         ? new Date(request.created_date).toLocaleDateString("en-GB")
         : "-",
@@ -745,13 +676,17 @@ export class RequestService {
       approvalLink,
     };
 
-    const email = new sendEmailDto();
-    email.email_to = [hod.email];
-    email.email_cc = [];
-    email.email_bcc = [];
-    email.subject = `${viewData.requestNumber} - Request Need Your Approval`;
-    email.content = this.mailService.renderTemplate("approval.ejs", viewData);
-    await this.mailService.sendEmail(email);
+    const htmlContent = this.mailService.renderTemplate(
+      "approval.ejs",
+      viewData,
+    );
+
+    // ← FIX: pakai sendSimpleEmail (Gmail) bukan sendEmail (axios external API)
+    await this.mailService.sendSimpleEmail(
+      hod.email,
+      `${requestNumber} - Request Need Your Approval`,
+      htmlContent,
+    );
   }
 
   private async notifyItApproval(id_request: number) {
@@ -770,9 +705,9 @@ export class RequestService {
     const encryptedId = this.aesEcbService.encryptToBase64Url(
       String(request.id_request),
     );
+
     const targetUrl = `${process.env.ARMC_BASE_URL}/user_request/detail_req/${encryptedId}`;
-    const encryptedTarget = this.aesEcbService.encryptToBase64Url(targetUrl);
-    const approvalLink = `${process.env.LINK_PORTAL}/jump_url/redirect_v2/${encryptedTarget}`;
+    const approvalLink = targetUrl;
 
     const emailTo: string[] = [];
     const emailCc: string[] = [];
@@ -826,7 +761,6 @@ export class RequestService {
     await this.mailService.sendEmail(email);
   }
 
-  // ── Submit Bulk to HOD ────────────────────────────────────────
   async submitBulkToHod(encryptedIds: string[], userId: number) {
     return this.requestRepo.manager.transaction(async (manager) => {
       const results = [];
@@ -861,7 +795,6 @@ export class RequestService {
     });
   }
 
-  // ── IT Approval ───────────────────────────────────────────────
   async itApproval(
     id_request: number,
     action: string,
@@ -884,7 +817,6 @@ export class RequestService {
       existing.request_status = 7;
       existing.approval_it_date_at = new Date();
       existing.approval_it_hod_by = itUser;
-      existing.request_admin = 0;
     } else if (action === "reject") {
       existing.request_status = 6;
       existing.rejected_it_remarks = remarks;
@@ -897,7 +829,6 @@ export class RequestService {
     return this.requestRepo.save(existing);
   }
 
-  // ── IT Approval Bulk ──────────────────────────────────────────
   async itApprovalBulk(
     encryptedIds: string[],
     action: "approve" | "reject",
@@ -927,7 +858,6 @@ export class RequestService {
 
       if (action === "approve") {
         existing.request_status = 7;
-        existing.request_admin = 0;
         approvedRequests.push(existing);
       } else if (action === "reject") {
         existing.request_status = 6;
@@ -944,7 +874,6 @@ export class RequestService {
     };
   }
 
-  // ── Export list ───────────────────────────────────────────────
   async exportList(filters: any, sort_by: string, sort_order: string) {
     if (filters) {
       Object.keys(filters).forEach((key) => {
@@ -1179,7 +1108,6 @@ export class RequestService {
     return this.requestRepo.save(existing);
   }
 
-  // ── Summary & Analytics ───────────────────────────────────────
   async getLatestPeriod() {
     const result = await this.requestRepo
       .createQueryBuilder("r")
@@ -1213,22 +1141,28 @@ export class RequestService {
     const [total, onQueue, onProgress, completed, rawRequests] =
       await Promise.all([
         baseQuery.getCount(),
-        baseQuery.clone().andWhere("r.request_admin = 0").getCount(),
-        baseQuery.clone().andWhere("r.request_admin = 1").getCount(),
-        baseQuery.clone().andWhere("r.request_admin = 2").getCount(),
         baseQuery
           .clone()
-          .select([
-            "r.id_request",
-            "r.dept_id",
-            "r.request_admin",
-          ])
+          .andWhere("r.request_status = :s", { s: 0 })
+          .getCount(),
+        baseQuery
+          .clone()
+          .andWhere("r.request_status = :s", { s: 1 })
+          .getCount(),
+        baseQuery
+          .clone()
+          .andWhere("r.request_status = :s", { s: 2 })
+          .getCount(),
+        baseQuery
+          .clone()
+          .select(["r.id_request", "r.dept_id", "r.request_status"])
           .getMany(),
       ]);
 
     const allDepts = await this.departmentRepo.find({
       select: ["id_department", "name_of_department"],
     });
+
     const deptMap = new Map<
       string,
       { count: number; onQueue: number; onProgress: number }
@@ -1244,8 +1178,8 @@ export class RequestService {
       };
       deptMap.set(name, {
         count: current.count + 1,
-        onQueue: current.onQueue + (req.request_admin === 0 ? 1 : 0),
-        onProgress: current.onProgress + (req.request_admin === 1 ? 1 : 0),
+        onQueue: current.onQueue + (req.request_status === 0 ? 1 : 0),
+        onProgress: current.onProgress + (req.request_status === 1 ? 1 : 0),
       });
     });
 
@@ -1276,8 +1210,7 @@ export class RequestService {
       .groupBy("d.name_of_department")
       .getRawMany();
 
-
-    return { deptStats};
+    return { deptStats };
   }
 
   // ── Remove ────────────────────────────────────────────────────

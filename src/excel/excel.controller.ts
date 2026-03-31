@@ -24,7 +24,6 @@ export class ExcelController {
     @Query("full_name") full_name: string,
     @Query("badge_no") badge_no: string,
     @Query("email") email: string,
-    @Query("requestor_name") requestor_name: string,
     @Query("department_name") department_name: string,
     @Query("project_name") project_name: string,
     @Query("position_name") position_name: string,
@@ -47,7 +46,6 @@ export class ExcelController {
       if (full_name) filters.full_name = full_name;
       if (badge_no) filters.badge_no = badge_no;
       if (email) filters.email = email;
-      if (requestor_name) filters.requestor_name = requestor_name;
       if (department_name) filters.department_name = department_name;
       if (project_name) filters.project_name = project_name;
       if (position_name) filters.position_name = position_name;
@@ -57,12 +55,11 @@ export class ExcelController {
         draft: 0,
         "awaiting-hod-approval": 1,
         "rejected-hod-approval": 2,
-        "awaiting-lead-it-approval": 3,
-        "rejected-lead-it-approval": 4,
-        "awaiting-it-manager-approval": 5,
-        "rejected-it-manager-approval": 6,
-        completed: 7,
-        returned: 8,
+        "awaiting-it-manager-approval": 3,
+        "rejected-it-manager-approval": 4,
+        completed: 5,
+        returned: 6,
+        canceled: 7,
       };
 
       if (status && statusMapping[status.toLowerCase()] !== undefined) {

@@ -29,9 +29,6 @@ export class RequestEntity {
   @Column({ name: "request_status", type: "int", default: 0 })
   request_status: number;
 
-  @Column({ name: "request_admin", type: "int", default: 0 })
-  request_admin: number;
-
   @Column({ name: "remarks", type: "text", nullable: true })
   remarks: string;
 
@@ -41,28 +38,14 @@ export class RequestEntity {
   @Column({ name: "rejected_hod_remarks", type: "text", nullable: true })
   rejected_hod_remarks: string;
 
-  @Column({ name: "rejected_lead_remarks", type: "text", nullable: true })
-  rejected_lead_remarks: string;
-
   @Column({ name: "approval_it_date_at", type: "timestamp", nullable: true })
   approval_it_date_at: Date;
 
   @Column({ name: "approval_hod_date_at", type: "timestamp", nullable: true })
   approval_hod_date_at: Date;
 
-  @Column({ name: "approval_lead_date_at", type: "timestamp", nullable: true })
-  approval_lead_date_at: Date;
-
   @Column({ name: "created_by", type: "int" })
   created_by: number;
-
-  @Column({
-    name: "requestor_name",
-    type: "varchar",
-    length: 255,
-    nullable: true,
-  })
-  requestor_name: string;
 
   @Column({
     name: "created_date",
@@ -86,9 +69,6 @@ export class RequestEntity {
   @Column({ name: "dept_id", type: "int", nullable: true })
   dept_id: number;
 
-  @Column({ name: "design_id", type: "int", nullable: true })
-  design_id: number;
-
   @Column({ name: "approval_it_hod_by", type: "int", nullable: true })
   approval_it_hod_by_id: number;
 
@@ -97,9 +77,6 @@ export class RequestEntity {
 
   @Column({ name: "type", type: "int", nullable: true, default: 0 })
   type: number; // 0 = login, 1 = public
-
-  @Column({ name: "previous_status", type: "int", nullable: true })
-  previous_status: number;
 
   @Column({ name: "category_account", type: "int", nullable: true })
   category_account: number;
@@ -115,10 +92,6 @@ export class RequestEntity {
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: "approval_it_hod_by" })
   approval_it_hod_by: User;
-
-  @ManyToOne(() => User, { nullable: true })
-  @JoinColumn({ name: "approval_lead_it_by" })
-  approval_lead_it_by: User;
 
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: "created_by" })

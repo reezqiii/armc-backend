@@ -119,12 +119,9 @@ export async function buildCompletedExcelTemplate(requests) {
   const statusColorMap: Record<string, string> = {
     Draft: "FF9E9E9E",
     "Awaiting HOD Approval": "FFFFA726",
-    "Awaiting Lead IT Approval": "FFFFA726",
     "Awaiting IT Manager Approval": "FFFFA726",
     Completed: "FF43A047",
-    Returned: "FFEF6C00",
     "Rejected by HOD Approval": "FFE53935",
-    "Rejected by Lead IT Approval": "FFE53935",
     "Rejected by IT Manager Approval": "FFE53935",
   };
 
@@ -137,7 +134,6 @@ export async function buildCompletedExcelTemplate(requests) {
     const rowNum = index + 4; // data mulai row 4
 
     const statusLabel = getStatusLabel("request_status", req.r_request_status);
-    const adminLabel = getStatusLabel("admin_status", req.r_request_admin);
 
     const values = [
       no++,
@@ -154,7 +150,6 @@ export async function buildCompletedExcelTemplate(requests) {
       req.r_email || "-",
       getStatusLabel("type", req.r_type),
       statusLabel,
-      adminLabel,
       req.cat_cat_name || req.cat_name || req.category_account_name || "-",
     ];
 
