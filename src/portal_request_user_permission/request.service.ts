@@ -18,7 +18,6 @@ import { sendEmailDto } from "email/dto/send-email.dto";
 import { AesEcbService } from "crypto/aes-ecb.service";
 import { ConfigService } from "@nestjs/config";
 import { getStatusLabel } from "utils/status-helper";
-import { PdfService } from "pdf/pdf.service";
 import { formatDate } from "utils/format-date";
 import * as path from "path";
 import { CategoryAccount } from "portal_category_account/entities/portal_category_account.entity";
@@ -44,11 +43,9 @@ export class RequestService {
     private readonly navMenuRepo: Repository<NavMenu>,
     private readonly mailService: EmailService,
     private configService: ConfigService,
-    private readonly pdf: PdfService,
     @InjectRepository(CategoryAccount)
     private readonly categoryRepo: Repository<CategoryAccount>,
-  ) {
-  }
+  ) {}
 
   async serverSideList(queryDto: ServerSideDTO, user?: any) {
     try {
@@ -125,7 +122,6 @@ export class RequestService {
         }
       }
 
-      // Filter by dept jika bukan admin/IT
       if (!user.permissions_key?.includes("request.view_all")) {
         qb.andWhere(
           "(request.created_by = :uid OR request.approval_hod_by = :uid)",
@@ -173,7 +169,6 @@ export class RequestService {
         const department = departmentMap[d.dept_id];
         const requestorName = d.created_by_user?.full_name || "-";
 
-        // FIX: category id bisa 0, gunakan != null
         const categoryName =
           d.category?.name || (d.category_account != null ? null : null) || "-";
 
@@ -258,7 +253,6 @@ export class RequestService {
     }
   }
 
-  // ── Find all ──────────────────────────────────────────────────
   async findAll(): Promise<any[]> {
     const data = await this.requestRepo.find({
       order: { created_date: "DESC" },
@@ -296,7 +290,6 @@ export class RequestService {
     }));
   }
 
-  // ── Find one ──────────────────────────────────────────────────
   async findOne(id: number): Promise<any> {
     const data = await this.requestRepo.findOne({
       where: { id_request: id },
@@ -319,7 +312,6 @@ export class RequestService {
       ? await this.userRepo.findOne({ where: { id_user: data.created_by } })
       : null;
 
-    // FIX: category_account bisa 0, gunakan != null bukan truthy check
     const category =
       data.category_account != null
         ? await this.categoryRepo.findOne({
@@ -345,21 +337,15 @@ export class RequestService {
       canceled_date: data.canceled_date,
       rejected_hod_remarks: data.rejected_hod_remarks,
       rejected_it_remarks: data.rejected_it_remarks,
-
-      // Relasi
       project: project?.project_name || null,
       project_name: project?.project_name || null,
       department: department?.name_of_department || null,
       department_name: department?.name_of_department || null,
-
-      // FIX category: pakai relasi dulu, fallback ke query manual
       category: data.category
         ? { id: data.category.id, name: data.category.name }
         : null,
       category_account: data.category_account,
       category_account_name: data.category?.name || category?.name || "-",
-
-      // Approval
       approval_hod_by: data.approval_hod_by
         ? {
             id: data.approval_hod_by.id_user,
@@ -377,12 +363,10 @@ export class RequestService {
         : null,
       approval_it_date_at: data.approval_it_date_at || null,
 
-      // Access nav menu parsed dari CSV string
       access_nav_menu: await this.getNavMenuList(data.access_nav_menu),
     };
   }
 
-  // ── Private helpers ───────────────────────────────────────────
   private async getNavMenuList(access: string): Promise<any[]> {
     if (!access) return [];
     const ids = String(access)
@@ -402,11 +386,10 @@ export class RequestService {
     );
   }
 
-  // ── Create ────────────────────────────────────────────────────
   async create(
     data: Partial<RequestEntity>,
     userId: number,
-  ): Promise<RequestEntity & { created_by_name?: string }> {
+  ): Promise<{ success: boolean; message: string }> {
     const badgeInput = data.badge_no?.toString().trim();
 
     const accessNavMenuValue = Array.isArray(data.access_nav_menu)
@@ -415,13 +398,13 @@ export class RequestService {
 
     let approvalHodUser = null;
     if (data.approval_hod_by) {
+      const hodId =
+        typeof data.approval_hod_by === "object"
+          ? data.approval_hod_by.id_user
+          : data.approval_hod_by;
+
       approvalHodUser = await this.userRepo.findOne({
-        where: {
-          id_user:
-            typeof data.approval_hod_by === "object"
-              ? data.approval_hod_by.id_user
-              : data.approval_hod_by,
-        },
+        where: { id_user: hodId },
       });
     }
 
@@ -430,37 +413,33 @@ export class RequestService {
       full_name: data.full_name,
       request_reason: data.request_reason,
       email: data.email,
+      position: data.position,
       badge_no: badgeInput,
       project_id: data.project_id || null,
       dept_id: data.dept_id || null,
       access_nav_menu: accessNavMenuValue,
-      request_status: data.request_status ?? 0,
+      request_status: data.request_status ?? 1,
       status_active: data.status_active ?? 1,
       created_date: new Date(),
       created_by: userId,
-      type: 0,
       remarks: data.remarks,
       category_account: data.category_account,
       approval_hod_by: approvalHodUser,
       approval_it_hod_by: null,
     });
 
-    const savedRequest = await this.requestRepo.save(newRequest);
-    const createdByUser = await this.userRepo.findOne({
-      where: { id_user: userId },
-    });
+    await this.requestRepo.save(newRequest);
 
     return {
-      ...savedRequest,
-      created_by_name: createdByUser?.full_name || null,
+      success: true,
+      message: "Request created successfully",
     };
   }
 
-  // ── Update ────────────────────────────────────────────────────
   async update(
     id_request: number,
     data: Partial<RequestEntity>,
-  ): Promise<RequestEntity> {
+  ): Promise<{ success: boolean; message: string }> {
     const existing = await this.requestRepo.findOne({
       where: { id_request },
       relations: ["approval_hod_by", "approval_it_hod_by", "category"],
@@ -470,12 +449,12 @@ export class RequestService {
       throw new NotFoundException(`Request with ID ${id_request} not found`);
     }
 
-    // ✅ hanya draft boleh update
-    if (existing.request_status !== 0) {
-      throw new BadRequestException("Only draft request can be updated");
+    if (existing.request_status !== 1) {
+      throw new BadRequestException(
+        "Request cannot be updated because it is already in process",
+      );
     }
 
-    // 🔐 BLOCK field sensitif
     delete data.request_status;
     delete data.approval_hod_by;
     delete data.approval_it_hod_by;
@@ -484,14 +463,12 @@ export class RequestService {
     delete data.rejected_hod_remarks;
     delete data.rejected_it_remarks;
 
-    // ✅ handle nav menu
     if (data.access_nav_menu !== undefined) {
       existing.access_nav_menu = Array.isArray(data.access_nav_menu)
         ? data.access_nav_menu.join(",")
         : data.access_nav_menu;
     }
 
-    // ✅ handle HOD assign (kalau memang boleh)
     if (data.approval_hod_by) {
       const hodId =
         typeof data.approval_hod_by === "object"
@@ -513,8 +490,12 @@ export class RequestService {
     } = data;
 
     Object.assign(existing, safeData);
+    await this.requestRepo.save(existing);
 
-    return this.requestRepo.save(existing);
+    return {
+      success: true,
+      message: "Request updated successfully",
+    };
   }
 
   async hodApproval(
@@ -607,41 +588,6 @@ export class RequestService {
     };
   }
 
-  async submitToHod(encryptedId: string, userId: number) {
-    const decrypted = this.aesEcbService.decryptBase64Url(encryptedId);
-    const id_request = Number(decrypted);
-
-    if (!decrypted || isNaN(id_request))
-      throw new BadRequestException("Invalid encrypted request ID");
-
-    const saved = await this.submitToHodInternal(id_request, userId);
-
-    try {
-      await this.notifyHod(saved);
-    } catch (err) {
-      console.error("Failed to send HOD email:", err);
-    }
-
-    return saved;
-  }
-
-  private async submitToHodInternal(id_request: number, userId: number) {
-    const existing = await this.requestRepo.findOne({
-      where: { id_request },
-      relations: ["approval_hod_by", "created_by_user", "category"],
-    });
-
-    if (!existing)
-      throw new NotFoundException(`Request with ID ${id_request} not found`);
-    if (!existing.approval_hod_by)
-      throw new InternalServerErrorException(
-        "HOD not assigned for this request",
-      );
-
-    existing.request_status = 1;
-    return this.requestRepo.save(existing);
-  }
-
   private async notifyHod(request: any) {
     const hod = request.approval_hod_by;
     if (!hod?.email) {
@@ -656,7 +602,7 @@ export class RequestService {
     const targetUrl = `${process.env.ARMC_BASE_URL}/user_request/detail_req/${encryptedId}`;
     const approvalLink = targetUrl;
 
-    const requestNumber = `ITF14-${String(request.id_request).padStart(6, "0")}`;
+    const requestNumber = `REQ-${String(request.id_request).padStart(6, "0")}`;
 
     const viewData = {
       approverName: hod.full_name,
@@ -678,7 +624,6 @@ export class RequestService {
       viewData,
     );
 
-    // ← FIX: pakai sendSimpleEmail (Gmail) bukan sendEmail (axios external API)
     await this.mailService.sendSimpleEmail(
       hod.email,
       `${requestNumber} - Request Need Your Approval`,
@@ -704,7 +649,8 @@ export class RequestService {
     );
 
     const targetUrl = `${process.env.ARMC_BASE_URL}/user_request/detail_req/${encryptedId}`;
-    const approvalLink = targetUrl;
+
+    const requestNumber = `REQ-${String(request.id_request).padStart(6, "0")}`;
 
     const emailTo: string[] = [];
     const emailCc: string[] = [];
@@ -737,7 +683,7 @@ export class RequestService {
     const viewData = {
       approverName: "HOD IT",
       categoryAccount: request.category?.name || "-",
-      requestNumber: `ITF14-${String(request.id_request).padStart(6, "0")}`,
+      requestNumber: requestNumber,
       requestDate: request.created_date
         ? new Date(request.created_date).toLocaleDateString("en-GB")
         : "-",
@@ -746,19 +692,28 @@ export class RequestService {
       targetFullName: request.full_name || "-",
       targetEmail: request.email || "-",
       requestDescription: request.request_reason || "-",
-      approvalLink,
+      approvalLink: targetUrl,
     };
 
     const email = new sendEmailDto();
     email.email_to = [...new Set(emailTo)];
     email.email_cc = [...new Set(emailCc)];
     email.email_bcc = [...new Set(emailBcc)];
-    email.subject = `${viewData.requestNumber} - Request Need HOD IT Approval`;
+
+    // GANTI: Subjek email juga menggunakan requestNumber yang baru
+    email.subject = `${requestNumber} - Request Need HOD IT Approval`;
+
+    // logoBase64 akan otomatis disisipkan oleh EmailService.renderTemplate
     email.content = this.mailService.renderTemplate("approval.ejs", viewData);
+
     await this.mailService.sendEmail(email);
   }
 
   async submitBulkToHod(encryptedIds: string[], userId: number) {
+    if (!encryptedIds || encryptedIds.length === 0) {
+      throw new BadRequestException("No requests selected for submission");
+    }
+
     return this.requestRepo.manager.transaction(async (manager) => {
       const results = [];
       const hodMap = new Map<number, any[]>();
@@ -770,7 +725,7 @@ export class RequestService {
 
         const existing = await manager.findOne(RequestEntity, {
           where: { id_request },
-          relations: ["approval_hod_by", "created_by_user"],
+          relations: ["approval_hod_by", "created_by_user", "category"],
         });
 
         if (!existing || !existing.approval_hod_by) continue;
@@ -785,10 +740,23 @@ export class RequestService {
       }
 
       for (const [, requests] of hodMap) {
-        for (const req of requests) await this.notifyHod(req);
+        for (const req of requests) {
+          try {
+            await this.notifyHod(req);
+          } catch (mailErr) {
+            console.error(
+              `Failed to notify HOD for request ${req.id_request}:`,
+              mailErr.message,
+            );
+          }
+        }
       }
 
-      return { success: true, count: results.length };
+      return {
+        success: true,
+        count: results.length,
+        message: `Successfully submitted ${results.length} request(s) to HOD`,
+      };
     });
   }
 
@@ -1010,99 +978,43 @@ export class RequestService {
     }));
   }
 
-  // ── Generate PDF ──────────────────────────────────────────────
-  async generateRequestPdf(enc_request_id: string): Promise<Buffer> {
-    try {
-      const dec_request_id = Number(
-        this.aesEcbService.decryptBase64Url(enc_request_id),
-      );
-      if (isNaN(dec_request_id))
-        throw new BadRequestException("Invalid request ID");
-
-      const request = await this.requestRepo.findOne({
-        where: { id_request: dec_request_id, status_active: 1 },
-        relations: [
-          "approval_hod_by",
-          "approval_it_hod_by",
-          "created_by_user",
-          "category",
-        ],
-      });
-
-      if (!request) throw new NotFoundException("Request not found");
-
-      const [dept, project, requestor] = await Promise.all([
-        request.dept_id
-          ? this.departmentRepo.findOne({
-              where: { id_department: request.dept_id },
-            })
-          : null,
-        request.project_id
-          ? this.projectRepo.findOne({ where: { id: request.project_id } })
-          : null,
-        request.created_by
-          ? this.userRepo.findOne({ where: { id_user: request.created_by } })
-          : null,
-      ]);
-
-      const formattedRequestId = `ITF14-${String(request.id_request).padStart(6, "0")}`;
-      const logoPath = path.join(
-        process.cwd(),
-        "public",
-        "img",
-        "pcms_logo.png",
-      );
-      const logoBase64 = this.pdf.getBase64Image(logoPath);
-
-      const view_data = {
-        logoBase64,
-        requestId: formattedRequestId,
-        requestedDate: formatDate(request.created_date),
-        requestedBy: requestor?.full_name ?? "-",
-        categoryAccount: request.category?.name || "-",
-        badge: request.badge_no,
-        fullName: request.full_name,
-        email: request.email,
-        dept: dept?.name_of_department ?? "-",
-        project: project?.project_name ?? "-",
-        appAccess: request.access_nav_menu
-          ? await this.getNavMenuList(request.access_nav_menu)
-          : [],
-        purpose: request.request_reason,
-        remarks: request.remarks,
-        deptHeadName: request.approval_hod_by?.full_name ?? "-",
-        deptHeadDate: request.approval_hod_date_at
-          ? formatDate(request.approval_hod_date_at)
-          : null,
-        itManagerName: request.approval_it_hod_by?.full_name ?? "-",
-        itManagerDate: request.approval_it_date_at
-          ? formatDate(request.approval_it_date_at)
-          : null,
-      };
-
-      const htmlContent = this.pdf.renderTemplate(
-        "request_report.ejs",
-        view_data,
-      );
-      return this.pdf.generatePdf2(htmlContent);
-    } catch (error) {
-      throw new InternalServerErrorException(error.message);
-    }
-  }
-
-  // ── Cancel ────────────────────────────────────────────────────
   async cancelRequest(
     id_request: number,
     userId: number,
-  ): Promise<RequestEntity> {
-    const existing = await this.requestRepo.findOne({ where: { id_request } });
-    if (!existing)
-      throw new NotFoundException(`Request with ID ${id_request} not found`);
+  ): Promise<{ success: boolean; message: string }> {
+    const existing = await this.requestRepo.findOne({
+      where: { id_request, status_active: 1 },
+    });
+
+    if (!existing) {
+      throw new NotFoundException(
+        `Request with ID ${id_request} not found or already inactive`,
+      );
+    }
+
+    if (existing.created_by !== userId) {
+      throw new ForbiddenException(
+        "You are not authorized to cancel this request",
+      );
+    }
+
+    if (existing.request_status !== 1) {
+      throw new BadRequestException(
+        "Cannot cancel request that is already being processed or approved",
+      );
+    }
 
     existing.status_active = 0;
+    existing.request_status = 0;
     existing.canceled_by = userId;
     existing.canceled_date = new Date();
-    return this.requestRepo.save(existing);
+
+    await this.requestRepo.save(existing);
+
+    return {
+      success: true,
+      message: "Request has been successfully canceled",
+    };
   }
 
   async getLatestPeriod() {
@@ -1135,26 +1047,27 @@ export class RequestService {
       });
     }
 
-    const [total, onQueue, onProgress, completed, rawRequests] =
-      await Promise.all([
+    const [total, pending, rejected, approved, rawRequests] = await Promise.all(
+      [
         baseQuery.getCount(),
         baseQuery
           .clone()
-          .andWhere("r.request_status = :s", { s: 0 })
+          .andWhere("r.request_status IN (:...s)", { s: [1, 5] })
           .getCount(),
         baseQuery
           .clone()
-          .andWhere("r.request_status = :s", { s: 1 })
+          .andWhere("r.request_status IN (:...s)", { s: [2, 6] })
           .getCount(),
         baseQuery
           .clone()
-          .andWhere("r.request_status = :s", { s: 2 })
+          .andWhere("r.request_status = :s", { s: 7 })
           .getCount(),
         baseQuery
           .clone()
           .select(["r.id_request", "r.dept_id", "r.request_status"])
           .getMany(),
-      ]);
+      ],
+    );
 
     const allDepts = await this.departmentRepo.find({
       select: ["id_department", "name_of_department"],
@@ -1162,29 +1075,32 @@ export class RequestService {
 
     const deptMap = new Map<
       string,
-      { count: number; onQueue: number; onProgress: number }
+      { count: number; pending: number; approved: number }
     >();
 
     rawRequests.forEach((req) => {
       const dept = allDepts.find((d) => d.id_department === req.dept_id);
       const name = dept ? dept.name_of_department : "Unknown Dept";
+
       const current = deptMap.get(name) ?? {
         count: 0,
-        onQueue: 0,
-        onProgress: 0,
+        pending: 0,
+        approved: 0,
       };
+
       deptMap.set(name, {
         count: current.count + 1,
-        onQueue: current.onQueue + (req.request_status === 0 ? 1 : 0),
-        onProgress: current.onProgress + (req.request_status === 1 ? 1 : 0),
+        pending:
+          current.pending + ([1, 5].includes(req.request_status) ? 1 : 0),
+        approved: current.approved + (req.request_status === 7 ? 1 : 0),
       });
     });
 
     return {
       total,
-      onQueue,
-      onProgress,
-      completed,
+      pending,
+      rejected,
+      approved,
       deptStats: Array.from(deptMap)
         .map(([name, data]) => ({ name, ...data }))
         .sort((a, b) => b.count - a.count),
@@ -1210,7 +1126,6 @@ export class RequestService {
     return { deptStats };
   }
 
-  // ── Remove ────────────────────────────────────────────────────
   async remove(id: number): Promise<void> {
     const result = await this.requestRepo.delete(id);
     if (result.affected === 0)

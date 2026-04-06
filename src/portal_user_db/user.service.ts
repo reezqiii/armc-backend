@@ -11,13 +11,12 @@ import { ServerSideDTO } from "DTO/dto.serverside";
 import { PortalDepartment } from "portal_department/entities/portal_department.entity";
 import { PortalProject } from "portal_project/entities/portal_project.entity";
 import { PortalRole } from "portal_role_db/entities/portal_role_db.entity";
-import * as md5 from "md5";
 import * as crypto from "crypto";
 import { EmailService } from "email/email.service";
-import * as jwt from "jsonwebtoken";
 import { ConfigService } from "@nestjs/config";
 import { PortalPermission } from "portal_permission/permission.entity";
 import { PortalUserPermission } from "portal_user_permission/user_permission.entity";
+import md5 from "md5";
 
 @Injectable()
 export class UserService {
@@ -36,6 +35,10 @@ export class UserService {
     private readonly emailService: EmailService,
     private readonly configService: ConfigService,
   ) {}
+
+  private hashMd5(data: string): string {
+    return crypto.createHash("md5").update(data).digest("hex");
+  }
 
   async serverSideList(queryDto: ServerSideDTO) {
     try {
@@ -263,10 +266,10 @@ export class UserService {
     }
 
     const resetToken = crypto.randomBytes(32).toString("hex");
-    const expiredAt = new Date(Date.now() + 60 * 60 * 1000); // 1 jam
+    const expiredAt = new Date(Date.now() + 60 * 60 * 1000);
 
     await this._user.update({ id_user }, {
-      password: md5(newPassword),
+      password: this.hashMd5(newPassword), 
       last_update_password: new Date(),
       reset_token: resetToken,
       reset_token_expired: expiredAt,
@@ -337,13 +340,11 @@ export class UserService {
   }
 
   async getUserExtraPermissions(id_user: number) {
-    // Ambil semua permission yang tersedia
     const allPermissions = await this._permissionRepo.find({
       where: { is_active: 1 },
       order: { id_permission: "ASC" },
     });
 
-    // Ambil permission tambahan yang sudah dimiliki user ini
     const userExtraPerms = await this._userPermRepo.find({
       where: { id_user },
     });
@@ -352,7 +353,6 @@ export class UserService {
       .map((p) => p.permission_key)
       .filter((k) => k !== null && k !== undefined);
 
-    // Return semua permission + flag is_granted untuk checklist frontend
     return allPermissions.map((p) => ({
       id_permission: p.id_permission,
       permission_name: p.permission_name,
@@ -372,7 +372,6 @@ export class UserService {
       .where("id_user = :id_user AND permission_key IS NOT NULL", { id_user })
       .execute();
 
-    // Insert yang baru dari checklist (kalau ada)
     if (permission_keys.length > 0) {
       const newPerms = permission_keys.map((key) =>
         this._userPermRepo.create({

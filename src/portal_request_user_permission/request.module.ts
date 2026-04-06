@@ -6,7 +6,6 @@ import { EmailModule } from "email/email.module";
 import { PortalPermissionModule } from "portal_permission/permission.module";
 import { PortalUserPermissionModule } from "portal_user_permission/user_permission.module";
 import { AesEcbService } from "crypto/aes-ecb.service";
-import { PdfModule } from "pdf/pdf.module";
 import { UserModule } from "portal_user_db/user.module";
 import { JwtModule } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
@@ -36,7 +35,6 @@ import { PortalPermission } from "portal_permission/permission.entity";
       }),
     }),
     EmailModule,
-    PdfModule,
     PortalPermissionModule,
     PortalUserPermissionModule,
     UserModule,

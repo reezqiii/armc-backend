@@ -1,14 +1,14 @@
-import { Controller, Get } from '@nestjs/common';
-import { Public } from 'auth/public.decorator';
+import { Controller, Get, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from "jwt-auth.guard";
 
 @Controller('portal/config')
 export class PortalConfigController {
 
-  @Public()
+  @UseGuards(JwtAuthGuard) 
   @Get()
   getPortalConfig() {
     return {
-      background_image: "/img/seatrium_1.jpg"
+      background_image: "/img/bg_portal.jpg" 
     };
   }
 }

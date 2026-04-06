@@ -91,15 +91,32 @@ export class EmailService {
     }
   }
 
-  renderTemplate(filename: string, data: any) {
-    const filePath = path.join(
-      process.cwd(),
-      "src",
-      "email",
-      "views",
-      filename,
-    );
-    const template = fs.readFileSync(filePath, "utf8");
-    return ejs.render(template, data);
+ renderTemplate(filename: string, data: any) {
+  let filePath = path.join(__dirname, "views", filename);
+  
+  if (!fs.existsSync(filePath)) {
+    filePath = path.join(__dirname, "..", "email", "views", filename);
   }
+
+  const logoPath = path.join(process.cwd(), "public", "img", "armc.png");
+  let logoBase64 = "";
+  
+  try {
+    if (fs.existsSync(logoPath)) {
+      logoBase64 = `data:image/png;base64,${fs.readFileSync(logoPath).toString("base64")}`;
+    }
+  } catch (e) {
+    console.log("Logo skip");
+  }
+
+  const renderData = { ...data, logoBase64 };
+
+  if (!fs.existsSync(filePath)) {
+    console.error("❌ TEMPLATE TETAP TIDAK KETEMU DI:", filePath);
+    return `Template error: ${filename} not found`;
+  }
+
+  const template = fs.readFileSync(filePath, "utf8");
+  return ejs.render(template, renderData);
+}
 }

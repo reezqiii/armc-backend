@@ -46,8 +46,9 @@ export class RequestController {
   async create(
     @Body() data: Partial<RequestEntity>,
     @Req() req,
-  ): Promise<RequestEntity> {
+  ): Promise<{ success: boolean; message: string }> {
     const userId = req.user.id_user;
+
     return this.requestService.create(data, userId);
   }
 
@@ -115,13 +116,6 @@ export class RequestController {
     );
   }
 
-  @Put(":id/submit-to-hod")
-  @UseGuards(JwtAuthGuard, PermissionGuard)
-  async submitToHodRequest(@Param("id") encryptedId: string, @Req() req: any) {
-    const userId = req.user?.id_user; // ← FIX: was req.user?.id
-    return await this.requestService.submitToHod(encryptedId, userId);
-  }
-
   @Put("submit-to-hod/bulk")
   @UseGuards(JwtAuthGuard, PermissionGuard)
   async submitBulkToHod(
@@ -171,18 +165,6 @@ export class RequestController {
       body.remarks,
       req.user.id_user,
     );
-  }
-
-  @Get(":id/generate-pdf")
-  async generateRequestPdf(
-    @Param("id") enc_id: string,
-  ): Promise<StreamableFile> {
-    const pdfBuffer = await this.requestService.generateRequestPdf(enc_id);
-
-    return new StreamableFile(pdfBuffer, {
-      type: "application/pdf",
-      disposition: 'attachment; filename="pcms_request.pdf"',
-    });
   }
 
   @Get("dashboard/latest-period")

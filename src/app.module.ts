@@ -1,31 +1,26 @@
 import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
-import { JwtAuthGuard } from "./jwt-auth.guard";
-import { PermissionGuard } from "./permission.guard";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
-import { SftpModule } from "./sftp/sftp.module";
 import { ExcelModule } from "./excel/excel.module";
-import { PdfModule } from "./pdf/pdf.module";
 import { AuthModule } from "./auth/auth.module";
 import { BookingModule } from "./bookings/booking.module";
 import { CryptoModule } from "./crypto/crypto.module";
 import { RequestModule } from "./portal_request_user_permission/request.module";
-import {
-  UserModule as UserDBModule,
-  UserModule,
-} from "./portal_user_db/user.module";
-import { NavMenuModule } from "portal_nav_menu/menu.module";
-import { EmailModule } from "email/email.module";
-import { PortalUserPermissionModule } from "portal_user_permission/user_permission.module";
+import { NavMenuModule } from "./portal_nav_menu/menu.module";
+import { EmailModule } from "./email/email.module";
+import { PortalUserPermissionModule } from "./portal_user_permission/user_permission.module";
+import { PortalCategoryAccountModule } from "./portal_category_account/portal_category_account.module";
 import { PortalConfigModule } from "./portal_config/portal_config.module";
 import { join } from "node:path";
 import { ServeStaticModule } from "@nestjs/serve-static";
 import { PortalProjectModule } from "./portal_project/portal_project.module";
 import { PortalDepartmentModule } from "./portal_department/portal_department.module";
 import { PortalRoleDbModule } from "./portal_role_db/portal_role_db.module";
-import { PortalCategoryAccountModule } from "portal_category_account/portal_category_account.module";
 import { RolePermissionModule } from "./role_has_permission/role_has_permission.module";
+import { UserModule } from "portal_user_db/user.module";
+import { JwtAuthGuard } from "jwt-auth.guard";
+import { PermissionGuard } from "permission.guard";
 
 @Module({
   imports: [
@@ -33,7 +28,6 @@ import { RolePermissionModule } from "./role_has_permission/role_has_permission.
       rootPath: join(__dirname, "..", "public"),
       serveRoot: "/",
     }),
-    SftpModule,
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: `.env.${process.env.NODE_ENV || "development"}`,
@@ -87,12 +81,10 @@ import { RolePermissionModule } from "./role_has_permission/role_has_permission.
 
     BookingModule,
     UserModule,
-    PdfModule,
     ExcelModule,
     AuthModule,
     CryptoModule,
     RequestModule,
-    UserDBModule,
     PortalUserPermissionModule,
     EmailModule,
     NavMenuModule,

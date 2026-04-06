@@ -7,14 +7,13 @@ export async function buildCompletedExcelTemplate(requests) {
   workbook.created = new Date();
 
   const sheet = workbook.addWorksheet("Request List", {
-    views: [{ state: "frozen", ySplit: 3 }], // freeze sampai row 3
+    views: [{ state: "frozen", ySplit: 3 }],
   });
 
-  // ── WARNA TEMA ──────────────────────────────────────────────
   const COLOR = {
-    headerBg: "FF1565C0", // biru tua
-    headerText: "FFFFFFFF", // putih
-    subheaderBg: "FFE3F2FD", // biru muda
+    headerBg: "FF1565C0", 
+    headerText: "FFFFFFFF", 
+    subheaderBg: "FFE3F2FD",
     subheaderText: "FF0D47A1",
     rowEven: "FFF5F9FF",
     rowOdd: "FFFFFFFF",
@@ -24,7 +23,6 @@ export async function buildCompletedExcelTemplate(requests) {
     accent: "FF42A5F5",
   };
 
-  // ── DEFINISI KOLOM ───────────────────────────────────────────
   const columns = [
     { header: "No", key: "no", width: 6 },
     { header: "No Request", key: "no_request", width: 18 },
@@ -46,10 +44,9 @@ export async function buildCompletedExcelTemplate(requests) {
   const totalCols = columns.length;
   const lastCol = String.fromCharCode(64 + totalCols);
 
-  // ── ROW 1: JUDUL LAPORAN
   sheet.mergeCells(`A1:${lastCol}1`);
   const titleCell = sheet.getCell("A1");
-  titleCell.value = "PCMS ACCESS REQUEST LIST";
+  titleCell.value = "ACCESS REQUEST LIST";
   titleCell.font = {
     name: "Arial",
     bold: true,
@@ -64,7 +61,6 @@ export async function buildCompletedExcelTemplate(requests) {
   titleCell.alignment = { horizontal: "center", vertical: "middle" };
   sheet.getRow(1).height = 32;
 
-  // ── ROW 2: META INFO
   sheet.mergeCells(`A2:${lastCol}2`);
   const metaCell = sheet.getCell("A2");
   metaCell.value = `Generated: ${new Date().toLocaleString("id-ID")}   |   Total Records: ${requests.length}`;
@@ -82,7 +78,6 @@ export async function buildCompletedExcelTemplate(requests) {
   metaCell.alignment = { horizontal: "center", vertical: "middle" };
   sheet.getRow(2).height = 18;
 
-  // ── ROW 3: HEADER KOLOM
   const headerRow = sheet.getRow(3);
   columns.forEach((col, i) => {
     const cell = headerRow.getCell(i + 1);
@@ -112,10 +107,8 @@ export async function buildCompletedExcelTemplate(requests) {
   });
   headerRow.height = 28;
 
-  // ── AUTO FILTER pada header kolom
   sheet.autoFilter = { from: "A3", to: `${lastCol}3` };
 
-  // ── STATUS COLOR MAPPING
   const statusColorMap: Record<string, string> = {
     Draft: "FF9E9E9E",
     "Awaiting HOD Approval": "FFFFA726",
@@ -125,13 +118,12 @@ export async function buildCompletedExcelTemplate(requests) {
     "Rejected by IT Manager Approval": "FFE53935",
   };
 
-  // ── DATA ROWS
   let no = 1;
 
   requests.forEach((req, index) => {
     const isEven = index % 2 === 0;
     const rowBg = isEven ? COLOR.rowEven : COLOR.rowOdd;
-    const rowNum = index + 4; // data mulai row 4
+    const rowNum = index + 4; 
 
     const statusLabel = getStatusLabel("request_status", req.r_request_status);
 
@@ -148,7 +140,6 @@ export async function buildCompletedExcelTemplate(requests) {
       req.position_name || "-",
       req.project_name || "-",
       req.r_email || "-",
-      getStatusLabel("type", req.r_type),
       statusLabel,
       req.cat_cat_name || req.cat_name || req.category_account_name || "-",
     ];
@@ -192,7 +183,6 @@ export async function buildCompletedExcelTemplate(requests) {
     });
   });
 
-  // ── ROW TOTAL (footer)
   const totalRowNum = requests.length + 4;
   sheet.mergeCells(`A${totalRowNum}:B${totalRowNum}`);
   const totalCell = sheet.getCell(`A${totalRowNum}`);

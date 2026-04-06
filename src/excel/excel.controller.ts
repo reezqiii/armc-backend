@@ -7,8 +7,8 @@ import {
   HttpStatus,
 } from "@nestjs/common";
 import { Response } from "express";
-import { RequestService } from "portal_request_user_permission/request.service";
 import { buildCompletedExcelTemplate } from "./views/export_template";
+import { RequestService } from "portal_request_user_permission/request.service";
 
 @Controller("excel")
 export class ExcelController {

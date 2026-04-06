@@ -78,6 +78,9 @@ export class RequestEntity {
   @Column({ name: "type", type: "int", nullable: true, default: 0 })
   type: number; // 0 = login, 1 = public
 
+  @Column({ name: "position", type: "varchar", length: 100, nullable: true })
+  position: string;
+
   @Column({ name: "category_account", type: "int", nullable: true })
   category_account: number;
 

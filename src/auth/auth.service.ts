@@ -6,13 +6,10 @@ import {
 import { JwtService } from "@nestjs/jwt";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
-import * as md5 from "md5";
 import { AuthDTO } from "./DTO/auth.dto";
 import * as crypto from "crypto";
-import * as fs from "fs";
-import * as path from "path";
-import { User } from "portal_user_db/user.entity";
-import { EmailService } from "email/email.service";
+import { User } from "../portal_user_db/user.entity";
+import { EmailService } from "../email/email.service";
 
 @Injectable()
 export class AuthService {
@@ -23,21 +20,25 @@ export class AuthService {
     private readonly emailService: EmailService,
   ) {}
 
+  private hashMd5(data: string): string {
+    return crypto.createHash("md5").update(data).digest("hex");
+  }
+
   async login(authDTO: AuthDTO) {
     const { username, password } = authDTO;
 
     const login = await this._user.findOne({
       where: { username, status_user: 1 },
-      relations: ["role"], // ← tambah relasi role
+      relations: ["role"],
     });
 
     if (!login) throw new UnauthorizedException("Invalid username or password");
 
-    const hashedPassword = md5(password);
+    const hashedPassword = this.hashMd5(password);
+
     if (login.password !== hashedPassword)
       throw new UnauthorizedException("Invalid username or password");
 
-    // Get permissions dari role
     const permissions_key = await this.getRolePermissionKeys(login.id_user);
 
     const payload = { id_user: login.id_user };
@@ -57,10 +58,10 @@ export class AuthService {
     };
   }
 
- private async getRolePermissionKeys(id_user: number): Promise<string[]> {
-  try {
-    // 1. Permissions dari role
-    const rolePerms = await this._user.query(`
+  private async getRolePermissionKeys(id_user: number): Promise<string[]> {
+    try {
+      const rolePerms = await this._user.query(
+        `
       SELECT pp.index_key 
       FROM portal_user_db u
       JOIN portal_role_db r ON r.id_role = u.id_role
@@ -69,25 +70,29 @@ export class AuthService {
       WHERE u.id_user = $1 
       AND pp.index_key IS NOT NULL
       AND r.is_active = 1
-    `, [id_user]);
+    `,
+        [id_user],
+      );
 
-    // 2. User-specific permissions — baca langsung dari kolom permission_key ← FIX
-    const userSpecificPerms = await this._user.query(`
+      const userSpecificPerms = await this._user.query(
+        `
       SELECT permission_key as index_key
       FROM portal_user_permission
       WHERE id_user = $1 
       AND permission_key IS NOT NULL
-    `, [id_user]);
+    `,
+        [id_user],
+      );
 
-    const roleKeys = rolePerms.map((r: any) => r.index_key);
-    const userKeys = userSpecificPerms.map((r: any) => r.index_key);
+      const roleKeys = rolePerms.map((r: any) => r.index_key);
+      const userKeys = userSpecificPerms.map((r: any) => r.index_key);
 
-    return [...new Set([...roleKeys, ...userKeys])];
-  } catch (err) {
-    console.error("getRolePermissionKeys error:", err.message);
-    return [];
+      return [...new Set([...roleKeys, ...userKeys])];
+    } catch (err) {
+      console.error("getRolePermissionKeys error:", err.message);
+      return [];
+    }
   }
-}
 
   async forgotPassword(username: string, email: string) {
     const user = await this._user.findOne({
@@ -96,8 +101,10 @@ export class AuthService {
     });
 
     if (!user) throw new BadRequestException("Username not found");
-    if (!user.email)
+
+    if (!user.email) {
       throw new BadRequestException("No email registered for this account");
+    }
 
     if (user.email.toLowerCase() !== email.toLowerCase()) {
       throw new BadRequestException("Email does not match our records");
@@ -112,10 +119,6 @@ export class AuthService {
     } as any);
 
     const resetLink = `${process.env.ARMC_BASE_URL}/reset_password?token=${resetToken}`;
-
-    // ← Tambahkan logoBase64
-    const logoPath = path.join(process.cwd(), "public", "armc.png");
-    const logoBase64 = fs.readFileSync(logoPath).toString("base64");
 
     const htmlContent = this.emailService.renderTemplate("reset_password.ejs", {
       fullName: user.full_name,
@@ -147,7 +150,7 @@ export class AuthService {
     }
 
     await this._user.update({ id_user: user.id_user }, {
-      password: md5(new_password),
+      password: this.hashMd5(new_password),
       reset_token: null,
       reset_token_expired: null,
       last_update_password: new Date(),
