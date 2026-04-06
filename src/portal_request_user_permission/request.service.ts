@@ -27,7 +27,6 @@ import { PortalDepartment } from "portal_department/entities/portal_department.e
 
 @Injectable()
 export class RequestService {
-  private PORTAL_LINK: string;
   constructor(
     private readonly aesEcbService: AesEcbService,
     @InjectRepository(RequestEntity)
@@ -49,10 +48,8 @@ export class RequestService {
     @InjectRepository(CategoryAccount)
     private readonly categoryRepo: Repository<CategoryAccount>,
   ) {
-    this.PORTAL_LINK = this.configService.get<string>("LINK_PORTAL");
   }
 
-  // ── Server-side list ──────────────────────────────────────────
   async serverSideList(queryDto: ServerSideDTO, user?: any) {
     try {
       const { page = 0, size = 10, search, sort } = queryDto;

@@ -45,12 +45,6 @@ export class User {
   })
   addon_project: string;
 
-  @Column({ name: "dept_alt", type: "varchar", length: 200, nullable: true })
-  dept_alt: string;
-
-  @Column({ name: "outside_access", type: "int", nullable: true })
-  outside_access: number;
-
   @Column({ name: "portal_type", type: "int", nullable: true })
   portal_type: number;
 

@@ -177,9 +177,7 @@ export class UserService {
         project_id: u.project?.id ?? null,
         id_role: u.role?.id_role ?? null,
         status_user: u.status_user,
-        outside_access: u.outside_access,
         portal_type: u.portal_type,
-        dept_ids: u.dept_alt ? u.dept_alt.split(";").map(Number) : [],
         project_ids: u.addon_project
           ? u.addon_project.split(";").map(Number)
           : [],
@@ -213,7 +211,6 @@ export class UserService {
       department: data.department ?? null,
       project,
       role,
-      outside_access: data.outside_access ?? null,
       portal_type: data.portal_type ?? null,
       addon_project: data.project_ids?.join(";") ?? null,
     });
@@ -364,13 +361,11 @@ export class UserService {
     }));
   }
 
-  // PUT — update permission tambahan user dari checklist
   async updateUserExtraPermissions(
     id_user: number,
     permission_keys: string[],
     created_by: number,
   ) {
-    // Hapus semua permission_key lama milik user ini
     await this._userPermRepo
       .createQueryBuilder()
       .delete()
