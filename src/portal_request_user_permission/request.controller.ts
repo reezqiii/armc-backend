@@ -80,7 +80,7 @@ export class RequestController {
 
   @Put(":id/hod-approval")
   @UseGuards(JwtAuthGuard, PermissionGuard)
-  @RequirePermissions("request.approve_hod") // ← TAMBAH
+  @RequirePermissions("request.approve_hod") 
   async hodApproval(
     @Param("id") id: string,
     @Body() body: { action: string; remarks?: string },
@@ -98,7 +98,7 @@ export class RequestController {
 
   @Put("hod-approval/bulk")
   @UseGuards(JwtAuthGuard, PermissionGuard)
-  @RequirePermissions("request.approve_hod") // ← TAMBAH
+  @RequirePermissions("request.approve_hod") 
   hodApprovalBulk(
     @Body()
     body: {
@@ -116,23 +116,9 @@ export class RequestController {
     );
   }
 
-  @Put("submit-to-hod/bulk")
-  @UseGuards(JwtAuthGuard, PermissionGuard)
-  async submitBulkToHod(
-    @Body() body: { encryptedIds: string[] },
-    @Req() req: any,
-  ) {
-    const userId = req.user?.id_user;
-    if (!userId) {
-      throw new UnauthorizedException("User not authenticated");
-    }
-
-    return this.requestService.submitBulkToHod(body.encryptedIds, userId);
-  }
-
   @Put(":id/it-approval")
   @UseGuards(JwtAuthGuard, PermissionGuard)
-  @RequirePermissions("request.approve_it") // ← TAMBAH
+  @RequirePermissions("request.approve_it") 
   async itApproval(
     @Param("id") id: string,
     @Body() body: { action: string; remarks?: string },
@@ -149,7 +135,7 @@ export class RequestController {
 
   @Put("it-approval/bulk")
   @UseGuards(JwtAuthGuard, PermissionGuard)
-  @RequirePermissions("request.approve_it") // ← TAMBAH
+  @RequirePermissions("request.approve_it") 
   async itApprovalBulk(
     @Body()
     body: {

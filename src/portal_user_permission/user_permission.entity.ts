@@ -15,9 +15,6 @@ export class PortalUserPermission {
   @Column({ type: "varchar", nullable: true })
   id_portal_permission: string;
 
-  @Column({ type: "varchar", nullable: true })
-  index_key: string;
-
   @Column({ type: "int", nullable: true })
   create_by: number;
 

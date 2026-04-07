@@ -8,8 +8,8 @@ export class PortalPermission {
   @Column({ name: "permission_name", type: "varchar", nullable: true })
   permission_name: string;
 
-  @Column({ name: "index_key", type: "varchar", nullable: true })
-  index_key: string;
+  @Column({ name: "permission_key", type: "varchar" }) 
+  permission_key: string;
 
   @Column({ name: "permission_group", type: "varchar", nullable: true })
   permission_group: string;

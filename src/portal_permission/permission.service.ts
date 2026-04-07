@@ -64,7 +64,7 @@ export class PortalPermissionService {
 
     const columnMap: Record<string, string> = {
       permission_name: "permission.permission_name",
-      index_key: "permission.index_key",
+      permission_key: "permission.permission_key",
       permission_group: "permission.permission_group",
     };
 

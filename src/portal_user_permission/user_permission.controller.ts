@@ -17,8 +17,6 @@ import { JwtAuthGuard } from "jwt-auth.guard";
 export class PortalUserPermissionController {
   constructor(private readonly service: PortalUserPermissionService) {}
 
-  // ─── Static / prefixed routes FIRST (harus di atas wildcard :id) ──────────
-
   @Get("me")
   @UseGuards(JwtAuthGuard)
   async getMyPermissions(@Query("appId") appId: number, @Req() req) {
@@ -26,13 +24,11 @@ export class PortalUserPermissionController {
     return this.service.getUserPermissionsForApp(userId, appId);
   }
 
-  /** GET /portal_user_permission/user/:userId */
   @Get("user/:userId")
   getUserPermissionList(@Param("userId") userId: string) {
     return this.service.getUserPermissionList(+userId);
   }
 
-  /** POST /portal_user_permission/user/:userId/sync */
   @Post("user/:userId/sync")
   @UseGuards(JwtAuthGuard)
   syncUserPermissions(
@@ -47,8 +43,6 @@ export class PortalUserPermissionController {
       createdBy,
     );
   }
-
-  // ─── Wildcard routes AFTER static routes ──────────────────────────────────
 
   @Get()
   getAll() {

@@ -400,11 +400,11 @@ export class RequestService {
     if (data.approval_hod_by) {
       const hodId =
         typeof data.approval_hod_by === "object"
-          ? data.approval_hod_by.id_user
+          ? (data.approval_hod_by as any).id_user
           : data.approval_hod_by;
 
       approvalHodUser = await this.userRepo.findOne({
-        where: { id_user: hodId },
+        where: { id_user: hodId as number },
       });
     }
 
@@ -428,11 +428,25 @@ export class RequestService {
       approval_it_hod_by: null,
     });
 
-    await this.requestRepo.save(newRequest);
+    const savedRequest = await this.requestRepo.save(newRequest);
+
+    const fullRequest = await this.requestRepo.findOne({
+      where: { id_request: savedRequest.id_request },
+      relations: ["approval_hod_by", "created_by_user", "category"],
+    });
+
+    if (fullRequest && fullRequest.approval_hod_by) {
+      try {
+        await this.notifyHod(fullRequest);
+      } catch (mailErr) {
+      
+        console.warn("Notification to HOD failed:", mailErr.message);
+      }
+    }
 
     return {
       success: true,
-      message: "Request created successfully",
+      message: "Request created successfully and HOD has been notified",
     };
   }
 
@@ -595,22 +609,15 @@ export class RequestService {
       return;
     }
 
-    const encryptedId = this.aesEcbService.encryptToBase64Url(
-      String(request.id_request),
-    );
-
-    const targetUrl = `${process.env.ARMC_BASE_URL}/user_request/detail_req/${encryptedId}`;
-    const approvalLink = targetUrl;
-
+    const encryptedId = this.aesEcbService.encryptToBase64Url(String(request.id_request));
+    const approvalLink = `${process.env.ARMC_BASE_URL}/user_request/detail_req/${encryptedId}`;
     const requestNumber = `REQ-${String(request.id_request).padStart(6, "0")}`;
 
     const viewData = {
       approverName: hod.full_name,
       categoryAccount: request.category?.name || "-",
       requestNumber,
-      requestDate: request.created_date
-        ? new Date(request.created_date).toLocaleDateString("en-GB")
-        : "-",
+      requestDate: request.created_date ? new Date(request.created_date).toLocaleDateString("en-GB") : "-",
       requestorName: request.created_by_user?.full_name || "-",
       targetBadgeNo: request.badge_no || "-",
       targetFullName: request.full_name || "-",
@@ -619,14 +626,13 @@ export class RequestService {
       approvalLink,
     };
 
-    const htmlContent = this.mailService.renderTemplate(
-      "approval.ejs",
-      viewData,
-    );
+    const htmlContent = this.mailService.renderTemplate("approval.ejs", viewData);
+
+    const dynamicSubject = `${requestNumber} - Request Pending Your Approval [${Date.now()}]`;
 
     await this.mailService.sendSimpleEmail(
       hod.email,
-      `${requestNumber} - Request Need Your Approval`,
+      dynamicSubject,
       htmlContent,
     );
   }
@@ -644,120 +650,37 @@ export class RequestService {
       group_name: 24,
     });
 
-    const encryptedId = this.aesEcbService.encryptToBase64Url(
-      String(request.id_request),
-    );
-
-    const targetUrl = `${process.env.ARMC_BASE_URL}/user_request/detail_req/${encryptedId}`;
-
+    const encryptedId = this.aesEcbService.encryptToBase64Url(String(request.id_request));
     const requestNumber = `REQ-${String(request.id_request).padStart(6, "0")}`;
+    const approvalLink = `${process.env.ARMC_BASE_URL}/user_request/detail_req/${encryptedId}`;
 
     const emailTo: string[] = [];
-    const emailCc: string[] = [];
-    const emailBcc: string[] = [];
-
     portalEmails.forEach((row) => {
-      if (row.email_to)
-        emailTo.push(
-          ...row.email_to
-            .split(",")
-            .map((v) => v.trim())
-            .filter((v) => v),
-        );
-      if (row.email_cc)
-        emailCc.push(
-          ...row.email_cc
-            .split(",")
-            .map((v) => v.trim())
-            .filter((v) => v),
-        );
-      if (row.email_bcc)
-        emailBcc.push(
-          ...row.email_bcc
-            .split(",")
-            .map((v) => v.trim())
-            .filter((v) => v),
-        );
+      if (row.email_to) emailTo.push(...row.email_to.split(",").map((v) => v.trim()).filter((v) => v));
     });
 
     const viewData = {
       approverName: "HOD IT",
       categoryAccount: request.category?.name || "-",
       requestNumber: requestNumber,
-      requestDate: request.created_date
-        ? new Date(request.created_date).toLocaleDateString("en-GB")
-        : "-",
+      requestDate: request.created_date ? new Date(request.created_date).toLocaleDateString("en-GB") : "-",
       requestorName: request.created_by_user?.full_name || "-",
       targetBadgeNo: request.badge_no || "-",
       targetFullName: request.full_name || "-",
       targetEmail: request.email || "-",
       requestDescription: request.request_reason || "-",
-      approvalLink: targetUrl,
+      approvalLink,
     };
 
-    const email = new sendEmailDto();
-    email.email_to = [...new Set(emailTo)];
-    email.email_cc = [...new Set(emailCc)];
-    email.email_bcc = [...new Set(emailBcc)];
+    const htmlContent = this.mailService.renderTemplate("approval.ejs", viewData);
+    
+    const dynamicSubject = `${requestNumber} - Action Required: IT HOD Approval [${Date.now()}]`;
 
-    // GANTI: Subjek email juga menggunakan requestNumber yang baru
-    email.subject = `${requestNumber} - Request Need HOD IT Approval`;
-
-    // logoBase64 akan otomatis disisipkan oleh EmailService.renderTemplate
-    email.content = this.mailService.renderTemplate("approval.ejs", viewData);
-
-    await this.mailService.sendEmail(email);
-  }
-
-  async submitBulkToHod(encryptedIds: string[], userId: number) {
-    if (!encryptedIds || encryptedIds.length === 0) {
-      throw new BadRequestException("No requests selected for submission");
-    }
-
-    return this.requestRepo.manager.transaction(async (manager) => {
-      const results = [];
-      const hodMap = new Map<number, any[]>();
-
-      for (const encId of encryptedIds) {
-        const decrypted = this.aesEcbService.decryptBase64Url(encId);
-        const id_request = Number(decrypted);
-        if (isNaN(id_request)) continue;
-
-        const existing = await manager.findOne(RequestEntity, {
-          where: { id_request },
-          relations: ["approval_hod_by", "created_by_user", "category"],
-        });
-
-        if (!existing || !existing.approval_hod_by) continue;
-
-        existing.request_status = 1;
-        const saved = await manager.save(existing);
-        results.push(saved);
-
-        const hodId = saved.approval_hod_by.id_user;
-        if (!hodMap.has(hodId)) hodMap.set(hodId, []);
-        hodMap.get(hodId).push(saved);
-      }
-
-      for (const [, requests] of hodMap) {
-        for (const req of requests) {
-          try {
-            await this.notifyHod(req);
-          } catch (mailErr) {
-            console.error(
-              `Failed to notify HOD for request ${req.id_request}:`,
-              mailErr.message,
-            );
-          }
-        }
-      }
-
-      return {
-        success: true,
-        count: results.length,
-        message: `Successfully submitted ${results.length} request(s) to HOD`,
-      };
-    });
+    await this.mailService.sendSimpleEmail(
+      emailTo.join(","),
+      dynamicSubject,
+      htmlContent,
+    );
   }
 
   async itApproval(

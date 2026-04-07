@@ -1,154 +1,128 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Request Account Approval Notification</title>
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        background: #f6f8fa;
-        margin: 0;
-        padding: 20px;
-        color: #333;
-      }
 
-      .email-container {
-        max-width: 600px;
-        margin: auto;
-        background: white;
-        padding: 20px;
-        border-radius: 10px;
-        border: 1px solid #ddd;
-      }
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Request Account Approval Notification</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f6f8fa;
+      margin: 0;
+      padding: 20px;
+      color: #333;
+    }
 
-      .header {
-        text-align: center;
-        padding-bottom: 15px;
-        border-bottom: 1px solid #eee;
-      }
+    .email-container {
+      max-width: 600px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      border: 1px solid #ddd;
+    }
 
-      .logo {
-        width: 150px; /* Ukuran disesuaikan agar lebih proporsional */
-        margin-bottom: 10px;
-      }
+    .header {
+      text-align: center;
+      padding-bottom: 15px;
+      border-bottom: 1px solid #eee;
+    }
 
-      .title {
-        font-size: 20px;
-        font-weight: bold;
-        margin-bottom: 15px;
-        color: #004aad;
-      }
+    .logo {
+      width: 150px;
+      /* Ukuran disesuaikan agar lebih proporsional */
+      margin-bottom: 10px;
+    }
 
-      .content p {
-        line-height: 1.5;
-        font-size: 14px;
-      }
+    .title {
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 15px;
+      color: #004aad;
+    }
 
-      .info-box {
-        background: #f1f5ff;
-        padding: 15px;
-        border-radius: 8px;
-        margin-top: 10px;
-        font-size: 14px;
-      }
+    .content p {
+      line-height: 1.5;
+      font-size: 14px;
+    }
 
-      .button {
-        display: block;
-        width: fit-content;
-        background: #007bff;
-        color: white;
-        padding: 12px 20px;
-        text-decoration: none;
-        margin: 20px auto;
-        border-radius: 8px;
-        font-weight: bold;
-      }
+    .info-box {
+      background: #f1f5ff;
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 10px;
+      font-size: 14px;
+    }
 
-      .footer {
-        font-size: 12px;
-        margin-top: 25px;
-        text-align: center;
-        color: #777;
-        border-top: 1px solid #eee;
-        padding-top: 15px;
-      }
-    </style>
-  </head>
+    .button {
+      display: block;
+      width: fit-content;
+      background: #007bff;
+      color: white;
+      padding: 12px 20px;
+      text-decoration: none;
+      margin: 20px auto;
+      border-radius: 8px;
+      font-weight: bold;
+    }
 
-  <body>
-    <div class="email-container">
-      <div class="header">
-        <img
-          class="logo"
-          src="https://placehold.co/200x60?text=PT.+XYZ+LOGO"
-          alt="PT. XYZ Logo"
-        />
+    .footer {
+      font-size: 12px;
+      margin-top: 25px;
+      text-align: center;
+      color: #777;
+      border-top: 1px solid #eee;
+      padding-top: 15px;
+    }
+  </style>
+</head>
+
+<body>
+  <div style="font-family: Arial, sans-serif; background-color: #f6f8fa; padding: 20px; color: #333;">
+    <div
+      style="max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 10px; border: 1px solid #ddd;">
+
+      <div style="text-align: center; padding-bottom: 15px; border-bottom: 1px solid #eee;">
+        <h2 style="font-size: 20px; font-weight: bold; color: #0d9488; margin: 0;">ARMC Portal</h2>
       </div>
 
-      <div class="content">
-        <h2 class="title">New Request Account Notification</h2>
+      <div style="padding: 20px 0;">
+        <h3 style="margin-top: 0; color: #333;">New Request Account Notification</h3>
 
-        <p>
-          Dear
-          <strong> <%= approverName %> </strong>
-        </p>
+        <p style="font-size: 14px;">Dear <strong><%= approverName %></strong>,</p>
+        <p style="font-size: 14px;">You have a new pending request requiring your approval. Below are the details:</p>
 
-        <p>You have a new pending request requiring your approval.</p>
-
-        <div class="info-box">
-          <p>
-            <strong>Category Account:</strong>
-            <%= categoryAccount %>
-          </p>
-          <p>
-            <strong>Request Number:</strong>
-            <%= requestNumber %>
-          </p>
-          <p>
-            <strong>Request Date:</strong>
-            <%= requestDate %>
-          </p>
-          <p>
-            <strong>Requestor:</strong>
-            <%= requestorName %>
-          </p>
-          <p>
-            <strong>Badge No:</strong>
-            <%= targetBadgeNo %>
-          </p>
-          <p>
-            <strong>Full Name:</strong>
-            <%= targetFullName %>
-          </p>
-          <p>
-            <strong>Email:</strong>
-            <%= targetEmail %>
-          </p>
-          <p>
-            <strong>Purpose:</strong>
-            <%= requestDescription %>
-          </p>
+        <div
+          style="background-color: #f1f5ff; padding: 15px; border-radius: 8px; margin: 20px 0; font-size: 14px; line-height: 1.6;">
+          <p style="margin: 5px 0;"><strong>Category Account:</strong> <%= categoryAccount %></p>
+          <p style="margin: 5px 0;"><strong>Request Number:</strong> <%= requestNumber %></p>
+          <p style="margin: 5px 0;"><strong>Request Date:</strong> <%= requestDate %></p>
+          <p style="margin: 5px 0;"><strong>Requestor:</strong> <%= requestorName %></p>
+          <hr style="border: 0; border-top: 1px solid #dce4f5; margin: 10px 0;">
+          <p style="margin: 5px 0;"><strong>Badge No:</strong> <%= targetBadgeNo %></p>
+          <p style="margin: 5px 0;"><strong>Full Name:</strong> <%= targetFullName %></p>
+          <p style="margin: 5px 0;"><strong>Email:</strong> <%= targetEmail %></p>
+          <p style="margin: 5px 0;"><strong>Purpose:</strong> <%= requestDescription %></p>
         </div>
 
-        <a
-          class="button"
-          href="<%= approvalLink %>"
-          style="color: #ffffff !important"
-        >
-          Review & Approve Request
-        </a>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="<%= approvalLink %>"
+            style="background-color: #0d9488; color: #ffffff !important; padding: 12px 25px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
+            Review & Approve Request
+          </a>
+        </div>
       </div>
 
-      <div class="footer">
-        Regards, <br />
-        <strong>ARMC Portal - PT. XYZ</strong> <br />
-        (Auto Notification System)
-        <br /><br />
-        <em
-          >This email was auto-generated by the system. Please do not reply.</em
-        >
+      <div
+        style="font-size: 12px; margin-top: 25px; text-align: center; color: #777; border-top: 1px solid #eee; padding-top: 15px;">
+        Regards,<br />
+        <strong>ARMC Portal</strong><br />
+        (Auto Notification System)<br /><br />
+        <em>This email was auto-generated by the system. Please do not reply.</em>
       </div>
     </div>
-  </body>
+  </div>
+</body>
+
 </html>

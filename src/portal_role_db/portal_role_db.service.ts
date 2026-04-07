@@ -4,6 +4,7 @@ import { Repository } from "typeorm";
 import { PortalRole } from "./entities/portal_role_db.entity";
 import { CreatePortalRoleDbDto } from "./dto/create-portal_role_db.dto";
 import { UpdatePortalRoleDbDto } from "./dto/update-portal_role_db.dto";
+import { ServerSideDTO } from "DTO/dto.serverside";
 
 @Injectable()
 export class PortalRoleDbService {
@@ -11,6 +12,46 @@ export class PortalRoleDbService {
     @InjectRepository(PortalRole)
     private readonly roleRepository: Repository<PortalRole>,
   ) {}
+
+  async serverSideList(queryDto: ServerSideDTO) {
+    const { sort, search, page = 0, size = 10 } = queryDto;
+    const take = size;
+    const skip = page * take;
+
+    const qb = this.roleRepository
+      .createQueryBuilder("role")
+      .where("role.is_active = :active", { active: 1 });
+
+    const columnMap: Record<string, string> = {
+      role_name: "role.role_name",
+    };
+
+    if (sort) {
+      const [col, dir] = sort.split(",");
+      const column = columnMap[col];
+      if (column) qb.orderBy(column, dir.toUpperCase() as "ASC" | "DESC");
+    }
+
+    if (search) {
+      const searchObj = JSON.parse(search);
+      Object.keys(searchObj).forEach((key) => {
+        const column = columnMap[key];
+        if (!column) return;
+        qb.andWhere(`CAST(${column} AS TEXT) ILIKE :${key}`, {
+          [key]: `%${searchObj[key]}%`,
+        });
+      });
+    }
+
+    const [data, total] = await qb.skip(skip).take(take).getManyAndCount();
+    return {
+      data,
+      total,
+      page,
+      limit: take,
+      total_pages: Math.ceil(total / take),
+    };
+  }
 
   async create(createDto: CreatePortalRoleDbDto, userId?: number) {
     const role = this.roleRepository.create({

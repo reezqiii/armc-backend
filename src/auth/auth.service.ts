@@ -59,40 +59,40 @@ export class AuthService {
   }
 
   private async getRolePermissionKeys(id_user: number): Promise<string[]> {
-    try {
-      const rolePerms = await this._user.query(
-        `
-      SELECT pp.index_key 
+  try {
+    const rolePerms = await this._user.query(
+      `
+      SELECT pp.permission_key 
       FROM portal_user_db u
       JOIN portal_role_db r ON r.id_role = u.id_role
       JOIN role_permission rp ON rp.id_role = r.id_role
       JOIN portal_permission pp ON pp.id_permission = rp.id_permission
       WHERE u.id_user = $1 
-      AND pp.index_key IS NOT NULL
+      AND pp.permission_key IS NOT NULL -- Update filter kolom
       AND r.is_active = 1
     `,
-        [id_user],
-      );
+      [id_user],
+    );
 
-      const userSpecificPerms = await this._user.query(
-        `
-      SELECT permission_key as index_key
+    const userSpecificPerms = await this._user.query(
+      `
+      SELECT permission_key 
       FROM portal_user_permission
       WHERE id_user = $1 
       AND permission_key IS NOT NULL
     `,
-        [id_user],
-      );
+      [id_user],
+    );
 
-      const roleKeys = rolePerms.map((r: any) => r.index_key);
-      const userKeys = userSpecificPerms.map((r: any) => r.index_key);
+    const roleKeys = rolePerms.map((r: any) => r.permission_key);
+    const userKeys = userSpecificPerms.map((r: any) => r.permission_key);
 
-      return [...new Set([...roleKeys, ...userKeys])];
-    } catch (err) {
-      console.error("getRolePermissionKeys error:", err.message);
-      return [];
-    }
+    return [...new Set([...roleKeys, ...userKeys])];
+  } catch (err) {
+    console.error("getRolePermissionKeys error:", err.message);
+    return [];
   }
+}
 
   async forgotPassword(username: string, email: string) {
     const user = await this._user.findOne({

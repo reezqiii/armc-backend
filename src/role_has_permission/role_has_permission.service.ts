@@ -58,6 +58,6 @@ export class RolePermissionService {
 
   // Get semua permission (untuk dropdown/checklist)
   async getAllPermissions() {
-    return this._permission.find({ order: { index_key: "ASC" } });
+    return this._permission.find({ order: { permission_key: "ASC" } });
   }
 }

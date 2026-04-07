@@ -356,8 +356,8 @@ export class UserService {
     return allPermissions.map((p) => ({
       id_permission: p.id_permission,
       permission_name: p.permission_name,
-      index_key: p.index_key,
-      is_granted: userPermKeys.includes(p.index_key),
+      permission_key: p.permission_key,
+      is_granted: userPermKeys.includes(p.permission_key),
     }));
   }
 

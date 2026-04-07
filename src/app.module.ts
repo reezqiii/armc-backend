@@ -1,5 +1,6 @@
 import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
+import { PermissionGuard } from "./permission.guard";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { ExcelModule } from "./excel/excel.module";
@@ -20,7 +21,6 @@ import { PortalRoleDbModule } from "./portal_role_db/portal_role_db.module";
 import { RolePermissionModule } from "./role_has_permission/role_has_permission.module";
 import { UserModule } from "portal_user_db/user.module";
 import { JwtAuthGuard } from "jwt-auth.guard";
-import { PermissionGuard } from "permission.guard";
 
 @Module({
   imports: [

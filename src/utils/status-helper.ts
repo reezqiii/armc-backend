@@ -2,11 +2,11 @@
 
 export const STATUS_REGISTRY = {
   request_status: {
-    1: "Pending HOD Approval",    
-    2: "Rejected by HOD",         
-    5: "Pending IT Approval",    
-    6: "Rejected by IT",          
-    7: "Approved",               
+    1: "Pending Dept Head Approval",    
+    2: "Rejected by Dept Head Approval",         
+    3: "Pending IT Head Approval",    
+    4: "Rejected by IT Head Approval",          
+    5: "Completed",               
     0: "Canceled",               
   },
 } as const;
