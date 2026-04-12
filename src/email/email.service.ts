@@ -69,7 +69,7 @@ export class EmailService {
     const filePath = path.join(viewsPath, filename);
 
     if (!fs.existsSync(filePath)) {
-      console.error(`❌ Template not found at: ${filePath}`);
+      console.error(`Template not found at: ${filePath}`);
       return `Template error: ${filename} not found`;
     }
 

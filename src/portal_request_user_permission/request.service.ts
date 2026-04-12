@@ -14,15 +14,13 @@ import { EmailService } from "../email/email.service";
 import { NavMenu } from "portal_nav_menu/menu.entity";
 import { PortalPermission } from "portal_permission/permission.entity";
 import { PortalUserPermissionService } from "portal_user_permission/user_permission.service";
-import { sendEmailDto } from "email/dto/send-email.dto";
 import { AesEcbService } from "crypto/aes-ecb.service";
 import { ConfigService } from "@nestjs/config";
 import { getStatusLabel } from "utils/status-helper";
-import { formatDate } from "utils/format-date";
-import * as path from "path";
 import { CategoryAccount } from "portal_category_account/entities/portal_category_account.entity";
 import { PortalProject } from "portal_project/entities/portal_project.entity";
 import { PortalDepartment } from "portal_department/entities/portal_department.entity";
+import { Position } from "portal_position/entities/portal_position.entity";
 
 @Injectable()
 export class RequestService {
@@ -34,6 +32,8 @@ export class RequestService {
     private readonly projectRepo: Repository<PortalProject>,
     @InjectRepository(PortalDepartment)
     private readonly departmentRepo: Repository<PortalDepartment>,
+    @InjectRepository(Position)
+    private readonly positionRepo: Repository<Position>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     private readonly permissionService: PortalUserPermissionService,
@@ -42,7 +42,6 @@ export class RequestService {
     @InjectRepository(NavMenu)
     private readonly navMenuRepo: Repository<NavMenu>,
     private readonly mailService: EmailService,
-    private configService: ConfigService,
     @InjectRepository(CategoryAccount)
     private readonly categoryRepo: Repository<CategoryAccount>,
   ) {}
@@ -174,6 +173,7 @@ export class RequestService {
 
         return {
           id_request: d.id_request,
+          created_by: d.created_by,
           created_date: d.created_date,
           created_by_name: requestorName,
           full_name: d.full_name,
@@ -308,6 +308,12 @@ export class RequestService {
         })
       : null;
 
+    const position = data.position
+      ? await this.positionRepo.findOne({
+          where: { id: Number(data.position) },
+        })
+      : null;
+
     const createdByUser = data.created_by
       ? await this.userRepo.findOne({ where: { id_user: data.created_by } })
       : null;
@@ -322,35 +328,27 @@ export class RequestService {
     return {
       id_request: data.id_request,
       created_date: data.created_date,
-      created_by: data.created_by,
       created_by_name: createdByUser?.full_name || null,
+      position_name: position?.position_name || null,
+      position: data.position,
       full_name: data.full_name,
       badge_no: data.badge_no,
       email: data.email,
       request_reason: data.request_reason,
-      remarks: data.remarks,
       request_status: data.request_status,
-      status_active: data.status_active,
       dept_id: data.dept_id,
       project_id: data.project_id,
-      canceled_by: data.canceled_by,
-      canceled_date: data.canceled_date,
-      rejected_hod_remarks: data.rejected_hod_remarks,
-      rejected_it_remarks: data.rejected_it_remarks,
-      project: project?.project_name || null,
       project_name: project?.project_name || null,
-      department: department?.name_of_department || null,
       department_name: department?.name_of_department || null,
+      category_account_name: data.category?.name || category?.name || "-",
       category: data.category
         ? { id: data.category.id, name: data.category.name }
         : null,
       category_account: data.category_account,
-      category_account_name: data.category?.name || category?.name || "-",
       approval_hod_by: data.approval_hod_by
         ? {
             id: data.approval_hod_by.id_user,
             full_name: data.approval_hod_by.full_name,
-            badge_no: data.approval_hod_by.badge_no,
           }
         : null,
       approval_hod_date_at: data.approval_hod_date_at || null,
@@ -358,11 +356,11 @@ export class RequestService {
         ? {
             id: data.approval_it_hod_by.id_user,
             full_name: data.approval_it_hod_by.full_name,
-            badge_no: data.approval_it_hod_by.badge_no,
           }
         : null,
       approval_it_date_at: data.approval_it_date_at || null,
-
+      rejected_hod_remarks: data.rejected_hod_remarks || null,
+      rejected_it_remarks: data.rejected_it_remarks || null,
       access_nav_menu: await this.getNavMenuList(data.access_nav_menu),
     };
   }
@@ -422,7 +420,6 @@ export class RequestService {
       status_active: data.status_active ?? 1,
       created_date: new Date(),
       created_by: userId,
-      remarks: data.remarks,
       category_account: data.category_account,
       approval_hod_by: approvalHodUser,
       approval_it_hod_by: null,
@@ -439,7 +436,6 @@ export class RequestService {
       try {
         await this.notifyHod(fullRequest);
       } catch (mailErr) {
-      
         console.warn("Notification to HOD failed:", mailErr.message);
       }
     }
@@ -463,10 +459,23 @@ export class RequestService {
       throw new NotFoundException(`Request with ID ${id_request} not found`);
     }
 
-    if (existing.request_status !== 1) {
+    if (![0, 1].includes(existing.request_status)) {
       throw new BadRequestException(
         "Request cannot be updated because it is already in process",
       );
+    }
+
+    if (data.approval_hod_by) {
+      const hodId =
+        typeof data.approval_hod_by === "object"
+          ? data.approval_hod_by.id_user
+          : data.approval_hod_by;
+
+      const userHod = await this.userRepo.findOne({
+        where: { id_user: Number(hodId) },
+      });
+
+      if (userHod) existing.approval_hod_by = userHod;
     }
 
     delete data.request_status;
@@ -483,19 +492,6 @@ export class RequestService {
         : data.access_nav_menu;
     }
 
-    if (data.approval_hod_by) {
-      const hodId =
-        typeof data.approval_hod_by === "object"
-          ? data.approval_hod_by.id_user
-          : data.approval_hod_by;
-
-      const userHod = await this.userRepo.findOne({
-        where: { id_user: Number(hodId) },
-      });
-
-      if (userHod) existing.approval_hod_by = userHod;
-    }
-
     const {
       approval_hod_by,
       approval_it_hod_by,
@@ -510,47 +506,6 @@ export class RequestService {
       success: true,
       message: "Request updated successfully",
     };
-  }
-
-  async hodApproval(
-    id_request: number,
-    action: string,
-    remarks: string,
-    userId: number,
-  ) {
-    const existing = await this.requestRepo.findOne({
-      where: { id_request },
-      relations: ["approval_hod_by", "created_by_user", "category"],
-    });
-    if (!existing)
-      throw new NotFoundException(`Request with ID ${id_request} not found`);
-    if (existing.request_status !== 1)
-      throw new BadRequestException("Request is not pending HOD approval");
-
-    const hodUser = await this.userRepo.findOne({ where: { id_user: userId } });
-    if (!hodUser) throw new BadRequestException("Invalid HOD user");
-    if (existing.dept_id !== hodUser.department) {
-      throw new ForbiddenException(
-        "You can only approve requests from your own department",
-      );
-    }
-
-    existing.approval_hod_date_at = new Date();
-    existing.approval_hod_by = hodUser;
-
-    if (action === "approve") {
-      existing.request_status = 5;
-      await this.requestRepo.save(existing);
-      await this.notifyItApproval(existing.id_request);
-    } else if (action === "reject") {
-      existing.request_status = 2;
-      existing.rejected_hod_remarks = remarks;
-      await this.requestRepo.save(existing);
-    } else {
-      throw new InternalServerErrorException("Invalid action");
-    }
-
-    return true;
   }
 
   async hodApprovalBulk(
@@ -581,7 +536,7 @@ export class RequestService {
       existing.approval_hod_by = hodUser;
 
       if (action === "approve") {
-        existing.request_status = 5;
+        existing.request_status = 3;
         await this.requestRepo.save(existing);
         approvedRequests.push(existing);
       } else if (action === "reject") {
@@ -592,7 +547,11 @@ export class RequestService {
     }
 
     for (const req of approvedRequests) {
-      await this.notifyItApproval(req.id_request);
+      try {
+        await this.notifyItApproval(req.id_request);
+      } catch (mailErr) {
+        console.warn("Email notification failed:", mailErr.message);
+      }
     }
 
     return {
@@ -609,7 +568,9 @@ export class RequestService {
       return;
     }
 
-    const encryptedId = this.aesEcbService.encryptToBase64Url(String(request.id_request));
+    const encryptedId = this.aesEcbService.encryptToBase64Url(
+      String(request.id_request),
+    );
     const approvalLink = `${process.env.ARMC_BASE_URL}/user_request/detail_req/${encryptedId}`;
     const requestNumber = `REQ-${String(request.id_request).padStart(6, "0")}`;
 
@@ -617,7 +578,9 @@ export class RequestService {
       approverName: hod.full_name,
       categoryAccount: request.category?.name || "-",
       requestNumber,
-      requestDate: request.created_date ? new Date(request.created_date).toLocaleDateString("en-GB") : "-",
+      requestDate: request.created_date
+        ? new Date(request.created_date).toLocaleDateString("en-GB")
+        : "-",
       requestorName: request.created_by_user?.full_name || "-",
       targetBadgeNo: request.badge_no || "-",
       targetFullName: request.full_name || "-",
@@ -626,7 +589,10 @@ export class RequestService {
       approvalLink,
     };
 
-    const htmlContent = this.mailService.renderTemplate("approval.ejs", viewData);
+    const htmlContent = this.mailService.renderTemplate(
+      "approval.ejs",
+      viewData,
+    );
 
     const dynamicSubject = `${requestNumber} - Request Pending Your Approval [${Date.now()}]`;
 
@@ -645,25 +611,45 @@ export class RequestService {
 
     if (!request) return;
 
-    const portalEmails = await this.mailService.getPortalEmailList({
-      process: "IT Manager Approval",
-      group_name: 24,
+    const IT_DEPT_ID = 1;
+    const HOD_ROLE_ID = 2;
+
+    const itHodUsers = await this.userRepo.find({
+      where: {
+        department: IT_DEPT_ID,
+        role: { id_role: HOD_ROLE_ID },
+      },
+      relations: ["role"],
     });
 
-    const encryptedId = this.aesEcbService.encryptToBase64Url(String(request.id_request));
+    if (!itHodUsers.length) {
+      console.warn("No IT HOD users found, skipping notification");
+      return;
+    }
+
+    const emailTo = itHodUsers
+      .map((u) => u.email)
+      .filter((e) => !!e)
+      .join(",");
+
+    if (!emailTo) {
+      console.warn("IT HOD users have no email, skipping notification");
+      return;
+    }
+
+    const encryptedId = this.aesEcbService.encryptToBase64Url(
+      String(request.id_request),
+    );
     const requestNumber = `REQ-${String(request.id_request).padStart(6, "0")}`;
     const approvalLink = `${process.env.ARMC_BASE_URL}/user_request/detail_req/${encryptedId}`;
-
-    const emailTo: string[] = [];
-    portalEmails.forEach((row) => {
-      if (row.email_to) emailTo.push(...row.email_to.split(",").map((v) => v.trim()).filter((v) => v));
-    });
 
     const viewData = {
       approverName: "HOD IT",
       categoryAccount: request.category?.name || "-",
-      requestNumber: requestNumber,
-      requestDate: request.created_date ? new Date(request.created_date).toLocaleDateString("en-GB") : "-",
+      requestNumber,
+      requestDate: request.created_date
+        ? new Date(request.created_date).toLocaleDateString("en-GB")
+        : "-",
       requestorName: request.created_by_user?.full_name || "-",
       targetBadgeNo: request.badge_no || "-",
       targetFullName: request.full_name || "-",
@@ -672,49 +658,17 @@ export class RequestService {
       approvalLink,
     };
 
-    const htmlContent = this.mailService.renderTemplate("approval.ejs", viewData);
-    
+    const htmlContent = this.mailService.renderTemplate(
+      "approval.ejs",
+      viewData,
+    );
     const dynamicSubject = `${requestNumber} - Action Required: IT HOD Approval [${Date.now()}]`;
 
     await this.mailService.sendSimpleEmail(
-      emailTo.join(","),
+      emailTo,
       dynamicSubject,
       htmlContent,
     );
-  }
-
-  async itApproval(
-    id_request: number,
-    action: string,
-    remarks: string,
-    userId: number,
-  ) {
-    const existing = await this.requestRepo.findOne({
-      where: { id_request },
-      relations: ["approval_it_hod_by", "approval_hod_by", "category"],
-    });
-
-    if (!existing)
-      throw new NotFoundException(`Request with ID ${id_request} not found`);
-    if (existing.request_status !== 5)
-      throw new BadRequestException("Request is not pending IT approval");
-
-    const itUser = await this.userRepo.findOne({ where: { id_user: userId } });
-
-    if (action === "approve") {
-      existing.request_status = 7;
-      existing.approval_it_date_at = new Date();
-      existing.approval_it_hod_by = itUser;
-    } else if (action === "reject") {
-      existing.request_status = 6;
-      existing.rejected_it_remarks = remarks;
-      existing.approval_it_date_at = new Date();
-      existing.approval_it_hod_by = itUser;
-    } else {
-      throw new InternalServerErrorException("Invalid action");
-    }
-
-    return this.requestRepo.save(existing);
   }
 
   async itApprovalBulk(
@@ -739,16 +693,16 @@ export class RequestService {
         where: { id_request: id },
       });
       if (!existing) continue;
-      if (existing.request_status !== 5) continue;
+      if (existing.request_status !== 3) continue;
 
       existing.approval_it_date_at = new Date();
       existing.approval_it_hod_by = itUser;
 
       if (action === "approve") {
-        existing.request_status = 7;
+        existing.request_status = 5;
         approvedRequests.push(existing);
       } else if (action === "reject") {
-        existing.request_status = 6;
+        existing.request_status = 4;
         existing.rejected_it_remarks = remarks;
       }
 
@@ -957,6 +911,7 @@ export class RequestService {
       .createQueryBuilder("r")
       .where("r.status_active = :active", { active: 1 });
 
+    // Filter Waktu
     if (month && month !== "all" && month !== "null") {
       const m = Number(month);
       baseQuery.andWhere("r.created_date BETWEEN :start AND :end", {
@@ -970,52 +925,70 @@ export class RequestService {
       });
     }
 
-    const [total, pending, rejected, approved, rawRequests] = await Promise.all(
-      [
+    const STATUS_PENDING = [1, 3];
+    const STATUS_REJECTED = [0, 2, 4];
+
+    // GUNAKAN getRawMany agar tidak perlu pusing dengan relasi entity
+    const [total, pending, rejected, completed, rawRequests, recentRequests] =
+      await Promise.all([
         baseQuery.getCount(),
         baseQuery
           .clone()
-          .andWhere("r.request_status IN (:...s)", { s: [1, 5] })
+          .andWhere("r.request_status IN (:...s)", { s: STATUS_PENDING })
           .getCount(),
         baseQuery
           .clone()
-          .andWhere("r.request_status IN (:...s)", { s: [2, 6] })
+          .andWhere("r.request_status IN (:...s)", { s: STATUS_REJECTED })
           .getCount(),
         baseQuery
           .clone()
-          .andWhere("r.request_status = :s", { s: 7 })
+          .andWhere("r.request_status = :s", { s: 5 })
           .getCount(),
         baseQuery
           .clone()
           .select(["r.id_request", "r.dept_id", "r.request_status"])
           .getMany(),
-      ],
-    );
+
+        // AMBIL DATA RAW: Join manual ke tabel portal_user menggunakan id_user
+        baseQuery
+          .clone()
+          .select([
+            "r.id_request AS id",
+            "u.full_name AS requester",
+            "r.request_reason AS subject",
+            "r.request_status AS status",
+            "r.created_date AS date",
+          ])
+          // PERBAIKAN DI SINI:
+          // Cek database kamu, jika kolomnya bukan 'user_id', coba ganti ke 'requestor_id'
+          .leftJoin("portal_user_db", "u", "u.id_user = id_user")
+          .orderBy("r.created_date", "DESC")
+          .limit(5)
+          .getRawMany(),
+      ]);
 
     const allDepts = await this.departmentRepo.find({
       select: ["id_department", "name_of_department"],
     });
-
     const deptMap = new Map<
       string,
-      { count: number; pending: number; approved: number }
+      { count: number; pending: number; completed: number }
     >();
 
     rawRequests.forEach((req) => {
       const dept = allDepts.find((d) => d.id_department === req.dept_id);
       const name = dept ? dept.name_of_department : "Unknown Dept";
-
       const current = deptMap.get(name) ?? {
         count: 0,
         pending: 0,
-        approved: 0,
+        completed: 0,
       };
-
       deptMap.set(name, {
         count: current.count + 1,
         pending:
-          current.pending + ([1, 5].includes(req.request_status) ? 1 : 0),
-        approved: current.approved + (req.request_status === 7 ? 1 : 0),
+          current.pending +
+          (STATUS_PENDING.includes(req.request_status) ? 1 : 0),
+        completed: current.completed + (req.request_status === 5 ? 1 : 0),
       });
     });
 
@@ -1023,30 +996,10 @@ export class RequestService {
       total,
       pending,
       rejected,
-      approved,
-      deptStats: Array.from(deptMap)
-        .map(([name, data]) => ({ name, ...data }))
-        .sort((a, b) => b.count - a.count),
+      completed,
+      deptStats: Array.from(deptMap).map(([name, data]) => ({ name, ...data })),
+      recentRequests: recentRequests, // Data sudah dalam format yang benar karena getRawMany
     };
-  }
-
-  async getAnalyticsByDept(month: number, year: number) {
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59);
-
-    const deptStats = await this.requestRepo
-      .createQueryBuilder("r")
-      .leftJoin("portal_department", "d", "r.dept_id = d.id_department")
-      .select("d.name_of_department", "label")
-      .addSelect("COUNT(r.id_request)", "value")
-      .where("r.created_date BETWEEN :start AND :end", {
-        start: startDate,
-        end: endDate,
-      })
-      .groupBy("d.name_of_department")
-      .getRawMany();
-
-    return { deptStats };
   }
 
   async remove(id: number): Promise<void> {

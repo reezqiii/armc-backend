@@ -34,7 +34,6 @@ export async function buildCompletedExcelTemplate(requests) {
     { header: "Position", key: "position", width: 26 },
     { header: "Project", key: "project", width: 22 },
     { header: "Email", key: "email", width: 32 },
-    { header: "Type", key: "type", width: 14 },
     { header: "Status", key: "status_label", width: 28 },
     { header: "Admin Status", key: "admin_status", width: 22 },
     { header: "Category Account", key: "category_account", width: 22 },

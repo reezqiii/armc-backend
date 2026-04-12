@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { PortalDepartment } from "./entities/portal_department.entity";
@@ -67,6 +67,19 @@ export class PortalDepartmentService {
   }
 
   async create(data: any, userId?: number) {
+    const isExist = await this.departmentRepository.findOne({
+      where: {
+        name_of_department: data.name_of_department,
+        is_active: 1,
+      },
+    });
+
+    if (isExist) {
+      throw new ConflictException(
+        `Department '${data.name_of_department}' already exists.`,
+      );
+    }
+
     const dept = this.departmentRepository.create({
       name_of_department: data.name_of_department,
       is_active: 1,
@@ -77,6 +90,20 @@ export class PortalDepartmentService {
 
   async update(id: number, data: any, userId?: number) {
     const dept = await this.findOne(id);
+
+    const isExist = await this.departmentRepository.findOne({
+      where: {
+        name_of_department: data.name_of_department,
+        is_active: 1,
+      },
+    });
+
+    if (isExist && isExist.id_department !== id) {
+      throw new ConflictException(
+        `Department name '${data.name_of_department}' is already used.`,
+      );
+    }
+
     dept.name_of_department = data.name_of_department;
     dept.updated_by = userId ?? null;
     return this.departmentRepository.save(dept);

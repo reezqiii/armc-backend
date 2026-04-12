@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -165,7 +166,7 @@ export class UserService {
     try {
       const u = await this._user.findOne({
         where: { id_user: id },
-        relations: ["project", "role"],
+        relations: ["project", "role"], 
       });
 
       if (!u) return null;
@@ -179,8 +180,12 @@ export class UserService {
         dept_id: u.department,
         project_id: u.project?.id ?? null,
         id_role: u.role?.id_role ?? null,
+        role: u.role ? {
+          id_role: u.role.id_role,
+          role_name: u.role.role_name
+        } : null, 
+        role_name: u.role?.role_name ?? "No Role", 
         status_user: u.status_user,
-        portal_type: u.portal_type,
         project_ids: u.addon_project
           ? u.addon_project.split(";").map(Number)
           : [],
@@ -191,18 +196,23 @@ export class UserService {
   }
 
   async createUser(data: any): Promise<User> {
+    const userExist = await this._user.findOne({
+      where: { username: data.username },
+    });
+
+    if (userExist) {
+      throw new ConflictException(
+        `Username '${data.username}' is already taken.`,
+      );
+    }
+
     const project = data.project_id
       ? await this._projectRepo.findOne({ where: { id: data.project_id } })
       : null;
 
-
     const role = data.id_role
       ? await this._roleRepo.findOne({ where: { id_role: data.id_role } })
       : null;
-
-    const addonProjects = data.project_ids?.length
-      ? await this._projectRepo.findBy({ id: In(data.project_ids) })
-      : [];
 
     const newUser = this._user.create({
       full_name: data.full_name,
@@ -214,7 +224,6 @@ export class UserService {
       department: data.department ?? null,
       project,
       role,
-      portal_type: data.portal_type ?? null,
       addon_project: data.project_ids?.join(";") ?? null,
     });
 
@@ -222,33 +231,34 @@ export class UserService {
   }
 
   async updateUser(id: number, data: any): Promise<User> {
-    const user = await this._user.findOne({
-      where: { id_user: id },
-      relations: ["project", "role"],
+    const user = await this._user.findOne({ where: { id_user: id } });
+    if (!user) throw new NotFoundException("User not found");
+
+    const isExist = await this._user.findOne({
+      where: {
+        username: data.username,
+        id_user: Not(id),
+      },
     });
 
-    if (!user) throw new NotFoundException("User not found");
+    if (isExist) {
+      throw new ConflictException(
+        `Username '${data.username}' is already used by another account.`,
+      );
+    }
 
     const project = data.project_id
       ? await this._projectRepo.findOne({ where: { id: data.project_id } })
       : null;
-
 
     const role = data.id_role
       ? await this._roleRepo.findOne({ where: { id_role: data.id_role } })
       : null;
 
     Object.assign(user, {
-      full_name: data.full_name,
-      email: data.email,
-      badge_no: data.badge_no,
-      username: data.username,
-      department: data.department ?? null,
+      ...data,
       project,
       role,
-      outside_access: data.outside_access ?? null,
-      portal_type: data.portal_type ?? null,
-      status_user: data.status_user ?? 1,
       addon_project: data.project_ids?.join(";") ?? null,
     });
 
@@ -269,7 +279,7 @@ export class UserService {
     const expiredAt = new Date(Date.now() + 60 * 60 * 1000);
 
     await this._user.update({ id_user }, {
-      password: this.hashMd5(newPassword), 
+      password: this.hashMd5(newPassword),
       last_update_password: new Date(),
       reset_token: resetToken,
       reset_token_expired: expiredAt,

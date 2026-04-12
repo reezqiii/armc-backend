@@ -16,6 +16,7 @@ import { CategoryAccount } from "portal_category_account/entities/portal_categor
 import { PortalProject } from "portal_project/entities/portal_project.entity";
 import { PortalDepartment } from "portal_department/entities/portal_department.entity";
 import { PortalPermission } from "portal_permission/permission.entity";
+import { Position } from "portal_position/entities/portal_position.entity";
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { PortalPermission } from "portal_permission/permission.entity";
       PortalProject,
       PortalDepartment,
       PortalPermission,
+      Position,
     ]),
     JwtModule.registerAsync({
       inject: [ConfigService],

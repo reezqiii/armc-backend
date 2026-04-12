@@ -78,24 +78,6 @@ export class RequestController {
     return this.requestService.cancelRequest(decId, userId);
   }
 
-  @Put(":id/hod-approval")
-  @UseGuards(JwtAuthGuard, PermissionGuard)
-  @RequirePermissions("request.approve_hod") 
-  async hodApproval(
-    @Param("id") id: string,
-    @Body() body: { action: string; remarks?: string },
-    @Req() req,
-  ) {
-    const decId = Number(this.aesEcb.decryptBase64Url(id));
-    if (isNaN(decId)) throw new BadRequestException("Invalid request ID");
-    return this.requestService.hodApproval(
-      decId,
-      body.action,
-      body.remarks,
-      req.user.id_user,
-    );
-  }
-
   @Put("hod-approval/bulk")
   @UseGuards(JwtAuthGuard, PermissionGuard)
   @RequirePermissions("request.approve_hod") 
@@ -110,23 +92,6 @@ export class RequestController {
   ) {
     return this.requestService.hodApprovalBulk(
       body.encryptedIds,
-      body.action,
-      body.remarks,
-      req.user.id_user,
-    );
-  }
-
-  @Put(":id/it-approval")
-  @UseGuards(JwtAuthGuard, PermissionGuard)
-  @RequirePermissions("request.approve_it") 
-  async itApproval(
-    @Param("id") id: string,
-    @Body() body: { action: string; remarks?: string },
-    @Req() req,
-  ) {
-    const decId = Number(this.aesEcb.decryptBase64Url(id));
-    return this.requestService.itApproval(
-      decId,
       body.action,
       body.remarks,
       req.user.id_user,

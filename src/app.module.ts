@@ -5,7 +5,6 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { ExcelModule } from "./excel/excel.module";
 import { AuthModule } from "./auth/auth.module";
-import { BookingModule } from "./bookings/booking.module";
 import { CryptoModule } from "./crypto/crypto.module";
 import { RequestModule } from "./portal_request_user_permission/request.module";
 import { NavMenuModule } from "./portal_nav_menu/menu.module";
@@ -21,6 +20,10 @@ import { PortalRoleDbModule } from "./portal_role_db/portal_role_db.module";
 import { RolePermissionModule } from "./role_has_permission/role_has_permission.module";
 import { UserModule } from "portal_user_db/user.module";
 import { JwtAuthGuard } from "jwt-auth.guard";
+import { PortalPositionModule } from './portal_position/portal_position.module';
+import { ProductionModule } from './production/production.module';
+import { EngineeringModule } from './engineering/engineering.module';
+import { WarehouseModule } from './warehouse/warehouse.module';
 
 @Module({
   imports: [
@@ -47,39 +50,6 @@ import { JwtAuthGuard } from "jwt-auth.guard";
       }),
     }),
 
-    // TypeOrmModule.forRootAsync({
-    //   name: "db_iss",
-    //   imports: [ConfigModule],
-    //   inject: [ConfigService],
-    //   useFactory: (config: ConfigService) => ({
-    //     type: "postgres",
-    //     host: config.get("DB_ISS_HOST"),
-    //     port: config.get("DB_ISS_PORT"),
-    //     username: config.get("DB_ISS_USERNAME"),
-    //     password: config.get("DB_ISS_PASSWORD"),
-    //     database: config.get("DB_ISS_NAME"),
-    //     autoLoadEntities: true,
-    //     synchronize: false,
-    //   }),
-    // }),
-
-    TypeOrmModule.forRootAsync({
-      name: "alms",
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: "postgres",
-        host: config.get("DB_ALMS_HOST"),
-        port: config.get("DB_ALMS_PORT"),
-        username: config.get("DB_ALMS_USERNAME"),
-        password: config.get("DB_ALMS_PASSWORD"),
-        database: config.get("DB_ALMS_NAME"),
-        autoLoadEntities: true,
-        synchronize: false,
-      }),
-    }),
-
-    BookingModule,
     UserModule,
     ExcelModule,
     AuthModule,
@@ -94,6 +64,10 @@ import { JwtAuthGuard } from "jwt-auth.guard";
     PortalRoleDbModule,
     PortalCategoryAccountModule,
     RolePermissionModule,
+    PortalPositionModule,
+    ProductionModule,
+    EngineeringModule,
+    WarehouseModule,
   ],
 
   providers: [

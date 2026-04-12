@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { PortalPermission } from "./permission.entity";
@@ -27,6 +27,19 @@ export class PortalPermissionService {
   }
 
   async create(data: Partial<PortalPermission>, userId?: number) {
+    const isExist = await this.permissionRepo.findOne({
+      where: [
+        { permission_name: data.permission_name, is_active: 1 },
+        { permission_key: data.permission_key, is_active: 1 }
+      ],
+    });
+
+    if (isExist) {
+      throw new ConflictException(
+        `Permission with this name or key already exists.`,
+      );
+    }
+
     const newData = this.permissionRepo.create({
       ...data,
       is_active: 1,
@@ -36,8 +49,19 @@ export class PortalPermissionService {
   }
 
   async update(id: number, data: Partial<PortalPermission>, userId?: number) {
-    const find = await this.findOne(id);
-    if (!find) throw new NotFoundException("Permission not found");
+    await this.findOne(id); 
+
+    const isExist = await this.permissionRepo.findOne({
+      where: [
+        { permission_name: data.permission_name, is_active: 1 },
+        { permission_key: data.permission_key, is_active: 1 }
+      ],
+    });
+
+    if (isExist && isExist.id_permission !== id) {
+      throw new ConflictException(`Permission name or key is already in use.`);
+    }
+
     await this.permissionRepo.update(id, {
       ...data,
       updated_by: userId ?? null,

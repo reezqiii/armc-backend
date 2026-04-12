@@ -1,6 +1,10 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Not, Repository } from "typeorm";
 import { PortalRole } from "./entities/portal_role_db.entity";
 import { CreatePortalRoleDbDto } from "./dto/create-portal_role_db.dto";
 import { UpdatePortalRoleDbDto } from "./dto/update-portal_role_db.dto";
@@ -54,10 +58,44 @@ export class PortalRoleDbService {
   }
 
   async create(createDto: CreatePortalRoleDbDto, userId?: number) {
+    const isExist = await this.roleRepository.findOne({
+      where: { role_name: createDto.role_name, is_active: 1 },
+    });
+
+    if (isExist) {
+      throw new ConflictException(
+        `Role '${createDto.role_name}' already exists.`,
+      );
+    }
+
     const role = this.roleRepository.create({
       ...createDto,
       is_active: 1,
       created_by: userId ?? null,
+    });
+    return this.roleRepository.save(role);
+  }
+
+  async update(id: number, updateDto: UpdatePortalRoleDbDto, userId?: number) {
+    const role = await this.findOne(id);
+
+    const isExist = await this.roleRepository.findOne({
+      where: {
+        role_name: updateDto.role_name,
+        is_active: 1,
+        id_role: Not(id),
+      },
+    });
+
+    if (isExist) {
+      throw new ConflictException(
+        `Role name '${updateDto.role_name}' is already used.`,
+      );
+    }
+
+    Object.assign(role, {
+      ...updateDto,
+      updated_by: userId ?? null,
     });
     return this.roleRepository.save(role);
   }
@@ -75,15 +113,6 @@ export class PortalRoleDbService {
     });
     if (!role) throw new NotFoundException("Role not found");
     return role;
-  }
-
-  async update(id: number, updateDto: UpdatePortalRoleDbDto, userId?: number) {
-    const role = await this.findOne(id);
-    Object.assign(role, {
-      ...updateDto,
-      updated_by: userId ?? null,
-    });
-    return this.roleRepository.save(role);
   }
 
   async remove(id: number, userId?: number) {

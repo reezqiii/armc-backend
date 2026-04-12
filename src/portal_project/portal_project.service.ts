@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { PortalProject } from "./entities/portal_project.entity";
@@ -67,6 +71,19 @@ export class PortalProjectService {
   }
 
   async create(data: any, userId?: number) {
+    const isExist = await this.projectRepository.findOne({
+      where: {
+        project_name: data.project_name,
+        is_active: 1,
+      },
+    });
+
+    if (isExist) {
+      throw new ConflictException(
+        `Project '${data.project_name}' already exists.`,
+      );
+    }
+
     const project = this.projectRepository.create({
       project_name: data.project_name,
       is_active: 1,
@@ -77,6 +94,20 @@ export class PortalProjectService {
 
   async update(id: number, data: any, userId?: number) {
     const project = await this.findOne(id);
+
+    const isExist = await this.projectRepository.findOne({
+      where: {
+        project_name: data.project_name,
+        is_active: 1,
+      },
+    });
+
+    if (isExist && isExist.id !== id) {
+      throw new ConflictException(
+        `Project name '${data.project_name}' is already used by another project.`,
+      );
+    }
+
     project.project_name = data.project_name;
     project.updated_by = userId ?? null;
     return this.projectRepository.save(project);

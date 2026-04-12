@@ -29,9 +29,6 @@ export class RequestEntity {
   @Column({ name: "request_status", type: "int", default: 0 })
   request_status: number;
 
-  @Column({ name: "remarks", type: "text", nullable: true })
-  remarks: string;
-
   @Column({ name: "rejected_it_remarks", type: "text", nullable: true })
   rejected_it_remarks: string;
 
@@ -44,7 +41,7 @@ export class RequestEntity {
   @Column({ name: "approval_hod_date_at", type: "timestamp", nullable: true })
   approval_hod_date_at: Date;
 
-  @Column({ name: "created_by", type: "int" })
+  @Column({ name: "created_by", type: "int", nullable: true })
   created_by: number;
 
   @Column({
@@ -74,9 +71,6 @@ export class RequestEntity {
 
   @Column({ name: "access_nav_menu", type: "varchar", nullable: true })
   access_nav_menu: string;
-
-  @Column({ name: "type", type: "int", nullable: true, default: 0 })
-  type: number; // 0 = login, 1 = public
 
   @Column({ name: "position", type: "varchar", length: 100, nullable: true })
   position: string;
