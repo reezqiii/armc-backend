@@ -1,4 +1,8 @@
-import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { PortalPermission } from "./permission.entity";
@@ -13,7 +17,7 @@ export class PortalPermissionService {
 
   findAll() {
     return this.permissionRepo.find({
-      where: { is_active: 1 }, // ← hanya active
+      where: { is_active: 1 },
       order: { permission_name: "ASC" },
     });
   }
@@ -30,7 +34,7 @@ export class PortalPermissionService {
     const isExist = await this.permissionRepo.findOne({
       where: [
         { permission_name: data.permission_name, is_active: 1 },
-        { permission_key: data.permission_key, is_active: 1 }
+        { permission_key: data.permission_key, is_active: 1 },
       ],
     });
 
@@ -49,12 +53,12 @@ export class PortalPermissionService {
   }
 
   async update(id: number, data: Partial<PortalPermission>, userId?: number) {
-    await this.findOne(id); 
+    await this.findOne(id);
 
     const isExist = await this.permissionRepo.findOne({
       where: [
         { permission_name: data.permission_name, is_active: 1 },
-        { permission_key: data.permission_key, is_active: 1 }
+        { permission_key: data.permission_key, is_active: 1 },
       ],
     });
 

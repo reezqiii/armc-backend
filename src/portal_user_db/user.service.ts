@@ -65,14 +65,12 @@ export class UserService {
         status_user: "user.status_user",
       };
 
-      // SORT
       if (sort) {
         const [col, dir] = sort.split(",");
         const column = columnMap[col];
         if (column) qb.orderBy(column, dir.toUpperCase() as "ASC" | "DESC");
       }
 
-      // SEARCH
       if (search) {
         const searchObj = JSON.parse(search);
         Object.keys(searchObj).forEach((key) => {
@@ -166,7 +164,7 @@ export class UserService {
     try {
       const u = await this._user.findOne({
         where: { id_user: id },
-        relations: ["project", "role"], 
+        relations: ["project", "role"],
       });
 
       if (!u) return null;
@@ -180,11 +178,13 @@ export class UserService {
         dept_id: u.department,
         project_id: u.project?.id ?? null,
         id_role: u.role?.id_role ?? null,
-        role: u.role ? {
-          id_role: u.role.id_role,
-          role_name: u.role.role_name
-        } : null, 
-        role_name: u.role?.role_name ?? "No Role", 
+        role: u.role
+          ? {
+              id_role: u.role.id_role,
+              role_name: u.role.role_name,
+            }
+          : null,
+        role_name: u.role?.role_name ?? "No Role",
         status_user: u.status_user,
         project_ids: u.addon_project
           ? u.addon_project.split(";").map(Number)
@@ -321,7 +321,6 @@ export class UserService {
       where: { is_active: 1 },
     });
 
-    // User per role
     const userPerRole = await this._user
       .createQueryBuilder("user")
       .leftJoin("user.role", "role")
@@ -331,7 +330,6 @@ export class UserService {
       .groupBy("role.role_name")
       .getRawMany();
 
-    // Recent password reset
     const recentReset = await this._user.find({
       where: { last_update_password: Not(IsNull()) },
       order: { last_update_password: "DESC" },

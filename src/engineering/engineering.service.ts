@@ -14,14 +14,12 @@ export class EngineeringService {
     return this.repo.find({ order: { created_at: "DESC" } });
   }
 
-  // --- TAMBAHKAN BLOK INI ---
   async findOne(id: number) {
     const record = await this.repo.findOneBy({ id });
     if (!record)
       throw new NotFoundException(`Engineering record with ID ${id} not found`);
     return record;
   }
-  // --------------------------
 
   create(data: Partial<Engineering>) {
     const newWO = this.repo.create(data);

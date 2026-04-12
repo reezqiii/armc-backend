@@ -7,7 +7,6 @@ export class AesEcbService {
   private readonly key: Buffer;
   private readonly algorithm: "aes-128-ecb" | "aes-192-ecb" | "aes-256-ecb";
 
-  
   constructor(private readonly config: ConfigService) {
     const keyB64 = this.config.get<string>("AES_KEY_B64");
 
@@ -25,10 +24,8 @@ export class AesEcbService {
         `Panjang key tidak valid: ${this.key.length} bytes. Harus 16/24/32 bytes.`,
       );
     }
-
   }
 
-  // Helpers konversi Base64 <-> Base64URL (tanpa padding)
   private toBase64Url(b64: string): string {
     return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
   }
@@ -42,7 +39,6 @@ export class AesEcbService {
     return b64;
   }
 
-  // Encrypt: plaintext (utf8) -> AES-ECB/PKCS7 -> Base64URL (tanpa padding)
   encryptToBase64Url(plaintext: string): string {
     try {
       if (typeof plaintext !== "string" || plaintext.length === 0) {
@@ -63,7 +59,6 @@ export class AesEcbService {
     }
   }
 
-  // Decrypt: Base64URL -> AES-ECB/PKCS7 -> plaintext (utf8)
   decryptBase64Url(ciphertextB64Url: string): string {
     try {
       const b64 = this.base64UrlToBase64(ciphertextB64Url);

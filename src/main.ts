@@ -5,7 +5,6 @@ import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import { ConfigService } from "@nestjs/config";
 import helmet from "helmet";
 
-
 async function bootstrap() {
   process.env.TZ = process.env.TZ || "Asia/Jakarta";
 
@@ -28,7 +27,6 @@ async function bootstrap() {
 
   app.enableCors({
     origin: (origin, callback) => {
-      // allow server-to-server / curl (no origin)
       if (!origin) return callback(null, true);
 
       const allowed = whitelist.some((item) => {

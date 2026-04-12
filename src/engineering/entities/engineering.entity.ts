@@ -1,6 +1,12 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from "typeorm";
 
-@Entity('engineering')
+@Entity("engineering")
 export class Engineering {
   @PrimaryGeneratedColumn()
   id: number;
@@ -11,13 +17,13 @@ export class Engineering {
   @Column()
   equipment_name: string;
 
-  @Column('text')
+  @Column("text")
   issue_description: string;
 
-  @Column({ default: 'Medium' }) // Low, Medium, High
+  @Column({ default: "Medium" })
   priority: string;
 
-  @Column({ default: 'Pending' }) // Pending, In Progress, Completed
+  @Column({ default: "Pending" })
   status: string;
 
   @CreateDateColumn()

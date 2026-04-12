@@ -83,7 +83,7 @@ export class UserController {
     return await this._user.getUserExtraPermissions(Number(id));
   }
 
-  @Put("/extra-permissions/:id") // ← ganti posisi
+  @Put("/extra-permissions/:id")
   @UseGuards(JwtAuthGuard, PermissionGuard)
   @RequirePermissions("user.manage")
   async updateUserExtraPermissions(

@@ -6,7 +6,7 @@ import {
 import { InjectRepository } from "@nestjs/typeorm";
 import { In, Repository } from "typeorm";
 import { PortalUserPermission } from "./user_permission.entity";
-import { PortalPermission } from "../portal_permission/permission.entity"; // sesuaikan path
+import { PortalPermission } from "../portal_permission/permission.entity";
 
 @Injectable()
 export class PortalUserPermissionService {

@@ -20,7 +20,7 @@ export class ExcelController {
     @Query("sort_by") sort_by: string,
     @Query("sort_order") sort_order: string,
     @Query("status") status: string,
-    // Tambah filter per-kolom
+
     @Query("full_name") full_name: string,
     @Query("badge_no") badge_no: string,
     @Query("email") email: string,
@@ -33,7 +33,6 @@ export class ExcelController {
     try {
       let filters: Record<string, any> = {};
 
-      // Parse JSON search jika ada
       if (search) {
         try {
           filters = JSON.parse(search);
@@ -42,7 +41,6 @@ export class ExcelController {
         }
       }
 
-      // Merge filter per-kolom dari query params
       if (full_name) filters.full_name = full_name;
       if (badge_no) filters.badge_no = badge_no;
       if (email) filters.email = email;

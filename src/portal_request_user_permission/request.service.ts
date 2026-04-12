@@ -911,7 +911,6 @@ export class RequestService {
       .createQueryBuilder("r")
       .where("r.status_active = :active", { active: 1 });
 
-    // Filter Waktu
     if (month && month !== "all" && month !== "null") {
       const m = Number(month);
       baseQuery.andWhere("r.created_date BETWEEN :start AND :end", {
@@ -928,7 +927,6 @@ export class RequestService {
     const STATUS_PENDING = [1, 3];
     const STATUS_REJECTED = [0, 2, 4];
 
-    // GUNAKAN getRawMany agar tidak perlu pusing dengan relasi entity
     const [total, pending, rejected, completed, rawRequests, recentRequests] =
       await Promise.all([
         baseQuery.getCount(),
@@ -949,7 +947,6 @@ export class RequestService {
           .select(["r.id_request", "r.dept_id", "r.request_status"])
           .getMany(),
 
-        // AMBIL DATA RAW: Join manual ke tabel portal_user menggunakan id_user
         baseQuery
           .clone()
           .select([
@@ -959,8 +956,7 @@ export class RequestService {
             "r.request_status AS status",
             "r.created_date AS date",
           ])
-          // PERBAIKAN DI SINI:
-          // Cek database kamu, jika kolomnya bukan 'user_id', coba ganti ke 'requestor_id'
+
           .leftJoin("portal_user_db", "u", "u.id_user = id_user")
           .orderBy("r.created_date", "DESC")
           .limit(5)
@@ -998,7 +994,7 @@ export class RequestService {
       rejected,
       completed,
       deptStats: Array.from(deptMap).map(([name, data]) => ({ name, ...data })),
-      recentRequests: recentRequests, // Data sudah dalam format yang benar karena getRawMany
+      recentRequests: recentRequests,
     };
   }
 

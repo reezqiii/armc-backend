@@ -18,12 +18,10 @@ export class EngineeringController {
     return this.engineeringService.findAll();
   }
 
-  // --- TAMBAHKAN BLOK INI ---
   @Get(":id")
   findOne(@Param("id") id: string) {
     return this.engineeringService.findOne(+id);
   }
-  // --------------------------
 
   @Post()
   create(@Body() body: any) {

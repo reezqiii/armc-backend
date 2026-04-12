@@ -1,4 +1,3 @@
-// role_permission/role_permission.service.ts
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
@@ -17,7 +16,6 @@ export class RolePermissionService {
     private readonly _permission: Repository<PortalPermission>,
   ) {}
 
-  // Get semua permission + tandai mana yang sudah di-assign ke role
   async getPermissionsByRole(id_role: number) {
     const role = await this._role.findOne({ where: { id_role } });
     if (!role) throw new NotFoundException("Role not found");
@@ -36,15 +34,12 @@ export class RolePermissionService {
     }));
   }
 
-  // Assign permission ke role (replace semua)
   async syncPermissions(id_role: number, permission_ids: number[]) {
     const role = await this._role.findOne({ where: { id_role } });
     if (!role) throw new NotFoundException("Role not found");
 
-    // Hapus semua permission lama
     await this._rolePermission.delete({ role: { id_role } });
 
-    // Insert permission baru
     if (permission_ids.length > 0) {
       const permissions = await this._permission.findByIds(permission_ids);
       const newEntries = permissions.map((p) =>
@@ -56,7 +51,6 @@ export class RolePermissionService {
     return { success: true, message: "Permissions updated" };
   }
 
-  // Get semua permission (untuk dropdown/checklist)
   async getAllPermissions() {
     return this._permission.find({ order: { permission_key: "ASC" } });
   }

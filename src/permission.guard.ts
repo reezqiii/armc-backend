@@ -5,11 +5,10 @@ import {
   ForbiddenException,
   SetMetadata,
 } from "@nestjs/common";
-import { Reflector} from "@nestjs/core"; // ← tambah SetMetadata
+import { Reflector } from "@nestjs/core";
 
 export const PERMISSIONS_KEY = "permissions_key";
 
-// ← Ganti Reflect.metadata dengan SetMetadata
 export const RequirePermissions = (...permissions: string[]) =>
   SetMetadata(PERMISSIONS_KEY, permissions);
 

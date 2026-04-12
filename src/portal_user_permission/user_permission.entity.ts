@@ -1,4 +1,3 @@
-// src/portal_user_permission/user_permission.entity.ts
 import { Entity, PrimaryGeneratedColumn, Column } from "typeorm";
 
 @Entity("portal_user_permission")
@@ -21,6 +20,6 @@ export class PortalUserPermission {
   @Column({ type: "timestamp", nullable: true })
   create_date: Date;
 
-  @Column({ type: "varchar", length: 100, nullable: true }) // ← TAMBAH INI
+  @Column({ type: "varchar", length: 100, nullable: true })
   permission_key: string;
 }

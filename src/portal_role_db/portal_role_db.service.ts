@@ -102,7 +102,7 @@ export class PortalRoleDbService {
 
   async findAll() {
     return this.roleRepository.find({
-      where: { is_active: 1 }, // ← hanya tampilkan active
+      where: { is_active: 1 },
       order: { role_name: "ASC" },
     });
   }

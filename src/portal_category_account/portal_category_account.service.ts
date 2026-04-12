@@ -43,6 +43,6 @@ export class PortalCategoryAccountService {
 
   async remove(id: number) {
     const category = await this.findOne(id);
-    return this.categoryRepo.remove(category); // hard delete
+    return this.categoryRepo.remove(category);
   }
 }

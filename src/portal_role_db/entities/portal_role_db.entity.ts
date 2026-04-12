@@ -15,7 +15,7 @@ export class PortalRole {
   role_name: string;
 
   @Column({ name: "is_active", type: "int", default: 1 })
-  is_active: number; // 1 = active, 0 = deleted
+  is_active: number;
 
   @Column({ name: "created_by", type: "int", nullable: true })
   created_by: number;

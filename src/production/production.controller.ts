@@ -18,12 +18,10 @@ export class ProductionController {
     return this.productionService.findAll();
   }
 
-  // --- TAMBAHKAN BLOK INI ---
   @Get(":id")
   findOne(@Param("id") id: string) {
     return this.productionService.findOne(+id);
   }
-  // --------------------------
 
   @Post()
   create(@Body() body: any) {
