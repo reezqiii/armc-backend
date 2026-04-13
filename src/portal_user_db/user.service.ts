@@ -90,7 +90,7 @@ export class UserService {
           let deptName = "-";
           if (u.department) {
             const dept = await this._portalDeptRepo.findOne({
-              where: { id_department: u.department },
+              where: { id_department: u.department?.id_department },
             });
             deptName = dept?.name_of_department ?? "-";
           }
@@ -173,10 +173,11 @@ export class UserService {
         id_user: u.id_user,
         badge_no: u.badge_no,
         full_name: u.full_name,
+        id_position: u.id_position, // <--- Pastikan dikirim ke Frontend
         username: u.username,
         email: u.email,
-        dept_id: u.department,
-        project_id: u.project?.id ?? null,
+        dept_id: u.id_department, // Sebelumnya u.department (yang sekarang jadi objek relasi)
+        project_id: u.project?.id_project ?? null,
         id_role: u.role?.id_role ?? null,
         role: u.role
           ? {
@@ -207,7 +208,9 @@ export class UserService {
     }
 
     const project = data.project_id
-      ? await this._projectRepo.findOne({ where: { id: data.project_id } })
+      ? await this._projectRepo.findOne({
+          where: { id_project: data.project_id },
+        }) // Ganti 'id' menjadi 'id_project'
       : null;
 
     const role = data.id_role
@@ -222,6 +225,7 @@ export class UserService {
       status_user: 1,
       created_date: new Date(),
       department: data.department ?? null,
+      id_position: data.id_position ?? null,
       project,
       role,
       addon_project: data.project_ids?.join(";") ?? null,
@@ -248,7 +252,9 @@ export class UserService {
     }
 
     const project = data.project_id
-      ? await this._projectRepo.findOne({ where: { id: data.project_id } })
+      ? await this._projectRepo.findOne({
+          where: { id_project: data.project_id },
+        }) // Ganti 'id' menjadi 'id_project'
       : null;
 
     const role = data.id_role
@@ -258,6 +264,7 @@ export class UserService {
     Object.assign(user, {
       ...data,
       project,
+      id_position: data.id_position ?? null,
       role,
       addon_project: data.project_ids?.join(";") ?? null,
     });

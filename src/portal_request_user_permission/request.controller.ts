@@ -71,7 +71,7 @@ export class RequestController {
 
   @Put("cancel/:id")
   @UseGuards(JwtAuthGuard, PermissionGuard)
-  @RequirePermissions("request.update")
+  @RequirePermissions("request.cancel")
   async cancelRequest(@Param("id") id: string, @Req() req) {
     const decId = Number(this.aesEcb.decryptBase64Url(id));
     const userId = req.user.id_user;

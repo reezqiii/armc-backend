@@ -158,16 +158,18 @@ export class RequestService {
       const projects = await this.projectRepo.find();
       const departments = await this.departmentRepo.find();
 
-      const projectMap = Object.fromEntries(projects.map((p) => [p.id, p]));
+      const projectMap = Object.fromEntries(
+        projects.map((p) => [p.id_project, p]),
+      );
+
       const departmentMap = Object.fromEntries(
         departments.map((d) => [d.id_department, d]),
       );
 
       let mappedData = data.map((d) => {
-        const project = projectMap[d.project_id];
-        const department = departmentMap[d.dept_id];
+        const project = projectMap[d.id_project];
+        const department = departmentMap[d.id_department];
         const requestorName = d.created_by_user?.full_name || "-";
-
         const categoryName =
           d.category?.name || (d.category_account != null ? null : null) || "-";
 
@@ -269,7 +271,7 @@ export class RequestService {
 
     const [projects, departments] = await Promise.all([
       projectIds.length > 0
-        ? this.projectRepo.find({ where: { id: In(projectIds) } })
+        ? this.projectRepo.find({ where: { id_project: In(projectIds) } })
         : [],
       deptIds.length > 0
         ? this.departmentRepo.find({ where: { id_department: In(deptIds) } })
@@ -299,7 +301,9 @@ export class RequestService {
     if (!data) throw new NotFoundException(`Request with ID ${id} not found`);
 
     const project = data.project_id
-      ? await this.projectRepo.findOne({ where: { id: data.project_id } })
+      ? await this.projectRepo.findOne({
+          where: { id_project: data.project_id },
+        })
       : null;
 
     const department = data.dept_id
@@ -308,20 +312,23 @@ export class RequestService {
         })
       : null;
 
-    const position = data.position
-      ? await this.positionRepo.findOne({
-          where: { id: Number(data.position) },
-        })
-      : null;
+    const posId = Number(data.position);
+    const position =
+      data.position && !isNaN(posId)
+        ? await this.positionRepo.findOne({
+            where: { id: posId },
+          })
+        : null;
 
     const createdByUser = data.created_by
       ? await this.userRepo.findOne({ where: { id_user: data.created_by } })
       : null;
 
+    const catId = Number(data.category_account);
     const category =
-      data.category_account != null
+      data.category_account != null && !isNaN(catId)
         ? await this.categoryRepo.findOne({
-            where: { id: Number(data.category_account) },
+            where: { id: catId },
           })
         : null;
 
@@ -530,7 +537,7 @@ export class RequestService {
 
       if (!existing) continue;
       if (existing.request_status !== 1) continue;
-      if (existing.dept_id !== hodUser.department) continue;
+      if (existing.dept_id !== hodUser.department?.id_department) continue;
 
       existing.approval_hod_date_at = new Date();
       existing.approval_hod_by = hodUser;
@@ -616,7 +623,7 @@ export class RequestService {
 
     const itHodUsers = await this.userRepo.find({
       where: {
-        department: IT_DEPT_ID,
+        id_department: IT_DEPT_ID, // Ganti 'department' menjadi 'id_department'
         role: { id_role: HOD_ROLE_ID },
       },
       relations: ["role"],
@@ -801,9 +808,9 @@ export class RequestService {
           })
           .getMany();
 
-        const projectIds = projects.map((p) => p.id);
+        const projectIds = projects.map((p) => p.id_project);
         if (projectIds.length > 0) {
-          qb.andWhere("r.project_id IN (:...projectIds)", { projectIds });
+          qb.andWhere("r.id_project IN (:...projectIds)", { projectIds });
         } else {
           qb.andWhere("1=0");
         }
@@ -845,12 +852,14 @@ export class RequestService {
     const deptMap = new Map(
       depts.map((d) => [d.id_department, d.name_of_department]),
     );
-    const projectMap = new Map(projects.map((p) => [p.id, p.project_name]));
+    const projectMap = new Map(
+      projects.map((p) => [p.id_project, p.project_name]),
+    );
 
     return requests.map((r) => ({
       ...r,
-      department_name: deptMap.get(r.r_dept_id) || "-",
-      project_name: projectMap.get(r.r_project_id) || "-",
+      department_name: deptMap.get(r.id_department) || "-",
+      project_name: projectMap.get(r.id_project) || "-",
       requestor_name: r.u_full_name || "-",
     }));
   }

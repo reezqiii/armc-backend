@@ -9,18 +9,23 @@ import {
 import { Response } from "express";
 import { buildCompletedExcelTemplate } from "./views/export_template";
 import { RequestService } from "portal_request_user_permission/request.service";
+import { JwtAuthGuard } from "jwt-auth.guard";
+import { PermissionGuard, RequirePermissions } from "permission.guard";
+import { ApiBearerAuth } from "@nestjs/swagger";
 
 @Controller("excel")
+@ApiBearerAuth("access-token") 
 export class ExcelController {
   constructor(private readonly requestService: RequestService) {}
 
   @Get("export-list")
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequirePermissions("request.export")
   async exportCompleted(
     @Query("search") search: string,
     @Query("sort_by") sort_by: string,
     @Query("sort_order") sort_order: string,
     @Query("status") status: string,
-
     @Query("full_name") full_name: string,
     @Query("badge_no") badge_no: string,
     @Query("email") email: string,

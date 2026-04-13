@@ -22,6 +22,15 @@ export class PortalPositionService {
 
     const qb = this.repository
       .createQueryBuilder("position")
+      .leftJoinAndSelect(
+        "portal_role_db",
+        "role",
+        "role.id_role = position.id_role",
+      ) // Pastikan nama tabel role sesuai
+      .select([
+        "position",
+        "role.role_name", // Ambil nama rolenya saja
+      ])
       .where("position.is_active = :active", { active: 1 });
 
     const columnMap: Record<string, string> = {

@@ -7,8 +7,8 @@ import {
 
 @Entity({ name: "portal_project" })
 export class PortalProject {
-  @PrimaryGeneratedColumn({ name: "id", type: "int" })
-  id: number;
+  @PrimaryGeneratedColumn({ name: "id_project", type: "int" })
+  id_project: number;
 
   @Column({ name: "project_name", type: "varchar", length: 250 })
   project_name: string;

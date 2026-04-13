@@ -64,7 +64,7 @@ export class PortalProjectService {
 
   async findOne(id: number) {
     const project = await this.projectRepository.findOne({
-      where: { id, is_active: 1 },
+      where: { id_project: id, is_active: 1 },
     });
     if (!project) throw new NotFoundException("Project not found");
     return project;
@@ -102,7 +102,7 @@ export class PortalProjectService {
       },
     });
 
-    if (isExist && isExist.id !== id) {
+    if (isExist && isExist.id_project !== id) {
       throw new ConflictException(
         `Project name '${data.project_name}' is already used by another project.`,
       );

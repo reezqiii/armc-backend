@@ -1,3 +1,5 @@
+import { PortalDepartment } from "portal_department/entities/portal_department.entity";
+import { Position } from "portal_position/entities/portal_position.entity";
 import { PortalProject } from "portal_project/entities/portal_project.entity";
 import { PortalRole } from "portal_role_db/entities/portal_role_db.entity";
 import {
@@ -45,11 +47,17 @@ export class User {
   })
   addon_project: string;
 
-  @Column({ name: "portal_type", type: "int", nullable: true })
-  portal_type: number;
+  @Column({ name: "id_position", type: "int", nullable: true })
+  id_position: number; // Kolom fisik untuk menyimpan ID
 
-  @Column({ name: "department", type: "int", nullable: true })
-  department: number;
+  @Column({ name: "id_role", type: "int", nullable: true })
+  id_role: number;
+
+  @Column({ name: "id_department", type: "int", nullable: true })
+  id_department: number;
+
+  @Column({ name: "id_project", type: "int", nullable: true })
+  id_project: number;
 
   @Column({ name: "reset_token", type: "varchar", length: 200, nullable: true })
   reset_token: string;
@@ -60,11 +68,19 @@ export class User {
   @Column({ name: "last_update_password", type: "timestamp", nullable: true })
   last_update_password: Date;
 
-  @ManyToOne(() => PortalProject, { nullable: true })
-  @JoinColumn({ name: "project_id" })
+  @ManyToOne(() => PortalProject)
+  @JoinColumn({ name: "id_project" }) // Pastikan ini sama dengan DB
   project: PortalProject;
+
+  @ManyToOne(() => Position, { nullable: true })
+  @JoinColumn({ name: "id_position" })
+  position: Position;
 
   @ManyToOne(() => PortalRole, { nullable: true })
   @JoinColumn({ name: "id_role" })
   role: PortalRole;
+
+  @ManyToOne(() => PortalDepartment, { nullable: true })
+  @JoinColumn({ name: "id_department" })
+  department: PortalDepartment;
 }
