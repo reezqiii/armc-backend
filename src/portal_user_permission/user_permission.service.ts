@@ -36,21 +36,18 @@ export class PortalUserPermissionService {
     const uid = Number(userId);
     if (!uid || isNaN(uid)) throw new BadRequestException(`Invalid userId`);
 
-    // 1. Hapus semua permission lama milik user ini
     await this.userPermRepo.delete({ id_user: uid });
 
     if (!permissionIds || permissionIds.length === 0) return { count: 0 };
 
-    // 2. Ambil detail permission yang baru dari tabel portal_permission
     const permissions = await this.permissionRepo.find({
       where: { id_permission: In(permissionIds) },
     });
 
-    // 3. Insert yang baru (PERBAIKAN: Jangan diconvert ke String)
     const toInsert = permissions.map((p) =>
       this.userPermRepo.create({
         id_user: uid,
-        id_portal_permission: p.id_permission as any, // Dibiarkan sebagai number
+        id_portal_permission: p.id_permission as any,
         permission_key: p.permission_key,
         create_by: createdBy ?? null,
         create_date: new Date(),
@@ -95,29 +92,25 @@ export class PortalUserPermissionService {
       );
     }
 
-    // 1. Ambil semua permission yang aktif
     const allPermissions = await this.permissionRepo.find({
       where: { is_active: 1 },
       order: { permission_group: "ASC", permission_name: "ASC" },
     });
 
-    // 2. Ambil permission apa saja yang sudah di-assign ke user ini
     const assignedRows = await this.userPermRepo.find({
       where: { id_user: uid },
     });
 
-    // PERBAIKAN UTAMA: Pastikan kita menyimpan Set berupa Number, bukan campuran
     const assignedKeys = new Set(
       assignedRows.map((r) => Number(r.id_portal_permission)),
     );
 
-    // 3. Mapping hasil akhir ke frontend
     return allPermissions.map((p) => ({
       id_permission: p.id_permission,
       permission_name: p.permission_name,
       permission_group: p.permission_group ?? "General",
       permission_key: p.permission_key,
-      // PERBAIKAN KEDUA: Cek menggunakan Number agar JavaScript === match
+
       assigned: assignedKeys.has(Number(p.id_permission)),
     }));
   }

@@ -9,6 +9,7 @@ import {
   Body,
   UseGuards,
   Req,
+  BadRequestException,
 } from "@nestjs/common";
 import { UserService } from "./user.service";
 import { User } from "./user.entity";
@@ -102,7 +103,13 @@ export class UserController {
   @UseGuards(JwtAuthGuard, PermissionGuard)
   @RequirePermissions("user.manage")
   async getUserById(@Param("id") id: string) {
-    const realId = Number(this.aesEcbService.decryptBase64Url(id));
+    const decryptedId = this.aesEcbService.decryptBase64Url(id);
+    const realId = Number(decryptedId);
+
+    if (isNaN(realId)) {
+      throw new BadRequestException("Invalid Encrypted ID");
+    }
+
     return await this._user.findOneById(realId);
   }
 }

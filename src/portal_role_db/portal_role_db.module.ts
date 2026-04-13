@@ -3,9 +3,10 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { PortalRoleDbService } from "./portal_role_db.service";
 import { PortalRoleDbController } from "./portal_role_db.controller";
 import { PortalRole } from "./entities/portal_role_db.entity";
+import { CryptoModule } from "crypto/crypto.module";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([PortalRole])],
+  imports: [TypeOrmModule.forFeature([PortalRole]), CryptoModule],
   controllers: [PortalRoleDbController],
   providers: [PortalRoleDbService],
   exports: [PortalRoleDbService],

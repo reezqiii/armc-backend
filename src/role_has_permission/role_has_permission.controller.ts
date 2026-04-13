@@ -1,9 +1,20 @@
-import { Controller, Get, Post, Param, Body } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Post,
+  Param,
+  Body,
+  BadRequestException,
+} from "@nestjs/common";
 import { RolePermissionService } from "./role_has_permission.service";
+import { AesEcbService } from "crypto/aes-ecb.service";
 
 @Controller("role-permission")
 export class RolePermissionController {
-  constructor(private readonly _service: RolePermissionService) {}
+  constructor(
+    private readonly _service: RolePermissionService,
+    private readonly aesEcbService: AesEcbService,
+  ) {}
 
   @Get("permissions")
   getAllPermissions() {
@@ -12,7 +23,16 @@ export class RolePermissionController {
 
   @Get(":id_role")
   getByRole(@Param("id_role") id_role: string) {
-    return this._service.getPermissionsByRole(+id_role);
+    try {
+      const decryptedId = this.aesEcbService.decryptBase64Url(id_role);
+      const realId = Number(decryptedId);
+
+      if (isNaN(realId)) throw new Error();
+
+      return this._service.getPermissionsByRole(realId);
+    } catch (error) {
+      throw new BadRequestException("Invalid Encrypted Role ID");
+    }
   }
 
   @Post(":id_role/sync")
@@ -20,6 +40,15 @@ export class RolePermissionController {
     @Param("id_role") id_role: string,
     @Body() body: { permission_ids: number[] },
   ) {
-    return this._service.syncPermissions(+id_role, body.permission_ids);
+    try {
+      const decryptedId = this.aesEcbService.decryptBase64Url(id_role);
+      const realId = Number(decryptedId);
+
+      if (isNaN(realId)) throw new Error();
+
+      return this._service.syncPermissions(realId, body.permission_ids);
+    } catch (error) {
+      throw new BadRequestException("Invalid Encrypted Role ID for Sync");
+    }
   }
 }

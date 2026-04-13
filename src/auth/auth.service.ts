@@ -29,7 +29,7 @@ export class AuthService {
 
     const login = await this._user.findOne({
       where: { username, status_user: 1 },
-      relations: ["role", "department", "position", "project"], // Pastikan relasi yang benar
+      relations: ["role", "department", "position", "project"],
     });
 
     if (!login) throw new UnauthorizedException("Invalid username or password");

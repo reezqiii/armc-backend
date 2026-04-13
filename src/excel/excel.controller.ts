@@ -14,7 +14,7 @@ import { PermissionGuard, RequirePermissions } from "permission.guard";
 import { ApiBearerAuth } from "@nestjs/swagger";
 
 @Controller("excel")
-@ApiBearerAuth("access-token") 
+@ApiBearerAuth("access-token")
 export class ExcelController {
   constructor(private readonly requestService: RequestService) {}
 
@@ -26,13 +26,6 @@ export class ExcelController {
     @Query("sort_by") sort_by: string,
     @Query("sort_order") sort_order: string,
     @Query("status") status: string,
-    @Query("full_name") full_name: string,
-    @Query("badge_no") badge_no: string,
-    @Query("email") email: string,
-    @Query("department_name") department_name: string,
-    @Query("project_name") project_name: string,
-    @Query("position_name") position_name: string,
-    @Query("keyword") keyword: string,
     @Res() res: Response,
   ) {
     try {
@@ -46,27 +39,23 @@ export class ExcelController {
         }
       }
 
-      if (full_name) filters.full_name = full_name;
-      if (badge_no) filters.badge_no = badge_no;
-      if (email) filters.email = email;
-      if (department_name) filters.department_name = department_name;
-      if (project_name) filters.project_name = project_name;
-      if (position_name) filters.position_name = position_name;
-      if (keyword) filters.keyword = keyword;
-
       const statusMapping: Record<string, number> = {
-        draft: 0,
-        "awaiting-hod-approval": 1,
-        "rejected-hod-approval": 2,
-        "awaiting-it-manager-approval": 3,
-        "rejected-it-manager-approval": 4,
+        canceled: 0,
+        "pending-dept-head-approval": 1,
+        "rejected-by-dept-head-approval": 2,
+        "pending-it-head-approval": 3,
+        "rejected-by-it-head-approval": 4,
         completed: 5,
-        returned: 6,
-        canceled: 7,
       };
 
-      if (status && statusMapping[status.toLowerCase()] !== undefined) {
-        filters["request_status"] = statusMapping[status.toLowerCase()];
+      if (status) {
+        const normalizedStatus = status.toLowerCase().replace(/ /g, "-");
+
+        if (statusMapping[normalizedStatus] !== undefined) {
+          filters["request_status"] = statusMapping[normalizedStatus];
+        } else if (!isNaN(Number(status))) {
+          filters["request_status"] = Number(status);
+        }
       }
 
       const requests = await this.requestService.exportList(
@@ -74,6 +63,7 @@ export class ExcelController {
         sort_by,
         sort_order,
       );
+
       const label = status ? status.toUpperCase().replace(/-/g, "_") : "ALL";
       const buffer = await buildCompletedExcelTemplate(requests);
 
@@ -85,6 +75,7 @@ export class ExcelController {
         "Content-Disposition",
         `attachment; filename=Export_Requests_${label}.xlsx`,
       );
+
       return res.status(HttpStatus.OK).send(buffer);
     } catch (err) {
       console.error("ERROR EXPORT CONTROLLER:", err);

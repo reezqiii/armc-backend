@@ -1,13 +1,27 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Req, Query } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Req,
+  Query,
+} from "@nestjs/common";
 import { PortalRoleDbService } from "./portal_role_db.service";
 import { CreatePortalRoleDbDto } from "./dto/create-portal_role_db.dto";
 import { UpdatePortalRoleDbDto } from "./dto/update-portal_role_db.dto";
+import { AesEcbService } from "crypto/aes-ecb.service";
 
 @Controller("role")
 export class PortalRoleDbController {
-  constructor(private readonly portalRoleDbService: PortalRoleDbService) {}
+  constructor(
+    private readonly portalRoleDbService: PortalRoleDbService,
+    private readonly aesEcbService: AesEcbService,
+  ) {}
 
-  @Post('serverside_list')
+  @Post("serverside_list")
   serverSideList(@Body() body: any, @Query() query: any) {
     return this.portalRoleDbService.serverSideList({
       page: Number(query.page ?? 0),
@@ -29,16 +43,27 @@ export class PortalRoleDbController {
 
   @Get(":id")
   findOne(@Param("id") id: string) {
-    return this.portalRoleDbService.findOne(+id);
+    const realId = Number(this.aesEcbService.decryptBase64Url(id));
+    return this.portalRoleDbService.findOne(realId);
   }
 
   @Patch(":id")
-  update(@Param("id") id: string, @Body() updateDto: UpdatePortalRoleDbDto, @Req() req: any) {
-    return this.portalRoleDbService.update(+id, updateDto, req.user?.id_user);
+  update(
+    @Param("id") id: string,
+    @Body() updateDto: UpdatePortalRoleDbDto,
+    @Req() req: any,
+  ) {
+    const realId = Number(this.aesEcbService.decryptBase64Url(id));
+    return this.portalRoleDbService.update(
+      realId,
+      updateDto,
+      req.user?.id_user,
+    );
   }
 
   @Delete(":id")
   remove(@Param("id") id: string, @Req() req: any) {
-    return this.portalRoleDbService.remove(+id, req.user?.id_user);
+    const realId = Number(this.aesEcbService.decryptBase64Url(id));
+    return this.portalRoleDbService.remove(realId, req.user?.id_user);
   }
 }

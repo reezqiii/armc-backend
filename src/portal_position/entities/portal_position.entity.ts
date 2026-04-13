@@ -2,8 +2,8 @@ import { Entity, PrimaryGeneratedColumn, Column } from "typeorm";
 
 @Entity("portal_position")
 export class Position {
-  @PrimaryGeneratedColumn({ type: "int4" })
-  id: number;
+  @PrimaryGeneratedColumn({ name: "id_position", type: "int4" })
+  id_position: number;
 
   @Column({ type: "varchar", length: 250 })
   position_name: string;

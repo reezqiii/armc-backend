@@ -12,10 +12,14 @@ import {
 import { PortalPositionService } from "./portal_position.service";
 import { CreatePortalPositionDto } from "./dto/create-portal_position.dto";
 import { UpdatePortalPositionDto } from "./dto/update-portal_position.dto";
+import { AesEcbService } from "crypto/aes-ecb.service";
 
 @Controller("portal-position")
 export class PortalPositionController {
-  constructor(private readonly portalPositionService: PortalPositionService) {}
+  constructor(
+    private readonly portalPositionService: PortalPositionService,
+    private readonly aesEcbService: AesEcbService,
+  ) {}
 
   @Post("serverside_list")
   serverSideList(@Body() body: any, @Query() query: any) {
@@ -39,7 +43,8 @@ export class PortalPositionController {
 
   @Get(":id")
   findOne(@Param("id") id: string) {
-    return this.portalPositionService.findOne(+id);
+    const realId = Number(this.aesEcbService.decryptBase64Url(id));
+    return this.portalPositionService.findOne(realId);
   }
 
   @Patch(":id")
@@ -48,11 +53,17 @@ export class PortalPositionController {
     @Body() updateDto: UpdatePortalPositionDto,
     @Req() req: any,
   ) {
-    return this.portalPositionService.update(+id, updateDto, req.user?.id_user);
+    const realId = Number(this.aesEcbService.decryptBase64Url(id));
+    return this.portalPositionService.update(
+      realId,
+      updateDto,
+      req.user?.id_user,
+    );
   }
 
   @Delete(":id")
   remove(@Param("id") id: string, @Req() req: any) {
-    return this.portalPositionService.remove(+id, req.user?.id_user);
+    const realId = Number(this.aesEcbService.decryptBase64Url(id));
+    return this.portalPositionService.remove(realId, req.user?.id_user);
   }
 }

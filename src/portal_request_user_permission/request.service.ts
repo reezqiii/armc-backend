@@ -263,10 +263,10 @@ export class RequestService {
     if (data.length === 0) return [];
 
     const projectIds = Array.from(
-      new Set(data.map((d) => d.project_id).filter((id) => id != null)),
+      new Set(data.map((d) => d.id_project).filter((id) => id != null)),
     );
     const deptIds = Array.from(
-      new Set(data.map((d) => d.dept_id).filter((id) => id != null)),
+      new Set(data.map((d) => d.id_department).filter((id) => id != null)),
     );
 
     const [projects, departments] = await Promise.all([
@@ -287,8 +287,8 @@ export class RequestService {
 
     return data.map((d) => ({
       ...d,
-      project_name: projectMap.get(d.project_id) ?? "-",
-      department_name: deptMap.get(d.dept_id) ?? "-",
+      project_name: projectMap.get(d.id_project) ?? "-",
+      department_name: deptMap.get(d.id_department) ?? "-",
     }));
   }
 
@@ -300,15 +300,15 @@ export class RequestService {
 
     if (!data) throw new NotFoundException(`Request with ID ${id} not found`);
 
-    const project = data.project_id
+    const project = data.id_project
       ? await this.projectRepo.findOne({
-          where: { id_project: data.project_id },
+          where: { id_project: data.id_project },
         })
       : null;
 
-    const department = data.dept_id
+    const department = data.id_department
       ? await this.departmentRepo.findOne({
-          where: { id_department: data.dept_id },
+          where: { id_department: data.id_department },
         })
       : null;
 
@@ -316,7 +316,7 @@ export class RequestService {
     const position =
       data.position && !isNaN(posId)
         ? await this.positionRepo.findOne({
-            where: { id: posId },
+            where: { id_position: posId },
           })
         : null;
 
@@ -343,8 +343,8 @@ export class RequestService {
       email: data.email,
       request_reason: data.request_reason,
       request_status: data.request_status,
-      dept_id: data.dept_id,
-      project_id: data.project_id,
+      id_department: data.id_department,
+      id_project: data.id_project,
       project_name: project?.project_name || null,
       department_name: department?.name_of_department || null,
       category_account_name: data.category?.name || category?.name || "-",
@@ -420,8 +420,8 @@ export class RequestService {
       email: data.email,
       position: data.position,
       badge_no: badgeInput,
-      project_id: data.project_id || null,
-      dept_id: data.dept_id || null,
+      id_project: data.id_project || null,
+      id_department: data.id_department || null,
       access_nav_menu: accessNavMenuValue,
       request_status: data.request_status ?? 1,
       status_active: data.status_active ?? 1,
@@ -537,7 +537,8 @@ export class RequestService {
 
       if (!existing) continue;
       if (existing.request_status !== 1) continue;
-      if (existing.dept_id !== hodUser.department?.id_department) continue;
+      if (existing.id_department !== hodUser.department?.id_department)
+        continue;
 
       existing.approval_hod_date_at = new Date();
       existing.approval_hod_by = hodUser;
@@ -623,7 +624,7 @@ export class RequestService {
 
     const itHodUsers = await this.userRepo.find({
       where: {
-        id_department: IT_DEPT_ID, // Ganti 'department' menjadi 'id_department'
+        id_department: IT_DEPT_ID, 
         role: { id_role: HOD_ROLE_ID },
       },
       relations: ["role"],
@@ -831,7 +832,7 @@ export class RequestService {
         category_account_name: "cat.name",
         requestor_name: "u.full_name",
         department_name: "r.dept_id",
-        project_name: "r.project_id",
+        project_name: "r.id_project",
       };
       const sortColumn = sortColumnMap[sort_by] ?? `r.${sort_by}`;
       qb.orderBy(
@@ -937,7 +938,8 @@ export class RequestService {
     const STATUS_REJECTED = [0, 2, 4];
 
     const [total, pending, rejected, completed, rawRequests, recentRequests] =
-      await Promise.all([
+      
+    await Promise.all([
         baseQuery.getCount(),
         baseQuery
           .clone()
@@ -953,7 +955,7 @@ export class RequestService {
           .getCount(),
         baseQuery
           .clone()
-          .select(["r.id_request", "r.dept_id", "r.request_status"])
+          .select(["r.id_request", "r.id_department", "r.request_status"])
           .getMany(),
 
         baseQuery
@@ -981,7 +983,7 @@ export class RequestService {
     >();
 
     rawRequests.forEach((req) => {
-      const dept = allDepts.find((d) => d.id_department === req.dept_id);
+      const dept = allDepts.find((d) => d.id_department === req.id_department);
       const name = dept ? dept.name_of_department : "Unknown Dept";
       const current = deptMap.get(name) ?? {
         count: 0,

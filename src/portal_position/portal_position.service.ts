@@ -26,10 +26,10 @@ export class PortalPositionService {
         "portal_role_db",
         "role",
         "role.id_role = position.id_role",
-      ) // Pastikan nama tabel role sesuai
+      ) 
       .select([
         "position",
-        "role.role_name", // Ambil nama rolenya saja
+        "role.role_name", 
       ])
       .where("position.is_active = :active", { active: 1 });
 
@@ -94,7 +94,7 @@ export class PortalPositionService {
       where: {
         position_name: dto.position_name,
         is_active: 1,
-        id: Not(id),
+        id_position: Not(id),
       },
     });
 
@@ -127,7 +127,7 @@ export class PortalPositionService {
   }
 
   async findOne(id: number) {
-    const data = await this.repository.findOneBy({ id, is_active: 1 });
+    const data = await this.repository.findOneBy({ id_position: id, is_active: 1 });
     if (!data) throw new NotFoundException("Position not found");
     return data;
   }

@@ -50,14 +50,17 @@ export class UserService {
       const qb = this._user
         .createQueryBuilder("user")
         .leftJoinAndSelect("user.project", "project")
-        .leftJoinAndSelect("user.role", "role");
+        .leftJoinAndSelect("user.role", "role")
+        .leftJoinAndSelect("user.department", "department")
+        .leftJoinAndSelect("user.position", "position");
 
       const columnMap: Record<string, string> = {
         badge_no: "user.badge_no",
         username: "user.username",
         full_name: "user.full_name",
         email: "user.email",
-        department_name: "dept.name_of_department",
+        department_name: "department.name_of_department",
+        position_name: "position.position_name",
         project_name: "project.project_name",
         role_name: "role.role_name",
         created_date: "user.created_date",
@@ -85,24 +88,15 @@ export class UserService {
 
       const [data, total] = await qb.skip(skip).take(take).getManyAndCount();
 
-      const mappedData = await Promise.all(
-        data.map(async (u) => {
-          let deptName = "-";
-          if (u.department) {
-            const dept = await this._portalDeptRepo.findOne({
-              where: { id_department: u.department?.id_department },
-            });
-            deptName = dept?.name_of_department ?? "-";
-          }
-
-          return {
-            ...u,
-            department_name: deptName,
-            project_name: u.project?.project_name ?? "-",
-            role_name: u.role?.role_name ?? "-",
-          };
-        }),
-      );
+      const mappedData = data.map((u) => {
+        return {
+          ...u,
+          department_name: u.department?.name_of_department ?? "-",
+          position_name: u.position?.position_name ?? "-",
+          project_name: u.project?.project_name ?? "-",
+          role_name: u.role?.role_name ?? "-",
+        };
+      });
 
       return {
         data: mappedData,
@@ -164,7 +158,8 @@ export class UserService {
     try {
       const u = await this._user.findOne({
         where: { id_user: id },
-        relations: ["project", "role"],
+
+        relations: ["project", "role", "department", "position"],
       });
 
       if (!u) return null;
@@ -173,11 +168,12 @@ export class UserService {
         id_user: u.id_user,
         badge_no: u.badge_no,
         full_name: u.full_name,
-        id_position: u.id_position, // <--- Pastikan dikirim ke Frontend
         username: u.username,
         email: u.email,
-        dept_id: u.id_department, // Sebelumnya u.department (yang sekarang jadi objek relasi)
-        project_id: u.project?.id_project ?? null,
+
+        id_department: u.id_department,
+        id_position: u.id_position,
+        id_project: u.project?.id_project ?? null,
         id_role: u.role?.id_role ?? null,
         role: u.role
           ? {
@@ -207,10 +203,10 @@ export class UserService {
       );
     }
 
-    const project = data.project_id
+    const project = data.id_project
       ? await this._projectRepo.findOne({
-          where: { id_project: data.project_id },
-        }) // Ganti 'id' menjadi 'id_project'
+          where: { id_project: data.id_project },
+        })
       : null;
 
     const role = data.id_role
@@ -224,7 +220,7 @@ export class UserService {
       username: data.username,
       status_user: 1,
       created_date: new Date(),
-      department: data.department ?? null,
+      id_department: data.id_department ?? null,
       id_position: data.id_position ?? null,
       project,
       role,
@@ -251,10 +247,10 @@ export class UserService {
       );
     }
 
-    const project = data.project_id
+    const project = data.id_project
       ? await this._projectRepo.findOne({
-          where: { id_project: data.project_id },
-        }) // Ganti 'id' menjadi 'id_project'
+          where: { id_project: data.id_project },
+        })
       : null;
 
     const role = data.id_role
@@ -264,6 +260,7 @@ export class UserService {
     Object.assign(user, {
       ...data,
       project,
+      id_department: data.id_department ?? null,
       id_position: data.id_position ?? null,
       role,
       addon_project: data.project_ids?.join(";") ?? null,
@@ -412,7 +409,7 @@ export class UserService {
       .leftJoin("user.role", "role")
       .where("LOWER(role.role_name) = :role", { role: "head of department" })
       .andWhere("user.status_user = :status", { status: 1 })
-      .andWhere("user.department = :dept_id", { dept_id })
+      .andWhere("user.id_department = :dept_id", { dept_id })
       .select(["user.id_user", "user.full_name", "user.badge_no"])
       .orderBy("user.full_name", "ASC")
       .getMany();

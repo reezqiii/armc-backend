@@ -9,13 +9,18 @@ import {
   Query,
   Req,
   UseGuards,
+  BadRequestException,
 } from "@nestjs/common";
 import { PortalUserPermissionService } from "./user_permission.service";
 import { JwtAuthGuard } from "jwt-auth.guard";
+import { AesEcbService } from "crypto/aes-ecb.service"; 
 
 @Controller("portal_user_permission")
 export class PortalUserPermissionController {
-  constructor(private readonly service: PortalUserPermissionService) {}
+  constructor(
+    private readonly service: PortalUserPermissionService,
+    private readonly aesEcbService: AesEcbService, 
+  ) {}
 
   @Get("me")
   @UseGuards(JwtAuthGuard)
@@ -26,7 +31,16 @@ export class PortalUserPermissionController {
 
   @Get("user/:userId")
   getUserPermissionList(@Param("userId") userId: string) {
-    return this.service.getUserPermissionList(+userId);
+    try {
+      const decryptedId = this.aesEcbService.decryptBase64Url(userId);
+      const realUserId = Number(decryptedId);
+
+      if (isNaN(realUserId)) throw new Error();
+
+      return this.service.getUserPermissionList(realUserId);
+    } catch (error) {
+      throw new BadRequestException("Invalid Encrypted User ID");
+    }
   }
 
   @Post("user/:userId/sync")
@@ -36,12 +50,21 @@ export class PortalUserPermissionController {
     @Body() body: { permission_ids: number[] },
     @Req() req,
   ) {
-    const createdBy = req.user?.id ?? null;
-    return this.service.syncUserPermissions(
-      +userId,
-      body.permission_ids,
-      createdBy,
-    );
+    try {
+      const decryptedId = this.aesEcbService.decryptBase64Url(userId);
+      const realUserId = Number(decryptedId);
+
+      if (isNaN(realUserId)) throw new Error();
+
+      const createdBy = req.user?.id ?? null;
+      return this.service.syncUserPermissions(
+        realUserId,
+        body.permission_ids,
+        createdBy,
+      );
+    } catch (error) {
+      throw new BadRequestException("Invalid Encrypted User ID for Sync");
+    }
   }
 
   @Get()
@@ -59,7 +82,8 @@ export class PortalUserPermissionController {
 
   @Get(":id")
   getOne(@Param("id") id: string) {
-    return this.service.findOne(+id);
+    const realId = Number(this.aesEcbService.decryptBase64Url(id));
+    return this.service.findOne(realId);
   }
 
   @Post()
@@ -69,11 +93,13 @@ export class PortalUserPermissionController {
 
   @Put(":id")
   update(@Param("id") id: string, @Body() body: any) {
-    return this.service.update(+id, body);
+    const realId = Number(this.aesEcbService.decryptBase64Url(id));
+    return this.service.update(realId, body);
   }
 
   @Delete(":id")
   delete(@Param("id") id: string) {
-    return this.service.delete(+id);
+    const realId = Number(this.aesEcbService.decryptBase64Url(id));
+    return this.service.delete(realId);
   }
 }

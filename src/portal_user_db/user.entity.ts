@@ -48,7 +48,7 @@ export class User {
   addon_project: string;
 
   @Column({ name: "id_position", type: "int", nullable: true })
-  id_position: number; // Kolom fisik untuk menyimpan ID
+  id_position: number; 
 
   @Column({ name: "id_role", type: "int", nullable: true })
   id_role: number;
@@ -69,7 +69,7 @@ export class User {
   last_update_password: Date;
 
   @ManyToOne(() => PortalProject)
-  @JoinColumn({ name: "id_project" }) // Pastikan ini sama dengan DB
+  @JoinColumn({ name: "id_project" }) 
   project: PortalProject;
 
   @ManyToOne(() => Position, { nullable: true })

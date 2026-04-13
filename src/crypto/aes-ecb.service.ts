@@ -45,7 +45,7 @@ export class AesEcbService {
         throw new BadRequestException("Plaintext tidak boleh kosong");
       }
       const cipher = createCipheriv(this.algorithm, this.key, null);
-      cipher.setAutoPadding(true); // PKCS#7
+      cipher.setAutoPadding(true);
 
       const ciphertext = Buffer.concat([
         cipher.update(Buffer.from(plaintext, "utf8")),
@@ -65,7 +65,7 @@ export class AesEcbService {
       const ciphertext = Buffer.from(b64, "base64");
 
       const decipher = createDecipheriv(this.algorithm, this.key, null);
-      decipher.setAutoPadding(true); // PKCS#7
+      decipher.setAutoPadding(true);
 
       const decrypted = Buffer.concat([
         decipher.update(ciphertext),

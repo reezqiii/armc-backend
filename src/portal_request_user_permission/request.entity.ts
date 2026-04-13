@@ -8,6 +8,9 @@ import {
 import { User } from "../portal_user_db/user.entity";
 import { NavMenu } from "portal_nav_menu/menu.entity";
 import { CategoryAccount } from "portal_category_account/entities/portal_category_account.entity";
+import { PortalProject } from "portal_project/entities/portal_project.entity";
+import { Position } from "portal_position/entities/portal_position.entity";
+import { PortalDepartment } from "portal_department/entities/portal_department.entity";
 
 @Entity("portal_request_user_permission")
 export class RequestEntity {
@@ -60,11 +63,14 @@ export class RequestEntity {
   @Column({ name: "canceled_date", type: "timestamp", nullable: true })
   canceled_date: Date;
 
-  @Column({ name: "project_id", type: "int", nullable: true })
-  project_id: number;
+  @Column({ name: "id_project", type: "int4", nullable: true })
+  id_project: number;
 
-  @Column({ name: "dept_id", type: "int", nullable: true })
-  dept_id: number;
+  @Column({ name: "id_position", type: "int4", nullable: true })
+  id_position: number;
+
+  @Column({ name: "id_department", type: "int4", nullable: true })
+  id_department: number;
 
   @Column({ name: "approval_it_hod_by", type: "int", nullable: true })
   approval_it_hod_by_id: number;
@@ -77,6 +83,18 @@ export class RequestEntity {
 
   @Column({ name: "category_account", type: "int", nullable: true })
   category_account: number;
+
+  @ManyToOne(() => PortalProject)
+  @JoinColumn({ name: "id_project" })
+  project: PortalProject;
+
+  @ManyToOne(() => Position)
+  @JoinColumn({ name: "id_position" })
+  position_obj: Position;
+
+  @ManyToOne(() => PortalDepartment)
+  @JoinColumn({ name: "id_department" })
+  department: PortalDepartment;
 
   @ManyToOne(() => CategoryAccount, { nullable: true })
   @JoinColumn({ name: "category_account" })

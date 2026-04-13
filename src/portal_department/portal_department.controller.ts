@@ -10,11 +10,13 @@ import {
   Query,
 } from "@nestjs/common";
 import { PortalDepartmentService } from "./portal_department.service";
+import { AesEcbService } from "crypto/aes-ecb.service";
 
 @Controller("portal-department")
 export class PortalDepartmentController {
   constructor(
     private readonly portalDepartmentService: PortalDepartmentService,
+    private readonly aesEcbService: AesEcbService,
   ) {}
 
   @Post("serverside_list")
@@ -39,16 +41,19 @@ export class PortalDepartmentController {
 
   @Get(":id")
   findOne(@Param("id") id: string) {
-    return this.portalDepartmentService.findOne(+id);
+    const realId = Number(this.aesEcbService.decryptBase64Url(id));
+    return this.portalDepartmentService.findOne(realId);
   }
 
   @Patch(":id")
   update(@Param("id") id: string, @Body() body: any, @Req() req: any) {
-    return this.portalDepartmentService.update(+id, body, req.user?.id_user);
+    const realId = Number(this.aesEcbService.decryptBase64Url(id));
+    return this.portalDepartmentService.update(realId, body, req.user?.id_user);
   }
 
   @Delete(":id")
   remove(@Param("id") id: string, @Req() req: any) {
-    return this.portalDepartmentService.remove(+id, req.user?.id_user);
+    const realId = Number(this.aesEcbService.decryptBase64Url(id));
+    return this.portalDepartmentService.remove(realId, req.user?.id_user);
   }
 }

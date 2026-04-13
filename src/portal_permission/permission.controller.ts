@@ -12,10 +12,14 @@ import {
 import { PortalPermissionService } from "./permission.service";
 import { PortalPermission } from "./permission.entity";
 import { ServerSideDTO } from "DTO/dto.serverside";
+import { AesEcbService } from "crypto/aes-ecb.service";
 
 @Controller("portal-permission")
 export class PortalPermissionController {
-  constructor(private readonly service: PortalPermissionService) {}
+  constructor(
+    private readonly service: PortalPermissionService,
+    private readonly aesEcbService: AesEcbService,
+  ) {}
 
   @Get()
   getAll() {
@@ -24,7 +28,8 @@ export class PortalPermissionController {
 
   @Get(":id")
   getOne(@Param("id") id: string) {
-    return this.service.findOne(+id);
+    const decryptedId = this.aesEcbService.decryptBase64Url(id);
+    return this.service.findOne(Number(decryptedId));
   }
 
   @Post()
@@ -38,12 +43,14 @@ export class PortalPermissionController {
     @Body() body: Partial<PortalPermission>,
     @Req() req: any,
   ) {
-    return this.service.update(+id, body, req.user?.id_user);
+    const decryptedId = this.aesEcbService.decryptBase64Url(id);
+    return this.service.update(Number(decryptedId), body, req.user?.id_user);
   }
 
   @Delete(":id")
   delete(@Param("id") id: string, @Req() req: any) {
-    return this.service.delete(+id, req.user?.id_user);
+    const decryptedId = this.aesEcbService.decryptBase64Url(id);
+    return this.service.delete(Number(decryptedId), req.user?.id_user);
   }
 
   @Post("serverside_list")
