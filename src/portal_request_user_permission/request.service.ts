@@ -58,6 +58,9 @@ export class RequestService {
         .leftJoinAndSelect("request.approval_hod_by", "approvalHod")
         .leftJoinAndSelect("request.approval_it_hod_by", "approvalIt")
         .leftJoinAndSelect("request.created_by_user", "requestor")
+        .leftJoinAndSelect("request.project", "project")
+        .leftJoinAndSelect("request.department", "department")
+        .leftJoinAndSelect("request.position_obj", "position")
         .where("request.status_active = :active", { active: 1 });
 
       const columnMap: Record<string, string> = {
@@ -67,22 +70,21 @@ export class RequestService {
         email: "request.email",
         requestor_id: "request.created_by",
         requestor: "requestor.full_name",
+        requestor_name: "requestor.full_name",
         request_status: "request.request_status",
         created_date: "request.created_date",
         status_active: "request.status_active",
-        requestor_name: "requestor.full_name",
         approval_hod: "approvalHod.full_name",
         approval_hod_by: "approvalHod.id_user",
         approval_it: "approvalIt.full_name",
         category_account: "category.id",
         category_account_name: "category.name",
         dept_id: "request.dept_id",
+        department_name: "department.name_of_department",
+        project_name: "project.project_name",
+        position: "position.position_name",
+        position_name: "position.position_name",
       };
-
-      const manualSortFields = ["department_name", "project_name"];
-      let manualSearchQueue: Array<{ field: string; value: any }> = [];
-      let manualSortField: string | null = null;
-      let manualSortDir: "ASC" | "DESC" = "ASC";
 
       if (search) {
         let filters: Record<string, any> = {};
@@ -92,18 +94,11 @@ export class RequestService {
           throw new InternalServerErrorException("Invalid JSON search format");
         }
 
-        const manualFields = ["department_name", "project_name"];
-
         for (const [key, value] of Object.entries(filters)) {
-          if (value === undefined || value === null) continue;
-
-          if (manualFields.includes(key)) {
-            manualSearchQueue.push({ field: key, value });
-            continue;
-          }
+          if (value === undefined || value === null || value === "") continue;
 
           if (key === "requestor" || key === "requestor_name") {
-            qb.andWhere(`requestor.full_name ILIKE :req_name`, {
+            qb.andWhere(`CAST(requestor.full_name AS TEXT) ILIKE :req_name`, {
               req_name: `%${value}%`,
             });
             continue;
@@ -132,57 +127,30 @@ export class RequestService {
         const [sortField, sortDirRaw] = sort.split(",");
         const sortDir = sortDirRaw?.toUpperCase() === "DESC" ? "DESC" : "ASC";
 
-        if (manualSortFields.includes(sortField)) {
-          manualSortField = sortField;
-          manualSortDir = sortDir;
-        } else {
-          const column = columnMap[sortField] ?? `request.${sortField}`;
-          qb.orderBy(column, sortDir);
-        }
+        const column = columnMap[sortField] ?? `request.${sortField}`;
+        qb.orderBy(column, sortDir);
       } else {
         qb.orderBy("request.created_date", "DESC");
       }
 
-      const hasManualFilter = manualSearchQueue.length > 0;
-      const hasManualSort = !!manualSortField;
+      const [data, totalCount] = await qb
+        .skip(skip)
+        .take(take)
+        .getManyAndCount();
 
-      let data: any[];
-      let totalCount: number;
-
-      if (hasManualFilter || hasManualSort) {
-        [data, totalCount] = await qb.getManyAndCount();
-      } else {
-        [data, totalCount] = await qb.skip(skip).take(take).getManyAndCount();
-      }
-
-      const projects = await this.projectRepo.find();
-      const departments = await this.departmentRepo.find();
-
-      const projectMap = Object.fromEntries(
-        projects.map((p) => [p.id_project, p]),
-      );
-
-      const departmentMap = Object.fromEntries(
-        departments.map((d) => [d.id_department, d]),
-      );
-
-      let mappedData = data.map((d) => {
-        const project = projectMap[d.id_project];
-        const department = departmentMap[d.id_department];
-        const requestorName = d.created_by_user?.full_name || "-";
-        const categoryName =
-          d.category?.name || (d.category_account != null ? null : null) || "-";
-
+      const finalData = data.map((d, index) => {
         return {
+          no_request: skip + index + 1,
           id_request: d.id_request,
           created_by: d.created_by,
           created_date: d.created_date,
-          created_by_name: requestorName,
+          created_by_name: d.created_by_user?.full_name || "-",
           full_name: d.full_name,
           badge_no: d.badge_no,
           email: d.email,
-          project_name: project?.project_name || "-",
-          department_name: department?.name_of_department || "-",
+          position_name: d.position_obj?.position_name || "-",
+          project_name: d.project?.project_name || "-",
+          department_name: d.department?.name_of_department || "-",
           request_status: d.request_status,
           request_status_name: getStatusLabel(
             "request_status",
@@ -211,42 +179,10 @@ export class RequestService {
         };
       });
 
-      for (const { field, value } of manualSearchQueue) {
-        const searchValue = String(value).toLowerCase();
-        mappedData = mappedData.filter((item) =>
-          String(item[field] ?? "")
-            .toLowerCase()
-            .includes(searchValue),
-        );
-      }
-
-      if (manualSortField) {
-        const direction = manualSortDir === "DESC" ? -1 : 1;
-        mappedData.sort(
-          (a, b) =>
-            String(a[manualSortField] ?? "").localeCompare(
-              String(b[manualSortField] ?? ""),
-            ) * direction,
-        );
-      }
-
-      const filteredTotal =
-        hasManualFilter || hasManualSort ? mappedData.length : totalCount;
-
-      const paginatedData =
-        hasManualFilter || hasManualSort
-          ? mappedData.slice(skip, skip + take)
-          : mappedData;
-
-      const finalData = paginatedData.map((item, index) => ({
-        ...item,
-        no_request: skip + index + 1,
-      }));
-
       return {
         data: finalData,
-        total_records: filteredTotal,
-        total_pages: Math.ceil(filteredTotal / take),
+        total_records: totalCount,
+        total_pages: Math.ceil(totalCount / take),
         page,
         size: take,
       };
@@ -312,13 +248,11 @@ export class RequestService {
         })
       : null;
 
-    const posId = Number(data.position);
-    const position =
-      data.position && !isNaN(posId)
-        ? await this.positionRepo.findOne({
-            where: { id_position: posId },
-          })
-        : null;
+    const position = data.id_position
+      ? await this.positionRepo.findOne({
+          where: { id_position: data.id_position as any },
+        })
+      : null;
 
     const createdByUser = data.created_by
       ? await this.userRepo.findOne({ where: { id_user: data.created_by } })
@@ -337,7 +271,7 @@ export class RequestService {
       created_date: data.created_date,
       created_by_name: createdByUser?.full_name || null,
       position_name: position?.position_name || null,
-      position: data.position,
+      position: data.id_position,
       full_name: data.full_name,
       badge_no: data.badge_no,
       email: data.email,
@@ -418,7 +352,7 @@ export class RequestService {
       full_name: data.full_name,
       request_reason: data.request_reason,
       email: data.email,
-      position: data.position,
+      id_position: data.id_position || (data as any).position || null,
       badge_no: badgeInput,
       id_project: data.id_project || null,
       id_department: data.id_department || null,
@@ -624,7 +558,7 @@ export class RequestService {
 
     const itHodUsers = await this.userRepo.find({
       where: {
-        id_department: IT_DEPT_ID, 
+        id_department: IT_DEPT_ID,
         role: { id_role: HOD_ROLE_ID },
       },
       relations: ["role"],
@@ -938,8 +872,7 @@ export class RequestService {
     const STATUS_REJECTED = [0, 2, 4];
 
     const [total, pending, rejected, completed, rawRequests, recentRequests] =
-      
-    await Promise.all([
+      await Promise.all([
         baseQuery.getCount(),
         baseQuery
           .clone()

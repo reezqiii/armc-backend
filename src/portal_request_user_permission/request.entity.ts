@@ -17,16 +17,16 @@ export class RequestEntity {
   @PrimaryGeneratedColumn({ name: "id_request" })
   id_request: number;
 
-  @Column({ name: "full_name", type: "varchar", length: 255 })
+  @Column({ name: "full_name", type: "varchar", length: 255, nullable: true })
   full_name: string;
 
-  @Column({ name: "badge_no", type: "varchar", length: 50 })
+  @Column({ name: "badge_no", type: "varchar", length: 50, nullable: true })
   badge_no: string;
 
-  @Column({ name: "email", type: "varchar", length: 255 })
+  @Column({ name: "email", type: "varchar", length: 255, nullable: true })
   email: string;
 
-  @Column({ name: "request_reason", type: "text" })
+  @Column({ name: "request_reason", type: "text", nullable: true })
   request_reason: string;
 
   @Column({ name: "request_status", type: "int", default: 0 })
@@ -54,7 +54,7 @@ export class RequestEntity {
   })
   created_date: Date;
 
-  @Column({ name: "status_active", type: "int" })
+  @Column({ name: "status_active", type: "int", nullable: true })
   status_active: number;
 
   @Column({ name: "canceled_by", type: "int", nullable: true })
@@ -63,34 +63,30 @@ export class RequestEntity {
   @Column({ name: "canceled_date", type: "timestamp", nullable: true })
   canceled_date: Date;
 
-  @Column({ name: "id_project", type: "int4", nullable: true })
+  @Column({ name: "id_project", type: "int", nullable: true })
   id_project: number;
 
-  @Column({ name: "id_position", type: "int4", nullable: true })
-  id_position: number;
-
-  @Column({ name: "id_department", type: "int4", nullable: true })
+  @Column({ name: "id_department", type: "int", nullable: true })
   id_department: number;
 
-  @Column({ name: "approval_it_hod_by", type: "int", nullable: true })
-  approval_it_hod_by_id: number;
+  @Column({ name: "id_position", type: "varchar", nullable: true })
+  id_position: string;
 
   @Column({ name: "access_nav_menu", type: "varchar", nullable: true })
   access_nav_menu: string;
 
-  @Column({ name: "position", type: "varchar", length: 100, nullable: true })
-  position: string;
-
   @Column({ name: "category_account", type: "int", nullable: true })
   category_account: number;
+
+  @Column({ name: "approval_hod_by", type: "int", nullable: true })
+  approval_hod_by_id: number;
+
+  @Column({ name: "approval_it_hod_by", type: "int", nullable: true })
+  approval_it_hod_by_id: number;
 
   @ManyToOne(() => PortalProject)
   @JoinColumn({ name: "id_project" })
   project: PortalProject;
-
-  @ManyToOne(() => Position)
-  @JoinColumn({ name: "id_position" })
-  position_obj: Position;
 
   @ManyToOne(() => PortalDepartment)
   @JoinColumn({ name: "id_department" })
@@ -99,6 +95,10 @@ export class RequestEntity {
   @ManyToOne(() => CategoryAccount, { nullable: true })
   @JoinColumn({ name: "category_account" })
   category: CategoryAccount;
+
+  @ManyToOne(() => Position)
+  @JoinColumn({ name: "id_position" })
+  position_obj: Position;
 
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: "approval_hod_by" })
