@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { In, Repository } from "typeorm";
 import { PortalRole } from "portal_role_db/entities/portal_role_db.entity";
 import { PortalPermission } from "portal_permission/permission.entity";
 import { RolePermission } from "./entities/role_has_permission.entity";
@@ -21,16 +21,17 @@ export class RolePermissionService {
     if (!role) throw new NotFoundException("Role not found");
 
     const allPermissions = await this._permission.find();
+
     const assigned = await this._rolePermission.find({
-      where: { role: { id_role } },
-      relations: ["permission"],
+      where: { id_role: id_role },
+      select: ["id_permission"],
     });
 
-    const assignedIds = assigned.map((rp) => rp.permission.id_permission);
+    const assignedIds = assigned.map((rp) => Number(rp.id_permission));
 
     return allPermissions.map((p) => ({
       ...p,
-      assigned: assignedIds.includes(p.id_permission),
+      assigned: assignedIds.includes(Number(p.id_permission)),
     }));
   }
 
@@ -38,20 +39,24 @@ export class RolePermissionService {
     const role = await this._role.findOne({ where: { id_role } });
     if (!role) throw new NotFoundException("Role not found");
 
-    await this._rolePermission.delete({ role: { id_role } });
+    await this._rolePermission.delete({ id_role: id_role });
 
-    if (permission_ids.length > 0) {
-      const permissions = await this._permission.findByIds(permission_ids);
-      const newEntries = permissions.map((p) =>
-        this._rolePermission.create({ role, permission: p }),
+    if (permission_ids && permission_ids.length > 0) {
+      const newEntries = permission_ids.map((pId) =>
+        this._rolePermission.create({
+          id_role: id_role,
+          id_permission: pId,
+        }),
       );
       await this._rolePermission.save(newEntries);
     }
 
-    return { success: true, message: "Permissions updated" };
+    return { success: true, message: "Role permissions updated successfully" };
   }
 
   async getAllPermissions() {
-    return this._permission.find({ order: { permission_key: "ASC" } });
+    return this._permission.find({
+      order: { id_permission: "ASC" },
+    });
   }
 }

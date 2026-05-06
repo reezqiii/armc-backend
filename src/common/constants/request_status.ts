@@ -1,0 +1,8 @@
+export enum REQUEST_STATUS {
+  DRAFT = 0,
+  PENDING_HOD = 1,
+  REJECT_HOD = 2,
+  PENDING_IT = 3,
+  REJECT_IT = 4,
+  COMPLETED = 5,
+}

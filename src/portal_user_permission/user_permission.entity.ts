@@ -8,18 +8,15 @@ export class PortalUserPermission {
   @Column({ type: "int" })
   id_user: number;
 
-  @Column({ type: "varchar", nullable: true })
-  id_portal_app_permission: string;
-
-  @Column({ type: "varchar", nullable: true })
-  id_portal_permission: string;
+  @Column({ type: "int" })
+  id_portal_permission: number;
 
   @Column({ type: "int", nullable: true })
-  create_by: number;
+  created_by: number;
 
-  @Column({ type: "timestamp", nullable: true })
-  create_date: Date;
+  @Column({ type: "int", nullable: true })
+  updated_by: number;
 
-  @Column({ type: "varchar", length: 100, nullable: true })
-  permission_key: string;
+  @Column({ type: "int", nullable: true })
+  deleted_by: number;
 }

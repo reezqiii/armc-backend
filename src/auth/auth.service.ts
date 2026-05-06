@@ -10,6 +10,7 @@ import { AuthDTO } from "./DTO/auth.dto";
 import * as crypto from "crypto";
 import { User } from "../portal_user_db/user.entity";
 import { EmailService } from "../email/email.service";
+import { PortalUserPermissionService } from "portal_user_permission/user_permission.service";
 
 @Injectable()
 export class AuthService {
@@ -18,6 +19,7 @@ export class AuthService {
     @InjectRepository(User)
     private readonly _user: Repository<User>,
     private readonly emailService: EmailService,
+    private readonly userPermService: PortalUserPermissionService,
   ) {}
 
   private hashMd5(data: string): string {
@@ -29,17 +31,20 @@ export class AuthService {
 
     const login = await this._user.findOne({
       where: { username, status_user: 1 },
-      relations: ["role", "department", "position", "project"],
+      relations: ["role", "department", "position"],
     });
 
     if (!login) throw new UnauthorizedException("Invalid username or password");
 
     const hashedPassword = this.hashMd5(password);
-
-    if (login.password !== hashedPassword)
+    if (login.password !== hashedPassword) {
       throw new UnauthorizedException("Invalid username or password");
+    }
 
-    const permissions_key = await this.getRolePermissionKeys(login.id_user);
+    const permission_ids = await this.userPermService.getPermissionIds(
+      login.id_user,
+      login.id_role,
+    );
 
     const payload = { id_user: login.id_user };
     const token = this.jwtService.sign(payload);
@@ -50,55 +55,15 @@ export class AuthService {
       user: {
         id: login.id_user,
         full_name: login.full_name,
+        badge_no: login.badge_no,
         department_id: login.id_department,
         department_name: login.department?.name_of_department ?? "-",
         position_name: login.position?.position_name ?? "-",
-        role: login.role?.role_name ?? null,
-        role_id: login.role?.id_role ?? null,
-        project_id: login.id_project,
-        project_name: login.project?.project_name ?? "-",
-        project_ids: login.addon_project
-          ? login.addon_project.split(";").map(Number)
-          : [],
-        permissions_key,
+        role_id: login.id_role,
+        role_name: login.role?.role_name ?? null,
+        permission_ids,
       },
     };
-  }
-
-  private async getRolePermissionKeys(id_user: number): Promise<string[]> {
-    try {
-      const rolePerms = await this._user.query(
-        `
-      SELECT pp.permission_key 
-      FROM portal_user_db u
-      JOIN portal_role_db r ON r.id_role = u.id_role
-      JOIN role_permission rp ON rp.id_role = r.id_role
-      JOIN portal_permission pp ON pp.id_permission = rp.id_permission
-      WHERE u.id_user = $1 
-      AND pp.permission_key IS NOT NULL -- Update filter kolom
-      AND r.is_active = 1
-    `,
-        [id_user],
-      );
-
-      const userSpecificPerms = await this._user.query(
-        `
-      SELECT permission_key 
-      FROM portal_user_permission
-      WHERE id_user = $1 
-      AND permission_key IS NOT NULL
-    `,
-        [id_user],
-      );
-
-      const roleKeys = rolePerms.map((r: any) => r.permission_key);
-      const userKeys = userSpecificPerms.map((r: any) => r.permission_key);
-
-      return [...new Set([...roleKeys, ...userKeys])];
-    } catch (err) {
-      console.error("getRolePermissionKeys error:", err.message);
-      return [];
-    }
   }
 
   async forgotPassword(username: string, email: string) {
@@ -108,10 +73,8 @@ export class AuthService {
     });
 
     if (!user) throw new BadRequestException("Username not found");
-
-    if (!user.email) {
+    if (!user.email)
       throw new BadRequestException("No email registered for this account");
-    }
 
     if (user.email.toLowerCase() !== email.toLowerCase()) {
       throw new BadRequestException("Email does not match our records");
@@ -152,7 +115,7 @@ export class AuthService {
     if (!user) throw new BadRequestException("Invalid or expired token");
 
     const now = new Date();
-    if (user["reset_token_expired"] && user["reset_token_expired"] < now) {
+    if (user.reset_token_expired && user.reset_token_expired < now) {
       throw new BadRequestException("Token has expired");
     }
 
@@ -160,7 +123,6 @@ export class AuthService {
       password: this.hashMd5(new_password),
       reset_token: null,
       reset_token_expired: null,
-      last_update_password: new Date(),
     } as any);
 
     return { success: true, message: "Password has been reset successfully" };

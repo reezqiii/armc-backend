@@ -32,15 +32,12 @@ export class PortalPermissionService {
 
   async create(data: Partial<PortalPermission>, userId?: number) {
     const isExist = await this.permissionRepo.findOne({
-      where: [
-        { permission_name: data.permission_name, is_active: 1 },
-        { permission_key: data.permission_key, is_active: 1 },
-      ],
+      where: { permission_name: data.permission_name, is_active: 1 },
     });
 
     if (isExist) {
       throw new ConflictException(
-        `Permission with this name or key already exists.`,
+        `Permission with name "${data.permission_name}" already exists.`,
       );
     }
 
@@ -55,15 +52,14 @@ export class PortalPermissionService {
   async update(id: number, data: Partial<PortalPermission>, userId?: number) {
     await this.findOne(id);
 
-    const isExist = await this.permissionRepo.findOne({
-      where: [
-        { permission_name: data.permission_name, is_active: 1 },
-        { permission_key: data.permission_key, is_active: 1 },
-      ],
-    });
+    if (data.permission_name) {
+      const isExist = await this.permissionRepo.findOne({
+        where: { permission_name: data.permission_name, is_active: 1 },
+      });
 
-    if (isExist && isExist.id_permission !== id) {
-      throw new ConflictException(`Permission name or key is already in use.`);
+      if (isExist && isExist.id_permission !== id) {
+        throw new ConflictException(`Permission name is already in use.`);
+      }
     }
 
     await this.permissionRepo.update(id, {
@@ -75,7 +71,6 @@ export class PortalPermissionService {
 
   async delete(id: number, userId?: number) {
     const find = await this.findOne(id);
-    if (!find) throw new NotFoundException("Permission not found");
     find.is_active = 0;
     find.deleted_by = userId ?? null;
     return this.permissionRepo.save(find);
@@ -91,8 +86,8 @@ export class PortalPermissionService {
       .where("permission.is_active = :active", { active: 1 });
 
     const columnMap: Record<string, string> = {
+      id_permission: "permission.id_permission",
       permission_name: "permission.permission_name",
-      permission_key: "permission.permission_key",
       permission_group: "permission.permission_group",
     };
 

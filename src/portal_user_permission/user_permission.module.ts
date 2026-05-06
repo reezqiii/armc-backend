@@ -6,9 +6,15 @@ import { PortalUserPermissionService } from "./user_permission.service";
 import { PortalPermission } from "portal_permission/permission.entity";
 import { CryptoModule } from "crypto/crypto.module";
 
+import { RolePermission } from "role_has_permission/entities/role_has_permission.entity";
+
 @Module({
   imports: [
-    TypeOrmModule.forFeature([PortalUserPermission, PortalPermission]),
+    TypeOrmModule.forFeature([
+      PortalUserPermission,
+      PortalPermission,
+      RolePermission,
+    ]),
     CryptoModule,
   ],
   controllers: [PortalUserPermissionController],

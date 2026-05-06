@@ -5,26 +5,34 @@ import {
   PrimaryGeneratedColumn,
   ManyToOne,
   JoinColumn,
-  CreateDateColumn,
-  UpdateDateColumn,
+  Column,
 } from "typeorm";
 
-@Entity({ name: "role_permission" })
+@Entity({ name: "portal_role_permission" }) // SESUAI GAMBAR: portal_role_permission
 export class RolePermission {
-  @PrimaryGeneratedColumn({ name: "id_role_permission", type: "int" })
+  @PrimaryGeneratedColumn({ name: "id_role_permission", type: "int4" })
   id_role_permission: number;
 
   @ManyToOne(() => PortalRole, { onDelete: "CASCADE" })
   @JoinColumn({ name: "id_role" })
   role: PortalRole;
 
+  @Column({ name: "id_role", type: "int4" })
+  id_role: number;
+
   @ManyToOne(() => PortalPermission, { onDelete: "CASCADE" })
   @JoinColumn({ name: "id_permission" })
   permission: PortalPermission;
 
-  @CreateDateColumn({ name: "created_date" })
-  created_date: Date;
+  @Column({ name: "id_permission", type: "int4" })
+  id_permission: number;
 
-  @UpdateDateColumn({ name: "updated_date" })
-  updated_date: Date;
+  @Column({ name: "created_by", type: "int4", nullable: true })
+  created_by: number;
+
+  @Column({ name: "updated_by", type: "int4", nullable: true })
+  updated_by: number;
+
+  @Column({ name: "deleted_by", type: "int4", nullable: true })
+  deleted_by: number;
 }

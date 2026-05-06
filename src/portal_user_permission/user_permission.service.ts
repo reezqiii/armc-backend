@@ -7,6 +7,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { In, Repository } from "typeorm";
 import { PortalUserPermission } from "./user_permission.entity";
 import { PortalPermission } from "../portal_permission/permission.entity";
+import { RolePermission } from "role_has_permission/entities/role_has_permission.entity";
 
 @Injectable()
 export class PortalUserPermissionService {
@@ -15,103 +16,102 @@ export class PortalUserPermissionService {
     private userPermRepo: Repository<PortalUserPermission>,
     @InjectRepository(PortalPermission)
     private permissionRepo: Repository<PortalPermission>,
+    @InjectRepository(RolePermission)
+    private rolePermRepo: Repository<RolePermission>,
   ) {}
 
-  async getUserPermissionsForApp(userId: number, appId: number) {
-    const rows = await this.userPermRepo.find({
-      select: ["permission_key"],
-      where: {
-        id_user: userId,
-      },
+  async getPermissionIds(id_user: number, id_role: number): Promise<number[]> {
+    const rolePermissions = await this.rolePermRepo.find({
+      where: { id_role: id_role },
+      select: ["id_permission"],
     });
 
-    return rows.map((r) => r.permission_key);
+    const userPermissions = await this.userPermRepo.find({
+      where: { id_user },
+      select: ["id_portal_permission"],
+    });
+
+    const rolePermIds = rolePermissions.map((rp) => Number(rp.id_permission));
+    const userPermIds = userPermissions.map((up) =>
+      Number(up.id_portal_permission),
+    );
+
+    return [...new Set([...rolePermIds, ...userPermIds])];
+  }
+
+  async getUserExtraPermissions(id_user: number): Promise<number[]> {
+    const perms = await this.userPermRepo.find({
+      where: { id_user },
+      select: ["id_portal_permission"],
+    });
+
+    return perms.map((p) => Number(p.id_portal_permission));
+  }
+
+  async getUserPermissionList(userId: number) {
+    const allPermissions = await this.permissionRepo.find({
+      where: { is_active: 1 },
+      order: { id_permission: "ASC" },
+    });
+
+    const userPerms = await this.userPermRepo.find({
+      where: { id_user: userId },
+      select: ["id_portal_permission"],
+    });
+
+    const assignedIds = new Set(
+      userPerms.map((p) => Number(p.id_portal_permission)),
+    );
+
+    return allPermissions.map((p) => ({
+      ...p,
+      assigned: assignedIds.has(Number(p.id_permission)),
+    }));
   }
 
   async syncUserPermissions(
     userId: number,
     permissionIds: number[],
-    createdBy?: number,
+    admin_id: number,
   ) {
-    const uid = Number(userId);
-    if (!uid || isNaN(uid)) throw new BadRequestException(`Invalid userId`);
+    await this.userPermRepo.delete({ id_user: userId });
 
-    await this.userPermRepo.delete({ id_user: uid });
-
-    if (!permissionIds || permissionIds.length === 0) return { count: 0 };
-
-    const permissions = await this.permissionRepo.find({
-      where: { id_permission: In(permissionIds) },
-    });
-
-    const toInsert = permissions.map((p) =>
-      this.userPermRepo.create({
-        id_user: uid,
-        id_portal_permission: p.id_permission as any,
-        permission_key: p.permission_key,
-        create_by: createdBy ?? null,
-        create_date: new Date(),
-      }),
-    );
-
-    await this.userPermRepo.save(toInsert);
-    return { message: "Synced", count: toInsert.length };
+    if (permissionIds && permissionIds.length > 0) {
+      const toInsert = permissionIds.map((pId) =>
+        this.userPermRepo.create({
+          id_user: userId,
+          id_portal_permission: pId,
+          created_by: admin_id,
+        }),
+      );
+      await this.userPermRepo.save(toInsert);
+    }
+    return { success: true, message: "Permissions synced successfully" };
   }
 
-  findAll() {
-    return this.userPermRepo.find();
+  async findOne(id: number) {
+    const data = await this.userPermRepo.findOne({ where: { id } });
+    if (!data) throw new NotFoundException("Permission record not found");
+    return data;
   }
 
-  findOne(id: number) {
-    return this.userPermRepo.findOne({ where: { id } });
+  async findAll() {
+    return await this.userPermRepo.find();
   }
 
-  create(data: Partial<PortalUserPermission>) {
+  async create(data: any) {
     const newData = this.userPermRepo.create(data);
-    return this.userPermRepo.save(newData);
+    return await this.userPermRepo.save(newData);
   }
 
-  async update(id: number, data: Partial<PortalUserPermission>) {
-    const find = await this.findOne(id);
-    if (!find) throw new NotFoundException("User permission not found");
+  async update(id: number, data: any) {
+    await this.findOne(id);
     await this.userPermRepo.update(id, data);
-    return this.findOne(id);
+    return await this.findOne(id);
   }
 
   async delete(id: number) {
-    const find = await this.findOne(id);
-    if (!find) throw new NotFoundException("User permission not found");
-    return this.userPermRepo.delete(id);
-  }
-
-  async getUserPermissionList(userId: number) {
-    const uid = Number(userId);
-    if (!uid || isNaN(uid)) {
-      throw new BadRequestException(
-        `Invalid userId: "${userId}". Pastikan menggunakan integer ID user, bukan badge_no atau field lain.`,
-      );
-    }
-
-    const allPermissions = await this.permissionRepo.find({
-      where: { is_active: 1 },
-      order: { permission_group: "ASC", permission_name: "ASC" },
-    });
-
-    const assignedRows = await this.userPermRepo.find({
-      where: { id_user: uid },
-    });
-
-    const assignedKeys = new Set(
-      assignedRows.map((r) => Number(r.id_portal_permission)),
-    );
-
-    return allPermissions.map((p) => ({
-      id_permission: p.id_permission,
-      permission_name: p.permission_name,
-      permission_group: p.permission_group ?? "General",
-      permission_key: p.permission_key,
-
-      assigned: assignedKeys.has(Number(p.id_permission)),
-    }));
+    await this.findOne(id);
+    return await this.userPermRepo.delete(id);
   }
 }

@@ -13,76 +13,54 @@ import {
 } from "@nestjs/common";
 import { PortalUserPermissionService } from "./user_permission.service";
 import { JwtAuthGuard } from "jwt-auth.guard";
-import { AesEcbService } from "crypto/aes-ecb.service"; 
+import { AesEcbService } from "crypto/aes-ecb.service";
 
 @Controller("portal_user_permission")
 export class PortalUserPermissionController {
   constructor(
     private readonly service: PortalUserPermissionService,
-    private readonly aesEcbService: AesEcbService, 
+    private readonly aesEcbService: AesEcbService,
   ) {}
 
   @Get("me")
   @UseGuards(JwtAuthGuard)
-  async getMyPermissions(@Query("appId") appId: number, @Req() req) {
-    const userId = req.user.id;
-    return this.service.getUserPermissionsForApp(userId, appId);
-  }
+  async getMyPermissions(@Req() req) {
+    const userId = req.user.id_user;
+    const roleId = req.user.id_role;
 
-  @Get("user/:userId")
-  getUserPermissionList(@Param("userId") userId: string) {
-    try {
-      const decryptedId = this.aesEcbService.decryptBase64Url(userId);
-      const realUserId = Number(decryptedId);
-
-      if (isNaN(realUserId)) throw new Error();
-
-      return this.service.getUserPermissionList(realUserId);
-    } catch (error) {
-      throw new BadRequestException("Invalid Encrypted User ID");
-    }
+    return this.service.getPermissionIds(userId, roleId);
   }
 
   @Post("user/:userId/sync")
   @UseGuards(JwtAuthGuard)
-  syncUserPermissions(
+  async syncUserPermissions(
     @Param("userId") userId: string,
     @Body() body: { permission_ids: number[] },
     @Req() req,
   ) {
     try {
-      const decryptedId = this.aesEcbService.decryptBase64Url(userId);
-      const realUserId = Number(decryptedId);
-
+      const realUserId = Number(this.aesEcbService.decryptBase64Url(userId));
       if (isNaN(realUserId)) throw new Error();
 
-      const createdBy = req.user?.id ?? null;
-      return this.service.syncUserPermissions(
+      const adminId = req.user?.id_user ?? null;
+
+      return await this.service.syncUserPermissions(
         realUserId,
         body.permission_ids,
-        createdBy,
+        adminId,
       );
     } catch (error) {
       throw new BadRequestException("Invalid Encrypted User ID for Sync");
     }
   }
 
-  @Get()
-  getAll() {
-    return this.service.findAll();
-  }
-
-  @Get(":userId/:appId")
-  async getPermissionByUserAndApp(
-    @Param("userId") userId: string,
-    @Param("appId") appId: string,
-  ) {
-    return this.service.getUserPermissionsForApp(+userId, +appId);
-  }
-
   @Get(":id")
-  getOne(@Param("id") id: string) {
-    const realId = Number(this.aesEcbService.decryptBase64Url(id));
+  @UseGuards(JwtAuthGuard)
+  async getOne(@Param("id") id: string) {
+    const decryptedId = this.aesEcbService.decryptBase64Url(id);
+    const realId = Number(decryptedId);
+
+    if (isNaN(realId)) throw new BadRequestException("Invalid ID");
     return this.service.findOne(realId);
   }
 

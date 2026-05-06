@@ -1,18 +1,16 @@
 import {
   Controller,
   Get,
-  Query,
-  Param,
   Post,
   Put,
-  Delete,
   Body,
+  Param,
   UseGuards,
   Req,
   BadRequestException,
 } from "@nestjs/common";
 import { UserService } from "./user.service";
-import { User } from "./user.entity";
+import { PortalUserPermissionService } from "../portal_user_permission/user_permission.service";
 import { JwtAuthGuard } from "jwt-auth.guard";
 import { PermissionGuard, RequirePermissions } from "permission.guard";
 import { ServerSideDTO } from "DTO/dto.serverside";
@@ -22,94 +20,43 @@ import { AesEcbService } from "crypto/aes-ecb.service";
 export class UserController {
   constructor(
     private readonly _user: UserService,
+    private readonly _perm: PortalUserPermissionService,
     private readonly aesEcbService: AesEcbService,
   ) {}
 
-  @Get("/list")
-  async GetUserList() {
-    return this._user.findAll();
-  }
-
-  @Get("stats")
-  @UseGuards(JwtAuthGuard, PermissionGuard)
-  @RequirePermissions("user.manage")
-  async getStats() {
-    return this._user.getStats();
-  }
-
-  @Get("/hods-by-dept/:dept_id")
-  @UseGuards(JwtAuthGuard)
-  async getHodsByDept(@Param("dept_id") dept_id: number) {
-    return this._user.getHodsByDept(Number(dept_id));
-  }
-
-  @Get("/search")
-  async searchUsers(@Query("q") query: string) {
-    return await this._user.searchUsers(query);
-  }
-
   @Post("/serverside_list")
   @UseGuards(JwtAuthGuard, PermissionGuard)
-  @RequirePermissions("user.manage")
-  async serverSide(@Query() queryDto: ServerSideDTO) {
+  @RequirePermissions(102)
+  async serverSide(@Body() queryDto: ServerSideDTO) {
     return await this._user.serverSideList(queryDto);
   }
 
   @Post("/create")
   @UseGuards(JwtAuthGuard, PermissionGuard)
-  @RequirePermissions("user.manage")
-  async createUser(@Body() data: Partial<User>) {
-    return await this._user.createUser(data);
-  }
-
-  @Put("/update/:id")
-  @UseGuards(JwtAuthGuard, PermissionGuard)
-  @RequirePermissions("user.manage")
-  async updateUser(@Param("id") id: string, @Body() data: any) {
-    const realId = Number(this.aesEcbService.decryptBase64Url(id));
-    return await this._user.updateUser(realId, data);
-  }
-
-  @Post("/reset-password")
-  @UseGuards(JwtAuthGuard, PermissionGuard)
-  @RequirePermissions("user.reset_password")
-  async resetPasswordByAdmin(@Body() body: { id_user: number }) {
-    return await this._user.resetPasswordByAdmin(body.id_user);
+  @RequirePermissions(103)
+  async createUser(@Body() data: any, @Req() req) {
+    return await this._user.createUser({ ...data, admin_id: req.user.id_user });
   }
 
   @Get("/extra-permissions/:id")
   @UseGuards(JwtAuthGuard, PermissionGuard)
-  @RequirePermissions("user.manage")
+  @RequirePermissions(102)
   async getUserExtraPermissions(@Param("id") id: string) {
-    return await this._user.getUserExtraPermissions(Number(id));
+    return await this._perm.getUserExtraPermissions(Number(id));
   }
 
   @Put("/extra-permissions/:id")
   @UseGuards(JwtAuthGuard, PermissionGuard)
-  @RequirePermissions("user.manage")
+  @RequirePermissions(102)
   async updateUserExtraPermissions(
     @Param("id") id: string,
-    @Body() body: { permission_keys: string[] },
+    @Body() body: { permission_keys: number[] },
     @Req() req,
   ) {
-    return await this._user.updateUserExtraPermissions(
+    return await this._perm.syncUserPermissions(
       Number(id),
       body.permission_keys,
       req.user.id_user,
     );
-  }
-
-  @Get("/:id")
-  @UseGuards(JwtAuthGuard, PermissionGuard)
-  @RequirePermissions("user.manage")
-  async getUserById(@Param("id") id: string) {
-    const decryptedId = this.aesEcbService.decryptBase64Url(id);
-    const realId = Number(decryptedId);
-
-    if (isNaN(realId)) {
-      throw new BadRequestException("Invalid Encrypted ID");
-    }
-
-    return await this._user.findOneById(realId);
   }
 }

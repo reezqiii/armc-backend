@@ -12,6 +12,8 @@ import { ConfigModule } from "@nestjs/config";
 import { PortalUserPermission } from "portal_user_permission/user_permission.entity";
 import { PortalPermission } from "portal_permission/permission.entity";
 
+import { PortalUserPermissionModule } from "portal_user_permission/user_permission.module";
+
 @Module({
   imports: [
     ConfigModule,
@@ -25,6 +27,8 @@ import { PortalPermission } from "portal_permission/permission.entity";
     ]),
     CryptoModule,
     EmailModule,
+
+    PortalUserPermissionModule,
   ],
   controllers: [UserController],
   providers: [UserService],
