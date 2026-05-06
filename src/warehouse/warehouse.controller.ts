@@ -6,16 +6,18 @@ import {
   Put,
   Param,
   Delete,
+  Query,
 } from "@nestjs/common";
 import { WarehouseService } from "./warehouse.service";
+import { ServerSideDTO } from "DTO/dto.serverside";
 
 @Controller("warehouse")
 export class WarehouseController {
   constructor(private readonly warehouseService: WarehouseService) {}
 
   @Get()
-  findAll() {
-    return this.warehouseService.findAll();
+  findAll(@Query() query: ServerSideDTO) {
+    return this.warehouseService.serverSideList(query);
   }
 
   @Get(":id")

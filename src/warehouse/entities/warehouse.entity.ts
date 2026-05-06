@@ -1,40 +1,37 @@
-import {
-  Entity,
-  Column,
-  PrimaryGeneratedColumn,
-  CreateDateColumn,
-  UpdateDateColumn,
-} from "typeorm";
+import { Entity, Column, PrimaryGeneratedColumn } from "typeorm";
 
-@Entity("warehouse")
+@Entity("app_warehouse_item")
 export class Warehouse {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn({ name: "id_item", type: "int4" })
+  id_item: number;
 
-  @Column({ unique: true })
+  @Column({ name: "item_code", type: "varchar", length: 50, unique: true })
   item_code: string;
 
-  @Column()
+  @Column({ name: "item_name", type: "varchar", length: 255 })
   item_name: string;
 
-  @Column()
+  @Column({ name: "category", type: "varchar", length: 100, nullable: true })
   category: string;
 
-  @Column({ type: "integer", default: 0 })
+  @Column({ name: "quantity", type: "int4", default: 0 })
   quantity: number;
 
-  @Column({ default: "Pcs" })
+  @Column({ name: "unit", type: "varchar", length: 20, default: "Pcs" })
   unit: string;
 
-  @Column()
+  @Column({ name: "location", type: "varchar", length: 100, nullable: true })
   location: string;
 
-  @Column({ default: "In Stock" })
-  status: string;
+  @Column({ name: "status", type: "int4", default: 1 })
+  status: number;
 
-  @CreateDateColumn()
-  created_at: Date;
+  @Column({ name: "created_by", type: "int4", nullable: true })
+  created_by: number;
 
-  @UpdateDateColumn()
-  updated_at: Date;
+  @Column({ name: "updated_by", type: "int4", nullable: true })
+  updated_by: number;
+
+  @Column({ name: "deleted_by", type: "int4", nullable: true })
+  deleted_by: number;
 }

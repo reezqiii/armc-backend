@@ -1,29 +1,29 @@
-export class Production {}
 import {
   Entity,
   Column,
   PrimaryGeneratedColumn,
-  CreateDateColumn,
-  UpdateDateColumn,
 } from "typeorm";
 
-@Entity("production_batches")
+@Entity("app_production_batch")
 export class ProductionBatch {
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn({ type: "int4" })
   id: number;
 
-  @Column({ unique: true })
+  @Column({ type: "varchar", length: 50, unique: true })
   batch_id: string;
 
-  @Column()
+  @Column({ type: "varchar", length: 255 })
   product_name: string;
 
-  @Column({ default: "Pending" })
-  qc_status: string;
+  @Column({ type: "int4", nullable: true, default: 1 })
+  qc_status: number;
 
-  @CreateDateColumn()
-  created_at: Date;
+  @Column({ type: "int4", nullable: true })
+  created_by: number;
 
-  @UpdateDateColumn()
-  updated_at: Date;
+  @Column({ type: "int4", nullable: true })
+  updated_by: number;
+
+  @Column({ type: "int4", nullable: true })
+  deleted_by: number;
 }

@@ -1,34 +1,31 @@
-import {
-  Entity,
-  Column,
-  PrimaryGeneratedColumn,
-  CreateDateColumn,
-  UpdateDateColumn,
-} from "typeorm";
+import { Entity, Column, PrimaryGeneratedColumn } from "typeorm";
 
-@Entity("engineering")
+@Entity("app_engineering_wo")
 export class Engineering {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn({ name: "id_wo", type: "int4" })
+  id_wo: number;
 
-  @Column({ unique: true })
+  @Column({ name: "wo_number", type: "varchar", length: 50, unique: true })
   wo_number: string;
 
-  @Column()
+  @Column({ name: "equipment_name", type: "varchar", length: 255 })
   equipment_name: string;
 
-  @Column("text")
+  @Column({ name: "issue_description", type: "text" })
   issue_description: string;
 
-  @Column({ default: "Medium" })
-  priority: string;
+  @Column({ name: "priority", type: "int4", nullable: true })
+  priority: number;
 
-  @Column({ default: "Pending" })
-  status: string;
+  @Column({ name: "status", type: "int4", nullable: true, default: 1 })
+  status: number;
 
-  @CreateDateColumn()
-  created_at: Date;
+  @Column({ name: "created_by", type: "int4", nullable: true })
+  created_by: number;
 
-  @UpdateDateColumn()
-  updated_at: Date;
+  @Column({ name: "updated_by", type: "int4", nullable: true })
+  updated_by: number;
+
+  @Column({ name: "deleted_by", type: "int4", nullable: true })
+  deleted_by: number;
 }
