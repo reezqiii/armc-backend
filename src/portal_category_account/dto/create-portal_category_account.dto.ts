@@ -1,1 +1,9 @@
-export class CreatePortalCategoryAccountDto {}
+import { IsString, IsNotEmpty } from "class-validator";
+import { ApiProperty } from "@nestjs/swagger";
+
+export class CreatePortalCategoryAccountDto {
+  @ApiProperty({ example: "Production Account" })
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+}
