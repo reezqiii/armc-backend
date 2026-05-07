@@ -81,12 +81,15 @@ export class AuthService {
     }
 
     const resetToken = crypto.randomBytes(32).toString("hex");
-    const expiredAt = new Date(Date.now() + 60 * 60 * 1000);
+    const expiredAt = new Date(Date.now() + 30 * 60 * 1000);
 
-    await this._user.update({ id_user: user.id_user }, {
-      reset_token: resetToken,
-      reset_token_expired: expiredAt,
-    } as any);
+    await this._user.update(
+      { id_user: user.id_user },
+      {
+        reset_token: resetToken,
+        reset_token_expired: expiredAt,
+      },
+    );
 
     const resetLink = `${process.env.ARMC_BASE_URL}/reset_password?token=${resetToken}`;
 
@@ -118,12 +121,14 @@ export class AuthService {
     if (user.reset_token_expired && user.reset_token_expired < now) {
       throw new BadRequestException("Token has expired");
     }
-
-    await this._user.update({ id_user: user.id_user }, {
-      password: this.hashMd5(new_password),
-      reset_token: null,
-      reset_token_expired: null,
-    } as any);
+    await this._user.update(
+      { id_user: user.id_user },
+      {
+        password: this.hashMd5(new_password),
+        reset_token: null,
+        reset_token_expired: null,
+      },
+    );
 
     return { success: true, message: "Password has been reset successfully" };
   }

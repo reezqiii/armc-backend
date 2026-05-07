@@ -14,8 +14,10 @@ import {
 import { PortalUserPermissionService } from "./user_permission.service";
 import { JwtAuthGuard } from "jwt-auth.guard";
 import { AesEcbService } from "crypto/aes-ecb.service";
+import { PermissionGuard, RequirePermissions } from "permission.guard";
 
 @Controller("portal_user_permission")
+@UseGuards(JwtAuthGuard, PermissionGuard)
 export class PortalUserPermissionController {
   constructor(
     private readonly service: PortalUserPermissionService,
@@ -23,16 +25,12 @@ export class PortalUserPermissionController {
   ) {}
 
   @Get("me")
-  @UseGuards(JwtAuthGuard)
   async getMyPermissions(@Req() req) {
-    const userId = req.user.id_user;
-    const roleId = req.user.id_role;
-
-    return this.service.getPermissionIds(userId, roleId);
+    return this.service.getPermissionIds(req.user.id_user, req.user.id_role);
   }
 
   @Post("user/:userId/sync")
-  @UseGuards(JwtAuthGuard)
+  @RequirePermissions(102)
   async syncUserPermissions(
     @Param("userId") userId: string,
     @Body() body: { permission_ids: number[] },
@@ -42,12 +40,10 @@ export class PortalUserPermissionController {
       const realUserId = Number(this.aesEcbService.decryptBase64Url(userId));
       if (isNaN(realUserId)) throw new Error();
 
-      const adminId = req.user?.id_user ?? null;
-
       return await this.service.syncUserPermissions(
         realUserId,
         body.permission_ids,
-        adminId,
+        req.user.id_user,
       );
     } catch (error) {
       throw new BadRequestException("Invalid Encrypted User ID for Sync");

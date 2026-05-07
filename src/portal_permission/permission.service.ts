@@ -2,6 +2,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  InternalServerErrorException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
@@ -20,6 +21,27 @@ export class PortalPermissionService {
       where: { is_active: 1 },
       order: { permission_name: "ASC" },
     });
+  }
+
+  async findAllGrouped() {
+    const permissions = await this.permissionRepo.find({
+      where: { is_active: 1 },
+      order: { permission_group: "ASC", permission_name: "ASC" },
+    });
+
+    const grouped = permissions.reduce(
+      (acc, curr) => {
+        const groupName = curr.permission_group || "Uncategorized";
+        if (!acc[groupName]) {
+          acc[groupName] = [];
+        }
+        acc[groupName].push(curr);
+        return acc;
+      },
+      {} as Record<string, PortalPermission[]>,
+    );
+
+    return grouped;
   }
 
   async findOne(id: number) {
@@ -77,45 +99,56 @@ export class PortalPermissionService {
   }
 
   async serverSideList(queryDto: ServerSideDTO) {
-    const { sort, search, page = 0, size = 10 } = queryDto;
-    const take = size;
-    const skip = page * take;
+    try {
+      const { sort, search, page = 0, size = 10 } = queryDto;
+      const take = Number(size);
+      const skip = page * take;
 
-    const qb = this.permissionRepo
-      .createQueryBuilder("permission")
-      .where("permission.is_active = :active", { active: 1 });
+      const qb = this.permissionRepo
+        .createQueryBuilder("permission")
+        .where("permission.is_active = :active", { active: 1 });
 
-    const columnMap: Record<string, string> = {
-      id_permission: "permission.id_permission",
-      permission_name: "permission.permission_name",
-      permission_group: "permission.permission_group",
-    };
+      const columnMap: Record<string, string> = {
+        id_permission: "permission.id_permission",
+        permission_name: "permission.permission_name",
+        permission_group: "permission.permission_group",
+      };
 
-    if (sort) {
-      const [col, dir] = sort.split(",");
-      const column = columnMap[col];
-      if (column) qb.orderBy(column, dir.toUpperCase() as "ASC" | "DESC");
+      if (search) {
+        try {
+          const searchObj = JSON.parse(search);
+          Object.keys(searchObj).forEach((key) => {
+            const column = columnMap[key];
+            if (!column || !searchObj[key]) return;
+            qb.andWhere(`CAST(${column} AS TEXT) ILIKE :${key}`, {
+              [key]: `%${searchObj[key]}%`,
+            });
+          });
+        } catch (e) {}
+      }
+
+      if (sort) {
+        const [col, dir] = sort.split(",");
+        const column = columnMap[col];
+        if (column) qb.orderBy(column, dir.toUpperCase() as "ASC" | "DESC");
+      } else {
+        qb.orderBy("permission.id_permission", "DESC");
+      }
+
+      const [data, totalCount] = await qb
+        .skip(skip)
+        .take(take)
+        .getManyAndCount();
+
+      return {
+        data,
+        total_records: totalCount,
+        total_pages: Math.ceil(totalCount / take),
+        page,
+        size: take,
+      };
+    } catch (error) {
+      throw new InternalServerErrorException(error.message);
     }
-
-    if (search) {
-      const searchObj = JSON.parse(search);
-      Object.keys(searchObj).forEach((key) => {
-        const column = columnMap[key];
-        if (!column) return;
-        qb.andWhere(`CAST(${column} AS TEXT) ILIKE :${key}`, {
-          [key]: `%${searchObj[key]}%`,
-        });
-      });
-    }
-
-    const [data, total] = await qb.skip(skip).take(take).getManyAndCount();
-
-    return {
-      data,
-      total,
-      page,
-      limit: take,
-      total_pages: Math.ceil(total / take),
-    };
   }
 }

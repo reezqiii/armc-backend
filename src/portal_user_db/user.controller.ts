@@ -3,20 +3,22 @@ import {
   Get,
   Post,
   Put,
+  Delete,
   Body,
   Param,
   UseGuards,
   Req,
   BadRequestException,
+  Query,
 } from "@nestjs/common";
 import { UserService } from "./user.service";
 import { PortalUserPermissionService } from "../portal_user_permission/user_permission.service";
 import { JwtAuthGuard } from "jwt-auth.guard";
-import { PermissionGuard, RequirePermissions } from "permission.guard";
 import { ServerSideDTO } from "DTO/dto.serverside";
 import { AesEcbService } from "crypto/aes-ecb.service";
 
 @Controller("user")
+@UseGuards(JwtAuthGuard)
 export class UserController {
   constructor(
     private readonly _user: UserService,
@@ -24,39 +26,89 @@ export class UserController {
     private readonly aesEcbService: AesEcbService,
   ) {}
 
-  @Post("/serverside_list")
-  @UseGuards(JwtAuthGuard, PermissionGuard)
-  @RequirePermissions(102)
-  async serverSide(@Body() queryDto: ServerSideDTO) {
-    return await this._user.serverSideList(queryDto);
+  @Get("/stats")
+  async getUserStats() {
+    return await this._user.getUserStats();
   }
 
+   @Post("serverside_list")
+   serverSideList(@Body() body: any, @Query() query: any) {
+     return this._user.serverSideList({
+       page: Number(query.page ?? 0),
+       size: Number(query.size ?? 10),
+      sort: query.sort ?? "",
+       search: query.search ?? "",
+     });
+   }
+
   @Post("/create")
-  @UseGuards(JwtAuthGuard, PermissionGuard)
-  @RequirePermissions(103)
   async createUser(@Body() data: any, @Req() req) {
     return await this._user.createUser({ ...data, admin_id: req.user.id_user });
   }
 
+  @Get("/:id")
+  async getOne(@Param("id") id: string) {
+    try {
+      const decryptedId = Number(this.aesEcbService.decryptBase64Url(id));
+      if (isNaN(decryptedId)) throw new Error();
+      return await this._user.findOneById(decryptedId);
+    } catch {
+      throw new BadRequestException("Invalid User ID");
+    }
+  }
+
+  @Put("/update/:id")
+  async updateUser(@Param("id") id: string, @Body() data: any, @Req() req) {
+    try {
+      const decryptedId = Number(this.aesEcbService.decryptBase64Url(id));
+      if (isNaN(decryptedId)) throw new Error();
+      return await this._user.updateUser(decryptedId, {
+        ...data,
+        admin_id: req.user.id_user,
+      });
+    } catch {
+      throw new BadRequestException("Invalid User ID");
+    }
+  }
+
+  @Delete("/:id")
+  async deleteUser(@Param("id") id: string, @Req() req) {
+    try {
+      const decryptedId = Number(this.aesEcbService.decryptBase64Url(id));
+      if (isNaN(decryptedId)) throw new Error();
+      return await this._user.deleteUser(decryptedId, req.user.id_user);
+    } catch {
+      throw new BadRequestException("Invalid User ID");
+    }
+  }
+
   @Get("/extra-permissions/:id")
-  @UseGuards(JwtAuthGuard, PermissionGuard)
-  @RequirePermissions(102)
   async getUserExtraPermissions(@Param("id") id: string) {
-    return await this._perm.getUserExtraPermissions(Number(id));
+    try {
+      const decryptedId = Number(this.aesEcbService.decryptBase64Url(id));
+      if (isNaN(decryptedId)) throw new Error();
+      return await this._perm.getUserExtraPermissions(decryptedId);
+    } catch {
+      throw new BadRequestException("Invalid User ID");
+    }
   }
 
   @Put("/extra-permissions/:id")
-  @UseGuards(JwtAuthGuard, PermissionGuard)
-  @RequirePermissions(102)
   async updateUserExtraPermissions(
     @Param("id") id: string,
     @Body() body: { permission_keys: number[] },
     @Req() req,
   ) {
-    return await this._perm.syncUserPermissions(
-      Number(id),
-      body.permission_keys,
-      req.user.id_user,
-    );
+    try {
+      const decryptedId = Number(this.aesEcbService.decryptBase64Url(id));
+      if (isNaN(decryptedId)) throw new Error();
+      return await this._perm.syncUserPermissions(
+        decryptedId,
+        body.permission_keys,
+        req.user.id_user,
+      );
+    } catch {
+      throw new BadRequestException("Invalid User ID");
+    }
   }
 }

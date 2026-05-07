@@ -7,16 +7,18 @@ import {
   HttpStatus,
 } from "@nestjs/common";
 import { Response } from "express";
-import { buildCompletedExcelTemplate } from "./views/export_template";
 import { RequestService } from "portal_request_user_permission/request.service";
+import { UserService } from "portal_user_db/user.service";
 import { JwtAuthGuard } from "jwt-auth.guard";
 import { PermissionGuard, RequirePermissions } from "permission.guard";
-import { ApiBearerAuth } from "@nestjs/swagger";
+import { buildUserListExcel } from "./views/export_template";
 
 @Controller("excel")
-@ApiBearerAuth("access-token")
 export class ExcelController {
-  constructor(private readonly requestService: RequestService) {}
+  constructor(
+    private readonly requestService: RequestService,
+    private readonly userService: UserService,
+  ) {}
 
   @Get("export-list")
   @UseGuards(JwtAuthGuard, PermissionGuard)
@@ -25,47 +27,26 @@ export class ExcelController {
     @Query("search") search: string,
     @Query("sort_by") sort_by: string,
     @Query("sort_order") sort_order: string,
-    @Query("status") status: string,
     @Res() res: Response,
-  ) {
-    try {
-      let filters: Record<string, any> = {};
+  ) {}
 
+  @Get("export-users")
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequirePermissions(102)
+  async exportUsers(@Query("search") search: string, @Res() res: Response) {
+    try {
+      let filters = {};
       if (search) {
         try {
           filters = JSON.parse(search);
         } catch {
-          filters = { keyword: search };
+          filters = {};
         }
       }
 
-      const statusMapping: Record<string, number> = {
-        canceled: 0,
-        "pending-dept-head-approval": 1,
-        "rejected-by-dept-head-approval": 2,
-        "pending-it-head-approval": 3,
-        "rejected-by-it-head-approval": 4,
-        completed: 5,
-      };
+      const users = await this.userService.findAllForExport(filters);
 
-      if (status) {
-        const normalizedStatus = status.toLowerCase().replace(/ /g, "-");
-
-        if (statusMapping[normalizedStatus] !== undefined) {
-          filters["request_status"] = statusMapping[normalizedStatus];
-        } else if (!isNaN(Number(status))) {
-          filters["request_status"] = Number(status);
-        }
-      }
-
-      const requests = await this.requestService.exportList(
-        filters,
-        sort_by,
-        sort_order,
-      );
-
-      const label = status ? status.toUpperCase().replace(/-/g, "_") : "ALL";
-      const buffer = await buildCompletedExcelTemplate(requests);
+      const buffer = await buildUserListExcel(users);
 
       res.setHeader(
         "Content-Type",
@@ -73,14 +54,14 @@ export class ExcelController {
       );
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename=Export_Requests_${label}.xlsx`,
+        `attachment; filename=ARMC_User_List_${new Date().getTime()}.xlsx`,
       );
 
       return res.status(HttpStatus.OK).send(buffer);
     } catch (err) {
-      console.error("ERROR EXPORT CONTROLLER:", err);
+      console.error("ERROR EXPORT USER:", err);
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-        message: "Export Excel failed",
+        message: "Export User Excel failed",
         error: err.message,
       });
     }

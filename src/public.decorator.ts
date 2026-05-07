@@ -1,3 +1,7 @@
-import { SetMetadata } from '@nestjs/common';
+import { SetMetadata } from "@nestjs/common";
 
-export const Public = () => SetMetadata('isPublic', true);
+// Definisikan dan ekspor constant ini
+export const IS_PUBLIC_KEY = "isPublic";
+
+// Gunakan constant tersebut di sini
+export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);

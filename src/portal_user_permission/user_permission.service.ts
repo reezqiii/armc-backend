@@ -2,9 +2,11 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  InternalServerErrorException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { In, Repository } from "typeorm";
+import { DataSource } from "typeorm";
 import { PortalUserPermission } from "./user_permission.entity";
 import { PortalPermission } from "../portal_permission/permission.entity";
 import { RolePermission } from "role_has_permission/entities/role_has_permission.entity";
@@ -18,6 +20,7 @@ export class PortalUserPermissionService {
     private permissionRepo: Repository<PortalPermission>,
     @InjectRepository(RolePermission)
     private rolePermRepo: Repository<RolePermission>,
+    private dataSource: DataSource,
   ) {}
 
   async getPermissionIds(id_user: number, id_role: number): Promise<number[]> {
@@ -74,19 +77,32 @@ export class PortalUserPermissionService {
     permissionIds: number[],
     admin_id: number,
   ) {
-    await this.userPermRepo.delete({ id_user: userId });
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    if (permissionIds && permissionIds.length > 0) {
-      const toInsert = permissionIds.map((pId) =>
-        this.userPermRepo.create({
+    try {
+      await queryRunner.manager.delete(PortalUserPermission, {
+        id_user: userId,
+      });
+
+      if (permissionIds && permissionIds.length > 0) {
+        const toInsert = permissionIds.map((pId) => ({
           id_user: userId,
           id_portal_permission: pId,
           created_by: admin_id,
-        }),
-      );
-      await this.userPermRepo.save(toInsert);
+        }));
+        await queryRunner.manager.insert(PortalUserPermission, toInsert);
+      }
+
+      await queryRunner.commitTransaction();
+      return { success: true, message: "Permissions synced successfully" };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw new InternalServerErrorException("Failed to sync user permissions");
+    } finally {
+      await queryRunner.release();
     }
-    return { success: true, message: "Permissions synced successfully" };
   }
 
   async findOne(id: number) {

@@ -12,57 +12,69 @@ import { PortalProject } from "portal_project/entities/portal_project.entity";
 
 @Entity("portal_user_db")
 export class User {
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn({ name: "id_user", type: "int4" })
   id_user: number;
 
-  @Column({ length: 200 })
+  @Column({ name: "full_name", type: "varchar", length: 200 })
   full_name: string;
 
-  @Column({ length: 200, nullable: true })
+  @Column({ name: "badge_no", type: "varchar", length: 200, nullable: true })
   badge_no: string;
 
-  @Column({ length: 200, unique: true })
+  @Column({ name: "username", type: "varchar", length: 200, unique: true })
   username: string;
 
-  @Column({ length: 200 })
+  @Column({ name: "password", type: "varchar", length: 200 })
   password: string;
 
-  @Column({ length: 200, unique: true })
+  @Column({
+    name: "email",
+    type: "varchar",
+    length: 200,
+    unique: true,
+    nullable: true,
+  })
   email: string;
 
-  @Column()
+  @Column({ name: "id_department", type: "int4", nullable: true })
   id_department: number;
 
-  @Column()
+  @Column({ name: "id_project", type: "int4", nullable: true })
   id_project: number;
 
-  @Column()
+  @Column({ name: "id_role", type: "int4", nullable: true })
   id_role: number;
 
-  @Column()
+  @Column({ name: "id_position", type: "int4", nullable: true })
   id_position: number;
 
-  @Column({ nullable: true })
+  @Column({
+    name: "addon_project",
+    type: "varchar",
+    length: 255,
+    nullable: true,
+  })
   addon_project: string;
 
-  @Column({ type: "int4", default: 1 })
+  @Column({ name: "status_user", type: "int4", default: 1 })
   status_user: number;
 
-  @Column({ length: 200, nullable: true })
+  @Column({ name: "reset_token", type: "varchar", length: 200, nullable: true })
   reset_token: string;
 
-  @Column({ type: "timestamp", nullable: true })
+  @Column({ name: "reset_token_expired", type: "timestamp", nullable: true })
   reset_token_expired: Date;
 
-  @Column({ nullable: true })
+  @Column({ name: "created_by", type: "int4", nullable: true })
   created_by: number;
 
-  @Column({ nullable: true })
+  @Column({ name: "updated_by", type: "int4", nullable: true })
   updated_by: number;
 
-  @Column({ nullable: true })
+  @Column({ name: "deleted_by", type: "int4", nullable: true })
   deleted_by: number;
 
+  // --- RELASI ---
   @ManyToOne(() => PortalRole)
   @JoinColumn({ name: "id_role" })
   role: PortalRole;

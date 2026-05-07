@@ -2,19 +2,22 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  InternalServerErrorException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Not, Repository } from "typeorm";
+import { Not, Repository, DataSource } from "typeorm";
 import { PortalRole } from "./entities/portal_role_db.entity";
-import { CreatePortalRoleDbDto } from "./dto/create-portal_role_db.dto";
-import { UpdatePortalRoleDbDto } from "./dto/update-portal_role_db.dto";
 import { ServerSideDTO } from "DTO/dto.serverside";
+import { RolePermission } from "role_has_permission/entities/role_has_permission.entity";
 
 @Injectable()
 export class PortalRoleDbService {
   constructor(
     @InjectRepository(PortalRole)
     private readonly roleRepository: Repository<PortalRole>,
+    @InjectRepository(RolePermission)
+    private readonly rolePermissionRepo: Repository<RolePermission>,
+    private readonly dataSource: DataSource,
   ) {}
 
   async serverSideList(queryDto: ServerSideDTO) {
@@ -57,47 +60,111 @@ export class PortalRoleDbService {
     };
   }
 
-  async create(createDto: CreatePortalRoleDbDto, userId?: number) {
+  async create(data: any, userId?: number) {
+    const { role_name, permission_ids } = data;
+
     const isExist = await this.roleRepository.findOne({
-      where: { role_name: createDto.role_name, is_active: 1 },
+      where: { role_name, is_active: 1 },
     });
 
-    if (isExist) {
-      throw new ConflictException(
-        `Role '${createDto.role_name}' already exists.`,
+    if (isExist)
+      throw new ConflictException(`Role '${role_name}' already exists.`);
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const newRole = queryRunner.manager.create(PortalRole, {
+        role_name,
+        is_active: 1,
+        created_by: userId ?? null,
+      });
+      const savedRole = await queryRunner.manager.save(newRole);
+
+      if (
+        permission_ids &&
+        Array.isArray(permission_ids) &&
+        permission_ids.length > 0
+      ) {
+        const rolePermissions = permission_ids.map((id_permission) => ({
+          id_role: savedRole.id_role,
+          id_permission,
+          created_by: userId ?? null,
+        }));
+        await queryRunner.manager.insert(RolePermission, rolePermissions);
+      }
+
+      await queryRunner.commitTransaction();
+      return savedRole;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw new InternalServerErrorException(
+        "Failed to create role and permissions",
       );
+    } finally {
+      await queryRunner.release();
     }
-
-    const role = this.roleRepository.create({
-      ...createDto,
-      is_active: 1,
-      created_by: userId ?? null,
-    });
-    return this.roleRepository.save(role);
   }
 
-  async update(id: number, updateDto: UpdatePortalRoleDbDto, userId?: number) {
-    const role = await this.findOne(id);
+  async update(id: number, data: any, userId?: number) {
+    const { role_name, permission_ids } = data;
+
+    await this.findOne(id);
 
     const isExist = await this.roleRepository.findOne({
-      where: {
-        role_name: updateDto.role_name,
-        is_active: 1,
-        id_role: Not(id),
-      },
+      where: { role_name, is_active: 1, id_role: Not(id) },
     });
 
-    if (isExist) {
-      throw new ConflictException(
-        `Role name '${updateDto.role_name}' is already used.`,
+    if (isExist)
+      throw new ConflictException(`Role name '${role_name}' is already used.`);
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      await queryRunner.manager.update(PortalRole, id, {
+        role_name,
+        updated_by: userId ?? null,
+      });
+
+      if (permission_ids && Array.isArray(permission_ids)) {
+        await queryRunner.manager.delete(RolePermission, { id_role: id });
+
+        if (permission_ids.length > 0) {
+          const rolePermissions = permission_ids.map((id_permission) => ({
+            id_role: id,
+            id_permission,
+            created_by: userId ?? null,
+          }));
+          await queryRunner.manager.insert(RolePermission, rolePermissions);
+        }
+      }
+
+      await queryRunner.commitTransaction();
+      return this.findOne(id);
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw new InternalServerErrorException(
+        "Failed to update role and permissions",
       );
+    } finally {
+      await queryRunner.release();
     }
+  }
 
-    Object.assign(role, {
-      ...updateDto,
-      updated_by: userId ?? null,
+  async findOneWithPermissions(id: number) {
+    const role = await this.findOne(id);
+    const permissions = await this.rolePermissionRepo.find({
+      where: { id_role: id },
+      select: ["id_permission"],
     });
-    return this.roleRepository.save(role);
+
+    return {
+      ...role,
+      permission_ids: permissions.map((p) => p.id_permission),
+    };
   }
 
   async findAll() {

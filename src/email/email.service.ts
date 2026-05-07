@@ -40,10 +40,6 @@ export class EmailService {
     return await qb.getMany();
   }
 
-  private generateJwtToken(secret: string): string {
-    return jwt.sign({ app: secret }, this.JWT_SECRET, { expiresIn: "1h" });
-  }
-
   async sendSimpleEmail(to: string | string[], subject: string, html: string) {
     try {
       await this.gmailTransporter.sendMail({

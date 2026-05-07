@@ -1,5 +1,3 @@
-import { PortalPermission } from "portal_permission/permission.entity";
-import { PortalRole } from "portal_role_db/entities/portal_role_db.entity";
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -7,22 +5,16 @@ import {
   JoinColumn,
   Column,
 } from "typeorm";
+import { PortalRole } from "portal_role_db/entities/portal_role_db.entity";
+import { PortalPermission } from "portal_permission/permission.entity";
 
-@Entity({ name: "portal_role_permission" }) // SESUAI GAMBAR: portal_role_permission
+@Entity("portal_role_permission")
 export class RolePermission {
   @PrimaryGeneratedColumn({ name: "id_role_permission", type: "int4" })
   id_role_permission: number;
 
-  @ManyToOne(() => PortalRole, { onDelete: "CASCADE" })
-  @JoinColumn({ name: "id_role" })
-  role: PortalRole;
-
   @Column({ name: "id_role", type: "int4" })
   id_role: number;
-
-  @ManyToOne(() => PortalPermission, { onDelete: "CASCADE" })
-  @JoinColumn({ name: "id_permission" })
-  permission: PortalPermission;
 
   @Column({ name: "id_permission", type: "int4" })
   id_permission: number;
@@ -35,4 +27,12 @@ export class RolePermission {
 
   @Column({ name: "deleted_by", type: "int4", nullable: true })
   deleted_by: number;
+
+  @ManyToOne(() => PortalRole, { onDelete: "CASCADE" })
+  @JoinColumn({ name: "id_role" })
+  role: PortalRole;
+
+  @ManyToOne(() => PortalPermission, { onDelete: "CASCADE" })
+  @JoinColumn({ name: "id_permission" })
+  permission: PortalPermission;
 }

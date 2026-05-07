@@ -26,6 +26,22 @@ export class PortalPermissionController {
     return this.service.findAll();
   }
 
+  @Get("grouped")
+  getGrouped() {
+    return this.service.findAllGrouped();
+  }
+
+  @Post("serverside_list")
+  serverSideList(@Body() body: any) {
+    const dto: ServerSideDTO = {
+      page: Number(body.page ?? 0),
+      size: Number(body.size ?? 10),
+      sort: body.sort ?? "",
+      search: body.search ?? "",
+    };
+    return this.service.serverSideList(dto);
+  }
+
   @Get(":id")
   getOne(@Param("id") id: string) {
     const decryptedId = this.aesEcbService.decryptBase64Url(id);
@@ -51,16 +67,5 @@ export class PortalPermissionController {
   delete(@Param("id") id: string, @Req() req: any) {
     const decryptedId = this.aesEcbService.decryptBase64Url(id);
     return this.service.delete(Number(decryptedId), req.user?.id_user);
-  }
-
-  @Post("serverside_list")
-  serverSideList(@Body() body: any, @Query() query: any) {
-    const dto: ServerSideDTO = {
-      page: Number(query.page ?? 0),
-      size: Number(query.size ?? 10),
-      sort: query.sort ?? "",
-      search: query.search ?? "",
-    };
-    return this.service.serverSideList(dto);
   }
 }

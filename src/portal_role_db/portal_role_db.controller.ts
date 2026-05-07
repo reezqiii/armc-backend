@@ -26,7 +26,7 @@ export class PortalRoleDbController {
     return this.portalRoleDbService.serverSideList({
       page: Number(query.page ?? 0),
       size: Number(query.size ?? 10),
-      sort: query.sort ?? "",
+     sort: query.sort ?? "",
       search: query.search ?? "",
     });
   }

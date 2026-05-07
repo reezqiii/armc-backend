@@ -6,6 +6,7 @@ import {
   Body,
   BadRequestException,
   UseGuards,
+  Req,
 } from "@nestjs/common";
 import { RolePermissionService } from "./role_has_permission.service";
 import { AesEcbService } from "crypto/aes-ecb.service";
@@ -46,14 +47,17 @@ export class RolePermissionController {
   syncPermissions(
     @Param("id_role") id_role: string,
     @Body() body: { permission_ids: number[] },
+    @Req() req: any,
   ) {
     try {
       const decryptedId = this.aesEcbService.decryptBase64Url(id_role);
       const realId = Number(decryptedId);
+      const userId = req.user?.id_user;
 
       if (isNaN(realId)) throw new Error();
 
-      return this._service.syncPermissions(realId, body.permission_ids);
+     
+      return this._service.syncPermissions(realId, body.permission_ids, userId);
     } catch (error) {
       throw new BadRequestException("Invalid Encrypted Role ID for Sync");
     }
