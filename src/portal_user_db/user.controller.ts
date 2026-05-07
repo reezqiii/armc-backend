@@ -16,6 +16,7 @@ import { PortalUserPermissionService } from "../portal_user_permission/user_perm
 import { JwtAuthGuard } from "jwt-auth.guard";
 import { ServerSideDTO } from "DTO/dto.serverside";
 import { AesEcbService } from "crypto/aes-ecb.service";
+import { buildUserListExcel } from "excel/views/export_template";
 
 @Controller("user")
 @UseGuards(JwtAuthGuard)
@@ -31,15 +32,15 @@ export class UserController {
     return await this._user.getUserStats();
   }
 
-   @Post("serverside_list")
-   serverSideList(@Body() body: any, @Query() query: any) {
-     return this._user.serverSideList({
-       page: Number(query.page ?? 0),
-       size: Number(query.size ?? 10),
+  @Post("serverside_list")
+  serverSideList(@Body() body: any, @Query() query: any) {
+    return this._user.serverSideList({
+      page: Number(query.page ?? 0),
+      size: Number(query.size ?? 10),
       sort: query.sort ?? "",
-       search: query.search ?? "",
-     });
-   }
+      search: query.search ?? "",
+    });
+  }
 
   @Post("/create")
   async createUser(@Body() data: any, @Req() req) {

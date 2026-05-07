@@ -31,8 +31,7 @@ export class ExcelController {
   ) {}
 
   @Get("export-users")
-  @UseGuards(JwtAuthGuard, PermissionGuard)
-  @RequirePermissions(102)
+  @UseGuards(JwtAuthGuard)
   async exportUsers(@Query("search") search: string, @Res() res: Response) {
     try {
       let filters = {};
