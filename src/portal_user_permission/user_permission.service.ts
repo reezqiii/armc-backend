@@ -42,13 +42,33 @@ export class PortalUserPermissionService {
     return [...new Set([...rolePermIds, ...userPermIds])];
   }
 
-  async getUserExtraPermissions(id_user: number): Promise<number[]> {
-    const perms = await this.userPermRepo.find({
-      where: { id_user },
-      select: ["id_portal_permission"],
-    });
+  async getUserExtraPermissions(userId: number) {
+    const permissions = await this.permissionRepo.manager.query(
+      `
+    SELECT 
+      p.id_permission, 
+      p.permission_name, 
+      p.permission_group,
+      CASE 
+        WHEN up.id_user IS NOT NULL THEN true 
+        ELSE false 
+      END as assigned
+    FROM portal_permission p
+  
+    LEFT JOIN portal_user_permission up ON up.id_portal_permission = p.id_permission 
+      AND up.id_user = $1
+    WHERE p.is_active = 1
+    ORDER BY p.permission_group ASC, p.permission_name ASC
+  `,
+      [userId],
+    );
 
-    return perms.map((p) => Number(p.id_portal_permission));
+    return permissions.map((p) => ({
+      id_permission: Number(p.id_permission),
+      permission_name: p.permission_name,
+      permission_group: p.permission_group,
+      assigned: p.assigned === true || p.assigned === "true",
+    }));
   }
 
   async getUserPermissionList(userId: number) {

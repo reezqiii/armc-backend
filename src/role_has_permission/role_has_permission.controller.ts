@@ -22,13 +22,11 @@ export class RolePermissionController {
   ) {}
 
   @Get("permissions")
-  @RequirePermissions(101)
   getAllPermissions() {
     return this._service.getAllPermissions();
   }
 
   @Get(":id_role")
-  @RequirePermissions(101)
   getByRole(@Param("id_role") id_role: string) {
     try {
       const decryptedId = this.aesEcbService.decryptBase64Url(id_role);
@@ -43,7 +41,6 @@ export class RolePermissionController {
   }
 
   @Post(":id_role/sync")
-  @RequirePermissions(101)
   syncPermissions(
     @Param("id_role") id_role: string,
     @Body() body: { permission_ids: number[] },
@@ -56,7 +53,6 @@ export class RolePermissionController {
 
       if (isNaN(realId)) throw new Error();
 
-     
       return this._service.syncPermissions(realId, body.permission_ids, userId);
     } catch (error) {
       throw new BadRequestException("Invalid Encrypted Role ID for Sync");

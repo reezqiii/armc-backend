@@ -74,11 +74,23 @@ export class UserService {
 
     const qb = this._user
       .createQueryBuilder("user")
-      .leftJoinAndSelect("user.role", "role")
-      .leftJoinAndSelect("user.department", "department")
-      .leftJoinAndSelect("user.position", "position")
-      .leftJoinAndSelect("user.project", "project")
-      .where("user.status_user = 1");
+      .leftJoin("user.role", "role")
+      .leftJoin("user.department", "department")
+      .leftJoin("user.position", "position")
+      .leftJoin("user.project", "project")
+      .where("user.status_user = 1")
+
+      .select([
+        "user.id_user",
+        "user.username",
+        "user.badge_no",
+        "user.full_name",
+        "user.email",
+        "role.role_name",
+        "department.name_of_department",
+        "position.position_name",
+        "project.project_name",
+      ]);
 
     const columnMap: Record<string, string> = {
       id_user: "user.id_user",
@@ -153,15 +165,23 @@ export class UserService {
     const user = await this._user.findOne({ where: { id_user: id } });
     if (!user) throw new NotFoundException("User not found");
 
-    if (data.username || data.email) {
+    if (
+      (data.username && data.username !== user.username) ||
+      (data.email && data.email !== user.email)
+    ) {
       const isExist = await this._user.findOne({
         where: [
           { username: data.username, id_user: Not(id) },
+
           { email: data.email, id_user: Not(id) },
         ],
       });
-      if (isExist)
-        throw new ConflictException("Username or Email already used");
+
+      if (isExist) {
+        throw new ConflictException(
+          "Username or Email already used by another account",
+        );
+      }
     }
 
     if (data.password) {
@@ -189,8 +209,27 @@ export class UserService {
   async findOneById(id: number) {
     const user = await this._user.findOne({
       where: { id_user: id, status_user: 1 },
+
+      select: {
+        id_user: true,
+        full_name: true,
+        badge_no: true,
+        username: true,
+        email: true,
+        id_department: true,
+        id_project: true,
+        id_role: true,
+        id_position: true,
+        addon_project: true,
+        role: { id_role: true, role_name: true },
+        department: { id_department: true, name_of_department: true },
+        position: { id_position: true, position_name: true },
+        project: { id_project: true, project_name: true },
+      },
+
       relations: ["role", "department", "position", "project"],
     });
+
     if (!user) throw new NotFoundException("User not found");
     return user;
   }

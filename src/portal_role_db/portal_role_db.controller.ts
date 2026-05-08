@@ -8,6 +8,7 @@ import {
   Delete,
   Req,
   Query,
+  BadRequestException,
 } from "@nestjs/common";
 import { PortalRoleDbService } from "./portal_role_db.service";
 import { CreatePortalRoleDbDto } from "./dto/create-portal_role_db.dto";
@@ -26,7 +27,7 @@ export class PortalRoleDbController {
     return this.portalRoleDbService.serverSideList({
       page: Number(query.page ?? 0),
       size: Number(query.size ?? 10),
-     sort: query.sort ?? "",
+      sort: query.sort ?? "",
       search: query.search ?? "",
     });
   }
@@ -44,6 +45,11 @@ export class PortalRoleDbController {
   @Get(":id")
   findOne(@Param("id") id: string) {
     const realId = Number(this.aesEcbService.decryptBase64Url(id));
+
+    if (isNaN(realId) || realId === 0) {
+      throw new BadRequestException("Invalid Encrypted Role ID");
+    }
+
     return this.portalRoleDbService.findOne(realId);
   }
 
@@ -54,6 +60,11 @@ export class PortalRoleDbController {
     @Req() req: any,
   ) {
     const realId = Number(this.aesEcbService.decryptBase64Url(id));
+
+    if (isNaN(realId) || realId === 0) {
+      throw new BadRequestException("Invalid Encrypted Role ID");
+    }
+
     return this.portalRoleDbService.update(
       realId,
       updateDto,
@@ -64,6 +75,11 @@ export class PortalRoleDbController {
   @Delete(":id")
   remove(@Param("id") id: string, @Req() req: any) {
     const realId = Number(this.aesEcbService.decryptBase64Url(id));
+
+    if (isNaN(realId) || realId === 0) {
+      throw new BadRequestException("Invalid Encrypted Role ID");
+    }
+
     return this.portalRoleDbService.remove(realId, req.user?.id_user);
   }
 }
