@@ -74,7 +74,6 @@ export class User {
   @Column({ name: "deleted_by", type: "int4", nullable: true })
   deleted_by: number;
 
-  // --- RELASI ---
   @ManyToOne(() => PortalRole)
   @JoinColumn({ name: "id_role" })
   role: PortalRole;

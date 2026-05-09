@@ -2,22 +2,15 @@ import {
   Injectable,
   InternalServerErrorException,
   NotFoundException,
-  ForbiddenException,
   BadRequestException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { In, Repository } from "typeorm";
+import { Repository } from "typeorm";
 import { RequestEntity } from "./request.entity";
 import { User } from "../portal_user_db/user.entity";
 import { ServerSideDTO } from "DTO/dto.serverside";
 import { EmailService } from "../email/email.service";
-import { NavMenu } from "portal_nav_menu/menu.entity";
 import { AesEcbService } from "crypto/aes-ecb.service";
-import { getStatusLabel } from "utils/status-helper";
-import { CategoryAccount } from "portal_category_account/entities/portal_category_account.entity";
-import { PortalProject } from "portal_project/entities/portal_project.entity";
-import { PortalDepartment } from "portal_department/entities/portal_department.entity";
-import { Position } from "portal_position/entities/portal_position.entity";
 
 @Injectable()
 export class RequestService {
@@ -25,22 +18,12 @@ export class RequestService {
     private readonly aesEcbService: AesEcbService,
     @InjectRepository(RequestEntity)
     private readonly requestRepo: Repository<RequestEntity>,
-    @InjectRepository(PortalProject)
-    private readonly projectRepo: Repository<PortalProject>,
-    @InjectRepository(PortalDepartment)
-    private readonly departmentRepo: Repository<PortalDepartment>,
-    @InjectRepository(Position)
-    private readonly positionRepo: Repository<Position>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
-    @InjectRepository(NavMenu)
-    private readonly navMenuRepo: Repository<NavMenu>,
     private readonly mailService: EmailService,
-    @InjectRepository(CategoryAccount)
-    private readonly categoryRepo: Repository<CategoryAccount>,
   ) {}
 
-  async serverSideList(queryDto: ServerSideDTO, user?: any) {
+  async serverSideList(queryDto: ServerSideDTO) {
     try {
       const { page = 0, size = 10, search, sort } = queryDto;
       const take = Number(size);
@@ -48,14 +31,27 @@ export class RequestService {
 
       const qb = this.requestRepo
         .createQueryBuilder("request")
-        .leftJoinAndSelect("request.category", "category")
-        .leftJoinAndSelect("request.approval_hod_by", "approvalHod")
-        .leftJoinAndSelect("request.approval_it_hod_by", "approvalIt")
-        .leftJoinAndSelect("request.created_by_user", "requestor")
-        .leftJoinAndSelect("request.project", "project")
-        .leftJoinAndSelect("request.department", "department")
-        .leftJoinAndSelect("request.position", "position")
-        .leftJoinAndSelect("request.application", "application")
+        .leftJoin("request.category", "cat")
+        .leftJoin("request.project", "proj")
+        .leftJoin("request.department", "dept")
+        .leftJoin("request.position", "pos")
+        .leftJoin("request.application", "app")
+        .leftJoin("request.created_by_user", "creator")
+        .select([
+          "request.id_request as id_request",
+          "request.full_name as full_name",
+          "request.badge_no as badge_no",
+          "request.email as email",
+          "request.request_status as request_status",
+          "request.request_reason as request_reason",
+          "request.created_by as created_by",
+          "cat.category_name as category_account_name",
+          "proj.project_name as project_name",
+          "dept.name_of_department as department_name",
+          "pos.position_name as position_name",
+          "app.application_name as application_name",
+          "creator.full_name as created_by_name",
+        ])
         .where("request.status_active = :active", { active: 1 });
 
       const columnMap: Record<string, string> = {
@@ -64,28 +60,25 @@ export class RequestService {
         badge_no: "request.badge_no",
         email: "request.email",
         request_status: "request.request_status",
-        created_date: "request.created_date",
-        category_account_name: "category.category_name",
-        department_name: "department.name_of_department",
-        project_name: "project.project_name",
-        position_name: "position.position_name",
-        application_name: "application.application_name",
+        category_account_name: "cat.category_name",
+        department_name: "dept.name_of_department",
+        project_name: "proj.project_name",
+        application_name: "app.application_name",
       };
 
       if (search) {
-        let filters: Record<string, any> = {};
         try {
-          filters = JSON.parse(search);
-        } catch {
-          throw new InternalServerErrorException("Invalid JSON search format");
-        }
+          const filters = JSON.parse(search);
+          for (const [key, value] of Object.entries(filters)) {
+            if (value === undefined || value === null || value === "") continue;
 
-        for (const [key, value] of Object.entries(filters)) {
-          if (!value) continue;
-          const column = columnMap[key] ?? `request.${key}`;
-          qb.andWhere(`CAST(${column} AS TEXT) ILIKE :${key}`, {
-            [key]: `%${value}%`,
-          });
+            const column = columnMap[key] ?? `request.${key}`;
+            qb.andWhere(`CAST(${column} AS TEXT) ILIKE :${key}`, {
+              [key]: `%${value}%`,
+            });
+          }
+        } catch (e) {
+          throw new BadRequestException("Invalid search format");
         }
       }
 
@@ -99,73 +92,50 @@ export class RequestService {
         qb.orderBy("request.id_request", "DESC");
       }
 
-      const [data, totalCount] = await qb
-        .skip(skip)
-        .take(take)
-        .getManyAndCount();
-
-      const finalData = data.map((d, index) => ({
-        no_request: skip + index + 1,
-        id_request: d.id_request,
-        created_by_name: d.created_by_user?.full_name || "-",
-        full_name: d.full_name,
-        badge_no: d.badge_no,
-        email: d.email,
-        position_name: d.position?.position_name || "-",
-        project_name: d.project?.project_name || "-",
-        department_name: d.department?.name_of_department || "-",
-        application_name: d.application?.application_name || "-",
-        request_status: d.request_status,
-        request_status_name: getStatusLabel("request_status", d.request_status),
-        category_account_name: d.category?.category_name || "-",
-        approval_hod_name: d.approval_hod_by?.full_name || "-",
-        approval_it_name: d.approval_it_hod_by?.full_name || "-",
-      }));
+      const [data, totalCount] = await Promise.all([
+        qb.offset(skip).limit(take).getRawMany(),
+        qb.getCount(),
+      ]);
 
       return {
-        data: finalData,
+        data,
         total_records: totalCount,
         total_pages: Math.ceil(totalCount / take),
         page,
         size: take,
       };
     } catch (error) {
+      console.error("DETAIL ERROR SQL:", error.message);
       throw new InternalServerErrorException(error.message);
     }
   }
 
-  async findOne(id: number): Promise<any> {
+  /**
+   * Detail pengajuan tunggal
+   */
+  async findOne(id: number) {
     const data = await this.requestRepo.findOne({
       where: { id_request: id },
       relations: [
-        "approval_hod_by",
-        "approval_it_hod_by",
         "category",
         "project",
         "department",
         "position",
         "application",
         "created_by_user",
+        "approval_hod_by",
+        "approval_it_hod_by",
       ],
     });
 
-    if (!data) throw new NotFoundException(`Request with ID ${id} not found`);
-
-    return {
-      ...data,
-      created_by_name: data.created_by_user?.full_name || null,
-      position_name: data.position?.position_name || null,
-      project_name: data.project?.project_name || null,
-      department_name: data.department?.name_of_department || null,
-      category_account_name: data.category?.category_name || "-",
-      application_name: data.application?.application_name || "-",
-    };
+    if (!data) throw new NotFoundException(`Request REQ-${id} not found`);
+    return data;
   }
 
-  async create(
-    data: Partial<RequestEntity>,
-    userId: number,
-  ): Promise<{ success: boolean; message: string }> {
+  /**
+   * Membuat pengajuan baru
+   */
+  async create(data: Partial<RequestEntity>, userId: number) {
     const newRequest = this.requestRepo.create({
       ...data,
       created_by: userId,
@@ -173,16 +143,13 @@ export class RequestService {
       request_status: 1,
     });
 
-    const savedRequest = await this.requestRepo.save(newRequest);
-    const fullRequest = await this.findOne(savedRequest.id_request);
+    const saved = await this.requestRepo.save(newRequest);
 
-    if (fullRequest.approval_hod_by_id) {
-      this.notifyHod(fullRequest).catch((err) =>
-        console.error("HOD Notify Error:", err.message),
-      );
-    }
+    this.notifyHod(saved.id_request).catch((e) =>
+      console.error("Email Error:", e.message),
+    );
 
-    return { success: true, message: "Request created successfully" };
+    return { success: true, id_request: saved.id_request };
   }
 
   async update(
@@ -194,48 +161,62 @@ export class RequestService {
 
     Object.assign(existing, data);
     await this.requestRepo.save(existing);
+
     return { success: true, message: "Request updated successfully" };
   }
 
+  /**
+   * Batalkan pengajuan oleh pembuat (Soft Delete)
+   */
+  async cancelRequest(id_request: number, userId: number) {
+    const existing = await this.requestRepo.findOne({
+      where: { id_request, created_by: userId, status_active: 1 },
+    });
+
+    if (!existing)
+      throw new NotFoundException("Request not found or unauthorized");
+
+    existing.status_active = 0;
+    existing.canceled_by = userId;
+    await this.requestRepo.save(existing);
+
+    return { success: true, message: "Request canceled" };
+  }
+
+  /**
+   * Bulk Approval oleh Department Head
+   */
   async hodApprovalBulk(
     encryptedIds: string[],
-    action: string,
+    action: "approve" | "reject",
     remarks: string,
     userId: number,
   ) {
-    const hodUser = await this.userRepo.findOne({ where: { id_user: userId } });
-    const approvedIds = [];
-
     for (const encId of encryptedIds) {
       const id = Number(this.aesEcbService.decryptBase64Url(encId));
-      const existing = await this.requestRepo.findOne({
+      const req = await this.requestRepo.findOne({
         where: { id_request: id, request_status: 1 },
       });
 
-      if (existing) {
-        existing.approval_hod_by_id = userId;
+      if (req) {
+        req.approval_hod_by_id = userId;
         if (action === "approve") {
-          existing.request_status = 3;
-          approvedIds.push(id);
+          req.request_status = 3;
+
+          this.notifyItApproval(id).catch((e) => console.error(e));
         } else {
-          existing.request_status = 2;
-          existing.rejected_hod_remarks = remarks;
+          req.request_status = 2;
+          req.rejected_hod_remarks = remarks;
         }
-        await this.requestRepo.save(existing);
+        await this.requestRepo.save(req);
       }
     }
-
-    for (const id of approvedIds) {
-      this.notifyItApproval(id).catch((err) =>
-        console.error("IT Notify Error:", err.message),
-      );
-    }
-    return {
-      success: true,
-      message: `Processed ${encryptedIds.length} requests`,
-    };
+    return { success: true };
   }
 
+  /**
+   * Bulk Approval oleh IT Head
+   */
   async itApprovalBulk(
     encryptedIds: string[],
     action: "approve" | "reject",
@@ -244,140 +225,103 @@ export class RequestService {
   ) {
     for (const encId of encryptedIds) {
       const id = Number(this.aesEcbService.decryptBase64Url(encId));
-      const existing = await this.requestRepo.findOne({
+      const req = await this.requestRepo.findOne({
         where: { id_request: id, request_status: 3 },
       });
 
-      if (existing) {
-        existing.approval_it_hod_by_id = userId;
+      if (req) {
+        req.approval_it_hod_by_id = userId;
         if (action === "approve") {
-          existing.request_status = 5;
+          req.request_status = 5;
         } else {
-          existing.request_status = 4;
-          existing.rejected_it_remarks = remarks;
+          req.request_status = 4;
+          req.rejected_it_remarks = remarks;
         }
-        await this.requestRepo.save(existing);
+        await this.requestRepo.save(req);
       }
     }
-    return { success: true, message: "IT Approval processed successfully" };
+    return { success: true };
   }
 
-  async exportList(filters: any, sort_by?: string, sort_order?: string) {
-    const qb = this.requestRepo
-      .createQueryBuilder("request")
-      .leftJoinAndSelect("request.category", "category")
-      .leftJoinAndSelect("request.project", "project")
-      .leftJoinAndSelect("request.department", "department")
-      .leftJoinAndSelect("request.position", "position")
-      .leftJoinAndSelect("request.application", "application")
-      .leftJoinAndSelect("request.created_by_user", "requestor")
-      .where("request.status_active = :active", { active: 1 });
+  private async notifyHod(id: number) {
+    const req = await this.findOne(id);
+    const hod = req.approval_hod_by;
+    if (!hod?.email) return;
 
-    if (filters) {
-      // Implementasi filter export sesuai kebutuhan ExcelController
-      if (filters.request_status)
-        qb.andWhere("request.request_status = :status", {
-          status: filters.request_status,
-        });
-    }
+    const encId = this.aesEcbService.encryptToBase64Url(String(id));
+    const html = this.mailService.renderTemplate("approval.ejs", {
+      approverName: hod.full_name,
+      requestNumber: `REQ-${String(id).padStart(6, "0")}`,
+      requestorName: req.created_by_user?.full_name,
+      targetFullName: req.full_name,
+      approvalLink: `${process.env.ARMC_BASE_URL}/user_request/detail_req/${encId}`,
+    });
 
-    return qb.orderBy("request.id_request", "DESC").getMany();
+    await this.mailService.sendSimpleEmail(
+      hod.email,
+      `Approval Required - REQ-${id}`,
+      html,
+    );
+  }
+
+  private async notifyItApproval(id: number) {
+    const itManagers = await this.userRepo.find({
+      where: { id_department: 1, id_role: 2 },
+    });
+    const emails = itManagers.map((u) => u.email).filter((e) => !!e);
+    if (emails.length === 0) return;
+
+    const req = await this.findOne(id);
+    const encId = this.aesEcbService.encryptToBase64Url(String(id));
+    const html = this.mailService.renderTemplate("approval.ejs", {
+      approverName: "IT Manager",
+      requestNumber: `REQ-${String(id).padStart(6, "0")}`,
+      requestorName: req.created_by_user?.full_name,
+      targetFullName: req.full_name,
+      approvalLink: `${process.env.ARMC_BASE_URL}/user_request/detail_req/${encId}`,
+    });
+
+    await this.mailService.sendSimpleEmail(
+      emails.join(","),
+      `IT Approval Required - REQ-${id}`,
+      html,
+    );
   }
 
   async getLatestPeriod() {
-    const result = await this.requestRepo
-      .createQueryBuilder("r")
-      .select("MAX(r.created_date)", "max")
-      .getRawOne();
-    if (!result?.max) return null;
-    const date = new Date(result.max);
-    return { month: date.getMonth() + 1, year: date.getFullYear() };
+    return {
+      month: new Date().getMonth() + 1,
+      year: new Date().getFullYear(),
+    };
   }
 
+  /**
+   * Menghitung ringkasan status pengajuan
+   */
   async getSummary(month: any, year: number) {
-    const qb = this.requestRepo
-      .createQueryBuilder("r")
-      .where("r.status_active = 1");
+    try {
+      const qb = this.requestRepo
+        .createQueryBuilder("r")
+        .where("r.status_active = 1");
 
-    if (month && month !== "all") {
-      qb.andWhere(
-        "EXTRACT(MONTH FROM r.created_date) = :m AND EXTRACT(YEAR FROM r.created_date) = :y",
-        { m: month, y: year },
-      );
+      const [total, pending, rejected, completed] = await Promise.all([
+        qb.getCount(),
+        qb.clone().andWhere("r.request_status IN (1, 3)").getCount(),
+        qb.clone().andWhere("r.request_status IN (2, 4)").getCount(),
+        qb.clone().andWhere("r.request_status = 5").getCount(),
+      ]);
+
+      return { total, pending, rejected, completed };
+    } catch (error) {
+      throw new InternalServerErrorException("Summary error: " + error.message);
     }
-
-    const [total, pending, rejected, completed] = await Promise.all([
-      qb.getCount(),
-      qb.clone().andWhere("r.request_status IN (1, 3)").getCount(),
-      qb.clone().andWhere("r.request_status IN (0, 2, 4)").getCount(),
-      qb.clone().andWhere("r.request_status = 5").getCount(),
-    ]);
-
-    return { total, pending, rejected, completed };
   }
 
-  private async notifyHod(request: any) {
-    const hod = request.approval_hod_by;
-    if (!hod?.email) return;
-    const encryptedId = this.aesEcbService.encryptToBase64Url(
-      String(request.id_request),
-    );
-    const viewData = {
-      approverName: hod.full_name,
-      categoryAccount: request.category_account_name,
-      requestNumber: `REQ-${String(request.id_request).padStart(6, "0")}`,
-      requestorName: request.created_by_name,
-      targetFullName: request.full_name,
-      approvalLink: `${process.env.ARMC_BASE_URL}/user_request/detail_req/${encryptedId}`,
-    };
-    const html = this.mailService.renderTemplate("approval.ejs", viewData);
-    await this.mailService.sendSimpleEmail(
-      hod.email,
-      `Approval Required - ${viewData.requestNumber}`,
-      html,
-    );
-  }
-
-  private async notifyItApproval(id_request: number) {
-    const itHodUsers = await this.userRepo.find({
-      where: { id_department: 1, id_role: 2 },
-    });
-    const emails = itHodUsers
-      .map((u) => u.email)
-      .filter((e) => !!e)
-      .join(",");
-    if (!emails) return;
-
-    const request = await this.findOne(id_request);
-    const viewData = {
-      approverName: "HOD IT",
-      categoryAccount: request.category_account_name,
-      requestNumber: `REQ-${String(id_request).padStart(6, "0")}`,
-      requestorName: request.created_by_name,
-      targetFullName: request.full_name,
-      approvalLink: `${process.env.ARMC_BASE_URL}/user_request/detail_req/${this.aesEcbService.encryptToBase64Url(String(id_request))}`,
-    };
-    const html = this.mailService.renderTemplate("approval.ejs", viewData);
-    await this.mailService.sendSimpleEmail(
-      emails,
-      `IT HOD Approval Required - ${viewData.requestNumber}`,
-      html,
-    );
-  }
-
-  async cancelRequest(id_request: number, userId: number) {
-    const existing = await this.requestRepo.findOne({
-      where: { id_request, created_by: userId, status_active: 1 },
-    });
-    if (!existing) throw new NotFoundException("Request not found");
-    existing.status_active = 0;
-    existing.canceled_by = userId;
-    return this.requestRepo.save(existing);
-  }
-
-  async remove(id: number): Promise<void> {
+  async remove(id: number): Promise<{ success: boolean; message: string }> {
     const result = await this.requestRepo.delete(id);
     if (result.affected === 0)
-      throw new NotFoundException(`Request with ID ${id} not found`);
+      throw new NotFoundException(`Request REQ-${id} not found`);
+
+    return { success: true, message: "Request deleted successfully" };
   }
 }

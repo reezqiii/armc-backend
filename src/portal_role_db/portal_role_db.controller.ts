@@ -50,7 +50,7 @@ export class PortalRoleDbController {
       throw new BadRequestException("Invalid Encrypted Role ID");
     }
 
-    return this.portalRoleDbService.findOne(realId);
+    return this.portalRoleDbService.findOneWithPermissions(realId);
   }
 
   @Patch(":id")

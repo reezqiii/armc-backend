@@ -24,7 +24,10 @@ export class UserService {
     private readonly _project: Repository<PortalProject>,
   ) {}
 
-  private hashMd5(data: string): string {
+  hashMd5(data: string): string {
+    if (!data) {
+      return "";
+    }
     return crypto.createHash("md5").update(data).digest("hex");
   }
 
@@ -147,9 +150,11 @@ export class UserService {
 
     const newUser = this._user.create({
       full_name: data.full_name,
+      badge_no: data.badge_no,
       username: data.username,
       email: data.email,
-      password: this.hashMd5(data.password),
+
+      password: "PENDING_SETUP_PASSWORD",
       id_role: data.id_role,
       id_department: data.id_department,
       id_position: data.id_position,
@@ -184,11 +189,7 @@ export class UserService {
       }
     }
 
-    if (data.password) {
-      data.password = this.hashMd5(data.password);
-    } else {
-      delete data.password;
-    }
+    delete data.password;
 
     const adminId = data.admin_id;
     delete data.admin_id;

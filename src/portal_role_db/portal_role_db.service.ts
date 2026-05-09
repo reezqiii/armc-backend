@@ -163,7 +163,7 @@ export class PortalRoleDbService {
 
     return {
       ...role,
-      permission_ids: permissions.map((p) => p.id_permission),
+      permission_ids: permissions.map((p) => Number(p.id_permission)),
     };
   }
 

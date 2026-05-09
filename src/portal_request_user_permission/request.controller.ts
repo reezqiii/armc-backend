@@ -10,10 +10,8 @@ import {
   Req,
   UseGuards,
   BadRequestException,
-  UnauthorizedException,
-  StreamableFile,
 } from "@nestjs/common";
-import { ApiBearerAuth } from "@nestjs/swagger";
+import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { RequestService } from "./request.service";
 import { RequestEntity } from "./request.entity";
 import { ServerSideDTO } from "DTO/dto.serverside";
@@ -22,8 +20,10 @@ import { AesEcbService } from "../crypto/aes-ecb.service";
 import { UserService } from "../portal_user_db/user.service";
 import { PermissionGuard, RequirePermissions } from "permission.guard";
 
+@ApiTags("Requests")
 @Controller("requests")
 @ApiBearerAuth("access-token")
+@UseGuards(JwtAuthGuard) // Semua endpoint dalam controller ini butuh Login
 export class RequestController {
   constructor(
     private readonly requestService: RequestService,
@@ -31,8 +31,10 @@ export class RequestController {
     private readonly aesEcb: AesEcbService,
   ) {}
 
+  /**
+   * Mengambil daftar HOD untuk pilihan approver
+   */
   @Get("hods")
-  @UseGuards(JwtAuthGuard)
   async getHods() {
     return this.userService.getUsersByRoles([
       "Head Of Department",
@@ -40,47 +42,73 @@ export class RequestController {
     ]);
   }
 
-  @Post("/create")
-  @UseGuards(JwtAuthGuard, PermissionGuard)
-  @RequirePermissions("request.create")
-  async create(
-    @Body() data: Partial<RequestEntity>,
-    @Req() req,
-  ): Promise<{ success: boolean; message: string }> {
-    const userId = req.user.id_user;
+  /**
+   * Ambil data list dengan metode Server-Side (POST)
+   */
+  @Post("/serverside_list")
+  serverSideList(@Body() body: any, @Query() query: any) {
+    return this.requestService.serverSideList({
+      page: Number(query.page ?? 0),
+      size: Number(query.size ?? 10),
+      sort: query.sort ?? "",
+      search: query.search ?? "",
+    });
+  }
 
+  /**
+   * Detail Request berdasarkan ID (Ter-enkripsi)
+   */
+  @Get(":id")
+  async findOne(@Param("id") id: string) {
+    const numericId = Number(this.aesEcb.decryptBase64Url(id));
+    if (isNaN(numericId)) throw new BadRequestException("Invalid request ID");
+
+    return this.requestService.findOne(numericId);
+  }
+
+  /**
+   * Create Request Baru
+   */
+  @Post("/create")
+  @UseGuards(PermissionGuard)
+  @RequirePermissions("request.create")
+  async create(@Body() data: Partial<RequestEntity>, @Req() req) {
+    const userId = req.user.id_user;
     return this.requestService.create(data, userId);
   }
 
+  /**
+   * Update Request
+   */
   @Put(":id")
-  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @UseGuards(PermissionGuard)
   @RequirePermissions("request.update")
-  async update(
-    @Param("id") id: string,
-    @Body() data: Partial<RequestEntity>,
-    @Req() req,
-  ) {
+  async update(@Param("id") id: string, @Body() data: Partial<RequestEntity>) {
     const decId = Number(this.aesEcb.decryptBase64Url(id));
-
-    if (data.status_active === 0) {
-      data.canceled_by = req.user?.id_user;
-    }
+    if (isNaN(decId)) throw new BadRequestException("Invalid ID");
 
     return this.requestService.update(decId, data);
   }
 
+  /**
+   * Cancel Request oleh User
+   */
   @Put("cancel/:id")
-  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @UseGuards(PermissionGuard)
   @RequirePermissions("request.cancel")
   async cancelRequest(@Param("id") id: string, @Req() req) {
     const decId = Number(this.aesEcb.decryptBase64Url(id));
     const userId = req.user.id_user;
+
     return this.requestService.cancelRequest(decId, userId);
   }
 
+  /**
+   * Approval Massal oleh HOD
+   */
   @Put("hod-approval/bulk")
-  @UseGuards(JwtAuthGuard, PermissionGuard)
-  @RequirePermissions("request.approve_hod") 
+  @UseGuards(PermissionGuard)
+  @RequirePermissions("request.approve_hod")
   hodApprovalBulk(
     @Body()
     body: {
@@ -93,14 +121,17 @@ export class RequestController {
     return this.requestService.hodApprovalBulk(
       body.encryptedIds,
       body.action,
-      body.remarks,
+      body.remarks ?? "",
       req.user.id_user,
     );
   }
 
+  /**
+   * Approval Massal oleh IT Head
+   */
   @Put("it-approval/bulk")
-  @UseGuards(JwtAuthGuard, PermissionGuard)
-  @RequirePermissions("request.approve_it") 
+  @UseGuards(PermissionGuard)
+  @RequirePermissions("request.approve_it")
   async itApprovalBulk(
     @Body()
     body: {
@@ -113,53 +144,28 @@ export class RequestController {
     return this.requestService.itApprovalBulk(
       body.encryptedIds,
       body.action,
-      body.remarks,
+      body.remarks ?? "",
       req.user.id_user,
     );
   }
 
   @Get("dashboard/latest-period")
-  @UseGuards(JwtAuthGuard)
   getLatestPeriod() {
     return this.requestService.getLatestPeriod();
   }
 
   @Get("dashboard/summary")
-  @UseGuards(JwtAuthGuard)
-  getDashboardSummary(@Query() query) {
+  getDashboardSummary(@Query() query: any) {
     return this.requestService.getSummary(query.month, query.year);
   }
 
+  /**
+   * Delete Request (Hard Delete)
+   */
   @Delete(":id")
-  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @UseGuards(PermissionGuard)
   @RequirePermissions("user.manage")
-  remove(@Param("id") id: number): Promise<void> {
+  async remove(@Param("id") id: number) {
     return this.requestService.remove(id);
-  }
-
-  @Get(":id")
-  async findOne(@Param("id") id: string) {
-    let numericId: number;
-    try {
-      numericId = Number(this.aesEcb.decryptBase64Url(id));
-      if (isNaN(numericId)) throw new Error();
-    } catch {
-      console.error("Invalid ID:", id);
-      throw new BadRequestException("Invalid request ID");
-    }
-    return this.requestService.findOne(numericId);
-  }
-
-  @Post("/serverside_list")
-  @UseGuards(JwtAuthGuard)
-  async serverSideList(@Query() query: any, @Req() req: any) {
-    if (query.sort_by) {
-      query.sort = `${query.sort_by},${(
-        query.sort_order || "ASC"
-      ).toUpperCase()}`;
-    }
-
-    const dto: ServerSideDTO = query;
-    return this.requestService.serverSideList(dto, req.user);
   }
 }

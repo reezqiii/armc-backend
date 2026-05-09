@@ -7,6 +7,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { ProductionBatch } from "./entities/production.entity";
 import { ServerSideDTO } from "DTO/dto.serverside";
+import { User } from "portal_user_db/user.entity";
 
 @Injectable()
 export class ProductionService {
@@ -21,7 +22,17 @@ export class ProductionService {
       const take = Number(size);
       const skip = page * take;
 
-      const qb = this.repo.createQueryBuilder("production");
+      const qb = this.repo
+        .createQueryBuilder("production")
+        .leftJoin(User, "creator", "creator.id_user = production.created_by")
+        .select([
+          "production.id as id",
+          "production.batch_id as batch_id",
+          "production.product_name as product_name",
+          "production.qc_status as qc_status",
+          "production.created_by as created_by",
+          "creator.full_name as creator_name",
+        ]);
 
       const columnMap: Record<string, string> = {
         id: "production.id",
@@ -51,10 +62,10 @@ export class ProductionService {
         qb.orderBy("production.id", "DESC");
       }
 
-      const [data, totalCount] = await qb
-        .skip(skip)
-        .take(take)
-        .getManyAndCount();
+      const [data, totalCount] = await Promise.all([
+        qb.offset(skip).limit(take).getRawMany(),
+        qb.getCount(),
+      ]);
 
       return {
         data,

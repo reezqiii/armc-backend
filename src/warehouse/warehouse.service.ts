@@ -7,6 +7,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Warehouse } from "./entities/warehouse.entity";
 import { ServerSideDTO } from "DTO/dto.serverside";
+import { User } from "portal_user_db/user.entity";
 
 @Injectable()
 export class WarehouseService {
@@ -21,9 +22,24 @@ export class WarehouseService {
       const take = Number(size);
       const skip = page * take;
 
-      const qb = this.repo.createQueryBuilder("item");
+      const qb = this.repo
+        .createQueryBuilder("item")
+        .leftJoin(User, "creator", "creator.id_user = item.created_by")
+        .select([
+          "item.id_item as id",
+          "item.item_code as item_code",
+          "item.item_name as item_name",
+          "item.category as category",
+          "item.quantity as quantity",
+          "item.location as location",
+          "item.unit as unit",
+          "item.status as status",
+          "item.created_by as created_by",
+          "creator.full_name as creator_name",
+        ]);
 
       const columnMap: Record<string, string> = {
+        id: "item.id_item",
         id_item: "item.id_item",
         item_code: "item.item_code",
         item_name: "item.item_name",
@@ -54,10 +70,10 @@ export class WarehouseService {
         qb.orderBy("item.id_item", "DESC");
       }
 
-      const [data, totalCount] = await qb
-        .skip(skip)
-        .take(take)
-        .getManyAndCount();
+      const [data, totalCount] = await Promise.all([
+        qb.offset(skip).limit(take).getRawMany(),
+        qb.getCount(),
+      ]);
 
       return {
         data,
