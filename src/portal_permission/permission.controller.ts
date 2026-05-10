@@ -2,16 +2,15 @@ import {
   Controller,
   Get,
   Post,
-  Patch,
-  Delete,
-  Param,
   Body,
+  Patch,
+  Param,
+  Delete,
   Req,
   Query,
 } from "@nestjs/common";
 import { PortalPermissionService } from "./permission.service";
 import { PortalPermission } from "./permission.entity";
-import { ServerSideDTO } from "DTO/dto.serverside";
 import { AesEcbService } from "crypto/aes-ecb.service";
 
 @Controller("portal-permission")
@@ -21,8 +20,23 @@ export class PortalPermissionController {
     private readonly aesEcbService: AesEcbService,
   ) {}
 
+  @Post("serverside_list")
+  serverSideList(@Body() body: any, @Query() query: any) {
+    return this.service.serverSideList({
+      page: Number(query.page ?? 0),
+      size: Number(query.size ?? 10),
+      sort: query.sort ?? "",
+      search: query.search ?? "",
+    });
+  }
+
+  @Post()
+  create(@Body() body: Partial<PortalPermission>, @Req() req: any) {
+    return this.service.create(body, req.user?.id_user);
+  }
+
   @Get()
-  getAll() {
+  findAll() {
     return this.service.findAll();
   }
 
@@ -31,26 +45,10 @@ export class PortalPermissionController {
     return this.service.findAllGrouped();
   }
 
-  @Post("serverside_list")
-  serverSideList(@Body() body: any) {
-    const dto: ServerSideDTO = {
-      page: Number(body.page ?? 0),
-      size: Number(body.size ?? 10),
-      sort: body.sort ?? "",
-      search: body.search ?? "",
-    };
-    return this.service.serverSideList(dto);
-  }
-
   @Get(":id")
-  getOne(@Param("id") id: string) {
-    const decryptedId = this.aesEcbService.decryptBase64Url(id);
-    return this.service.findOne(Number(decryptedId));
-  }
-
-  @Post()
-  create(@Body() body: Partial<PortalPermission>, @Req() req: any) {
-    return this.service.create(body, req.user?.id_user);
+  findOne(@Param("id") id: string) {
+    const realId = Number(this.aesEcbService.decryptBase64Url(id));
+    return this.service.findOne(realId);
   }
 
   @Patch(":id")
@@ -59,13 +57,14 @@ export class PortalPermissionController {
     @Body() body: Partial<PortalPermission>,
     @Req() req: any,
   ) {
-    const decryptedId = this.aesEcbService.decryptBase64Url(id);
-    return this.service.update(Number(decryptedId), body, req.user?.id_user);
+    const realId = Number(this.aesEcbService.decryptBase64Url(id));
+    return this.service.update(realId, body, req.user?.id_user);
   }
 
   @Delete(":id")
-  delete(@Param("id") id: string, @Req() req: any) {
-    const decryptedId = this.aesEcbService.decryptBase64Url(id);
-    return this.service.delete(Number(decryptedId), req.user?.id_user);
+  remove(@Param("id") id: string, @Req() req: any) {
+    const realId = Number(this.aesEcbService.decryptBase64Url(id));
+
+    return this.service.delete(realId, req.user?.id_user);
   }
 }

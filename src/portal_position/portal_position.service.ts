@@ -2,6 +2,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  InternalServerErrorException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Not, Repository } from "typeorm";
@@ -16,80 +17,89 @@ export class PortalPositionService {
   ) {}
 
   async serverSideList(queryDto: ServerSideDTO) {
-    const { sort, search, page = 0, size = 10 } = queryDto;
-    const take = size;
-    const skip = page * take;
+    try {
+      const { sort, search, page = 0, size = 10 } = queryDto;
+      const take = Number(size);
+      const skip = page * take;
 
-    const qb = this.repository
-      .createQueryBuilder("position")
-      .leftJoinAndSelect(
-        "portal_role_db",
-        "role",
-        "role.id_role = position.id_role",
-      ) 
-      .select([
-        "position",
-        "role.role_name", 
-      ])
-      .where("position.is_active = :active", { active: 1 });
+      const qb = this.repository
+        .createQueryBuilder("position")
 
-    const columnMap: Record<string, string> = {
-      position_name: "position.position_name",
-    };
+        .leftJoin("portal_role_db", "role", "role.id_role = position.id_role")
+        .select([
+          "position.id_position as id_position",
+          "position.position_name as position_name",
+          "role.role_name as role_name",
+        ])
+        .where("position.is_active = :active", { active: 1 });
 
-    if (sort) {
-      const [col, dir] = sort.split(",");
-      const column = columnMap[col];
-      if (column) qb.orderBy(column, dir.toUpperCase() as "ASC" | "DESC");
+      const columnMap: Record<string, string> = {
+        position_name: "position.position_name",
+        role_name: "role.role_name",
+      };
+
+      if (search) {
+        try {
+          const searchObj = JSON.parse(search);
+          Object.keys(searchObj).forEach((key) => {
+            const column = columnMap[key];
+            if (
+              !column ||
+              searchObj[key] === undefined ||
+              searchObj[key] === ""
+            )
+              return;
+            qb.andWhere(`CAST(${column} AS TEXT) ILIKE :${key}`, {
+              [key]: `%${searchObj[key]}%`,
+            });
+          });
+        } catch (e) {}
+      }
+
+      if (sort) {
+        const [col, dir] = sort.split(",");
+        const column = columnMap[col];
+        if (column) qb.orderBy(column, dir.toUpperCase() as "ASC" | "DESC");
+      } else {
+        qb.orderBy("position.id_position", "DESC");
+      }
+
+      const [data, totalCount] = await Promise.all([
+        qb.offset(skip).limit(take).getRawMany(),
+        qb.getCount(),
+      ]);
+
+      return {
+        data,
+        total_records: totalCount,
+        total_pages: Math.ceil(totalCount / take),
+        page,
+        size: take,
+      };
+    } catch (error) {
+      throw new InternalServerErrorException(error.message);
     }
-
-    if (search) {
-      const searchObj = JSON.parse(search);
-      Object.keys(searchObj).forEach((key) => {
-        const column = columnMap[key];
-        if (!column) return;
-        qb.andWhere(`CAST(${column} AS TEXT) ILIKE :${key}`, {
-          [key]: `%${searchObj[key]}%`,
-        });
-      });
-    }
-
-    const [data, total] = await qb.skip(skip).take(take).getManyAndCount();
-    return {
-      data,
-      total,
-      page,
-      limit: take,
-      total_pages: Math.ceil(total / take),
-    };
   }
 
   async create(dto: any, userId?: number) {
     const isExist = await this.repository.findOne({
-      where: {
-        position_name: dto.position_name,
-        is_active: 1,
-      },
+      where: { position_name: dto.position_name, is_active: 1 },
     });
-
-    if (isExist) {
+    if (isExist)
       throw new ConflictException(
         `Position name '${dto.position_name}' already exists.`,
       );
-    }
 
     const newPos = this.repository.create({
       ...dto,
       is_active: 1,
       created_by: userId ?? null,
     });
-
     return await this.repository.save(newPos);
   }
 
   async update(id: number, dto: any, userId?: number) {
     const data = await this.findOne(id);
-
     const isExist = await this.repository.findOne({
       where: {
         position_name: dto.position_name,
@@ -97,18 +107,12 @@ export class PortalPositionService {
         id_position: Not(id),
       },
     });
-
-    if (isExist) {
+    if (isExist)
       throw new ConflictException(
         `Position '${dto.position_name}' is already used by another record.`,
       );
-    }
 
-    Object.assign(data, {
-      ...dto,
-      updated_by: userId ?? null,
-    });
-
+    Object.assign(data, { ...dto, updated_by: userId ?? null });
     return await this.repository.save(data);
   }
 
@@ -127,7 +131,10 @@ export class PortalPositionService {
   }
 
   async findOne(id: number) {
-    const data = await this.repository.findOneBy({ id_position: id, is_active: 1 });
+    const data = await this.repository.findOneBy({
+      id_position: id,
+      is_active: 1,
+    });
     if (!data) throw new NotFoundException("Position not found");
     return data;
   }

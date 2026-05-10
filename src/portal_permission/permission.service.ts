@@ -117,13 +117,16 @@ export class PortalPermissionService {
       if (search) {
         try {
           const searchObj = JSON.parse(search);
-          Object.keys(searchObj).forEach((key) => {
+          for (const [key, value] of Object.entries(searchObj)) {
+            if (value === undefined || value === null || value === "") continue;
+
             const column = columnMap[key];
-            if (!column || !searchObj[key]) return;
-            qb.andWhere(`CAST(${column} AS TEXT) ILIKE :${key}`, {
-              [key]: `%${searchObj[key]}%`,
-            });
-          });
+            if (column) {
+              qb.andWhere(`CAST(${column} AS TEXT) ILIKE :${key}`, {
+                [key]: `%${value}%`,
+              });
+            }
+          }
         } catch (e) {}
       }
 
