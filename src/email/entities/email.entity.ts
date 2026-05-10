@@ -35,7 +35,4 @@ export class Email {
     @Column()
     status_delete: number;
 
-    @Column()
-    dept_id: number;
-
 }

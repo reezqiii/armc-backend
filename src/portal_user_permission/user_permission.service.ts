@@ -23,25 +23,6 @@ export class PortalUserPermissionService {
     private dataSource: DataSource,
   ) {}
 
-  async getPermissionIds(id_user: number, id_role: number): Promise<number[]> {
-    const rolePermissions = await this.rolePermRepo.find({
-      where: { id_role: id_role },
-      select: ["id_permission"],
-    });
-
-    const userPermissions = await this.userPermRepo.find({
-      where: { id_user },
-      select: ["id_portal_permission"],
-    });
-
-    const rolePermIds = rolePermissions.map((rp) => Number(rp.id_permission));
-    const userPermIds = userPermissions.map((up) =>
-      Number(up.id_portal_permission),
-    );
-
-    return [...new Set([...rolePermIds, ...userPermIds])];
-  }
-
   async getUserExtraPermissions(userId: number) {
     const permissions = await this.permissionRepo.manager.query(
       `
@@ -71,25 +52,23 @@ export class PortalUserPermissionService {
     }));
   }
 
-  async getUserPermissionList(userId: number) {
-    const allPermissions = await this.permissionRepo.find({
-      where: { is_active: 1 },
-      order: { id_permission: "ASC" },
+  async getPermissionIds(id_user: number, id_role: number): Promise<number[]> {
+    const count = await this.userPermRepo.count({ where: { id_user } });
+
+    if (count > 0) {
+      const userPermissions = await this.userPermRepo.find({
+        where: { id_user },
+        select: ["id_portal_permission"],
+      });
+      return userPermissions.map((up) => Number(up.id_portal_permission));
+    }
+
+    const rolePermissions = await this.rolePermRepo.find({
+      where: { id_role: id_role },
+      select: ["id_permission"],
     });
 
-    const userPerms = await this.userPermRepo.find({
-      where: { id_user: userId },
-      select: ["id_portal_permission"],
-    });
-
-    const assignedIds = new Set(
-      userPerms.map((p) => Number(p.id_portal_permission)),
-    );
-
-    return allPermissions.map((p) => ({
-      ...p,
-      assigned: assignedIds.has(Number(p.id_permission)),
-    }));
+    return rolePermissions.map((rp) => Number(rp.id_permission));
   }
 
   async syncUserPermissions(
@@ -113,6 +92,7 @@ export class PortalUserPermissionService {
           created_by: admin_id,
         }));
         await queryRunner.manager.insert(PortalUserPermission, toInsert);
+      } else {
       }
 
       await queryRunner.commitTransaction();

@@ -140,12 +140,13 @@ export class UserService {
   }
 
   async createUser(data: any): Promise<User> {
+   
     const isExist = await this._user.findOne({
-      where: [{ username: data.username }, { email: data.email }],
+      where: { username: data.username },
     });
 
     if (isExist) {
-      throw new ConflictException("Username or Email already registered");
+      throw new ConflictException("Username is already registered");
     }
 
     const newUser = this._user.create({
@@ -153,8 +154,6 @@ export class UserService {
       badge_no: data.badge_no,
       username: data.username,
       email: data.email,
-
-      password: "PENDING_SETUP_PASSWORD",
       id_role: data.id_role,
       id_department: data.id_department,
       id_position: data.id_position,
@@ -170,22 +169,14 @@ export class UserService {
     const user = await this._user.findOne({ where: { id_user: id } });
     if (!user) throw new NotFoundException("User not found");
 
-    if (
-      (data.username && data.username !== user.username) ||
-      (data.email && data.email !== user.email)
-    ) {
+   
+    if (data.username && data.username !== user.username) {
       const isExist = await this._user.findOne({
-        where: [
-          { username: data.username, id_user: Not(id) },
-
-          { email: data.email, id_user: Not(id) },
-        ],
+        where: { username: data.username, id_user: Not(id) }
       });
 
       if (isExist) {
-        throw new ConflictException(
-          "Username or Email already used by another account",
-        );
+        throw new ConflictException("Username is already used by another account");
       }
     }
 

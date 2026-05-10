@@ -5,7 +5,7 @@ import {
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { ILike, Repository } from "typeorm";
 import { AuthDTO } from "./DTO/auth.dto";
 import * as crypto from "crypto";
 import { User } from "../portal_user_db/user.entity";
@@ -68,15 +68,19 @@ export class AuthService {
 
   async forgotPassword(username: string, email: string) {
     const user = await this._user.findOne({
-      where: { username, status_user: 1 },
+      where: {
+        username: ILike(username.trim()),
+        status_user: 1,
+      },
       select: ["id_user", "full_name", "username", "email", "status_user"],
     });
 
-    if (!user) throw new BadRequestException("Username not found");
+    if (!user) throw new BadRequestException("Username not found or inactive");
+
     if (!user.email)
       throw new BadRequestException("No email registered for this account");
 
-    if (user.email.toLowerCase() !== email.toLowerCase()) {
+    if (user.email.toLowerCase() !== email.trim().toLowerCase()) {
       throw new BadRequestException("Email does not match our records");
     }
 

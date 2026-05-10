@@ -30,7 +30,6 @@ export class PortalUserPermissionController {
   }
 
   @Post("user/:userId/sync")
-  @RequirePermissions(102)
   async syncUserPermissions(
     @Param("userId") userId: string,
     @Body() body: { permission_ids: number[] },

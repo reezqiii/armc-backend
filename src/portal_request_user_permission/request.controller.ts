@@ -23,7 +23,7 @@ import { PermissionGuard, RequirePermissions } from "permission.guard";
 @ApiTags("Requests")
 @Controller("requests")
 @ApiBearerAuth("access-token")
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard)
 export class RequestController {
   constructor(
     private readonly requestService: RequestService,
@@ -36,6 +36,7 @@ export class RequestController {
    * Ambil data list dengan metode Server-Side (POST)
    */
   @Post("/serverside_list")
+  @RequirePermissions(7)
   serverSideList(@Body() body: any, @Query() query: any) {
     return this.requestService.serverSideList({
       page: Number(query.page ?? 0),
@@ -49,6 +50,7 @@ export class RequestController {
    * Detail Request berdasarkan ID (Ter-enkripsi)
    */
   @Get(":id")
+  @RequirePermissions(7)
   async findOne(@Param("id") id: string) {
     const numericId = Number(this.aesEcb.decryptBase64Url(id));
     if (isNaN(numericId)) throw new BadRequestException("Invalid request ID");
@@ -60,6 +62,7 @@ export class RequestController {
    * Create Request Baru
    */
   @Post("/create")
+  @RequirePermissions(8)
   @UseGuards(PermissionGuard)
   async create(@Body() data: Partial<RequestEntity>, @Req() req) {
     const userId = req.user.id_user;
@@ -70,6 +73,7 @@ export class RequestController {
    * Update Request
    */
   @Put(":id")
+  @RequirePermissions(9)
   @UseGuards(PermissionGuard)
   async update(@Param("id") id: string, @Body() data: Partial<RequestEntity>) {
     const decId = Number(this.aesEcb.decryptBase64Url(id));
@@ -82,6 +86,7 @@ export class RequestController {
    * Cancel Request oleh User
    */
   @Put("cancel/:id")
+  @RequirePermissions(10)
   @UseGuards(PermissionGuard)
   async cancelRequest(@Param("id") id: string, @Req() req) {
     const decId = Number(this.aesEcb.decryptBase64Url(id));
@@ -94,6 +99,7 @@ export class RequestController {
    * Approval Massal oleh HOD
    */
   @Put("hod-approval/bulk")
+  @RequirePermissions(13)
   @UseGuards(PermissionGuard)
   hodApprovalBulk(
     @Body()
@@ -116,6 +122,7 @@ export class RequestController {
    * Approval Massal oleh IT Head
    */
   @Put("it-approval/bulk")
+  @RequirePermissions(14)
   @UseGuards(PermissionGuard)
   async itApprovalBulk(
     @Body()
@@ -145,6 +152,7 @@ export class RequestController {
   }
 
   @Get("dashboard/summary")
+  @RequirePermissions(7)
   getDashboardSummary(@Query() query: any) {
     return this.requestService.getSummary(query.month, query.year);
   }
