@@ -25,13 +25,18 @@ export class ProductionService {
       const qb = this.repo
         .createQueryBuilder("production")
         .leftJoin(User, "creator", "creator.id_user = production.created_by")
+
+        .leftJoin(User, "approver", "approver.id_user = production.approved_by")
+        .leftJoin(User, "rejector", "rejector.id_user = production.rejected_by")
         .select([
           "production.id as id",
           "production.batch_id as batch_id",
           "production.product_name as product_name",
           "production.qc_status as qc_status",
-          "production.created_by as created_by",
+          "production.remarks as remarks",
           "creator.full_name as creator_name",
+          "approver.full_name as approver_name",
+          "rejector.full_name as rejector_name",
         ]);
 
       const columnMap: Record<string, string> = {
@@ -44,7 +49,7 @@ export class ProductionService {
       if (search) {
         const filters = JSON.parse(search);
         for (const [key, value] of Object.entries(filters)) {
-          if (!value) continue;
+          if (!value && value !== 0) continue;
           const column = columnMap[key] ?? `production.${key}`;
           qb.andWhere(`CAST(${column} AS TEXT) ILIKE :${key}`, {
             [key]: `%${value}%`,
@@ -81,6 +86,12 @@ export class ProductionService {
     }
   }
 
+  async findAll() {
+    return this.repo.find({
+      order: { id: "DESC" },
+    });
+  }
+
   async findOne(id: number) {
     const record = await this.repo.findOneBy({ id });
     if (!record)
@@ -91,6 +102,7 @@ export class ProductionService {
   async create(data: Partial<ProductionBatch>, userId?: number) {
     const newBatch = this.repo.create({
       ...data,
+      qc_status: 1,
       created_by: userId,
     });
     return this.repo.save(newBatch);
@@ -103,6 +115,25 @@ export class ProductionService {
       updated_by: userId,
     });
     return this.findOne(id);
+  }
+
+  async approve(id: number, userId: number) {
+    const record = await this.findOne(id);
+    record.qc_status = 2;
+    record.approved_by = userId;
+    record.rejected_by = null;
+    record.updated_by = userId;
+    return this.repo.save(record);
+  }
+
+  async reject(id: number, userId: number, remarks?: string) {
+    const record = await this.findOne(id);
+    record.qc_status = 3;
+    record.rejected_by = userId;
+    record.approved_by = null;
+    record.remarks = remarks || null;
+    record.updated_by = userId;
+    return this.repo.save(record);
   }
 
   async remove(id: number, userId?: number) {

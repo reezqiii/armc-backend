@@ -23,7 +23,7 @@ import { PermissionGuard, RequirePermissions } from "permission.guard";
 @ApiTags("Requests")
 @Controller("requests")
 @ApiBearerAuth("access-token")
-@UseGuards(JwtAuthGuard) // Semua endpoint dalam controller ini butuh Login
+@UseGuards(JwtAuthGuard)
 export class RequestController {
   constructor(
     private readonly requestService: RequestService,
@@ -31,16 +31,6 @@ export class RequestController {
     private readonly aesEcb: AesEcbService,
   ) {}
 
-  /**
-   * Mengambil daftar HOD untuk pilihan approver
-   */
-  @Get("hods")
-  async getHods() {
-    return this.userService.getUsersByRoles([
-      "Head Of Department",
-      "Administrator",
-    ]);
-  }
 
   /**
    * Ambil data list dengan metode Server-Side (POST)
@@ -71,7 +61,6 @@ export class RequestController {
    */
   @Post("/create")
   @UseGuards(PermissionGuard)
-  @RequirePermissions("request.create")
   async create(@Body() data: Partial<RequestEntity>, @Req() req) {
     const userId = req.user.id_user;
     return this.requestService.create(data, userId);
@@ -82,7 +71,6 @@ export class RequestController {
    */
   @Put(":id")
   @UseGuards(PermissionGuard)
-  @RequirePermissions("request.update")
   async update(@Param("id") id: string, @Body() data: Partial<RequestEntity>) {
     const decId = Number(this.aesEcb.decryptBase64Url(id));
     if (isNaN(decId)) throw new BadRequestException("Invalid ID");
@@ -95,7 +83,6 @@ export class RequestController {
    */
   @Put("cancel/:id")
   @UseGuards(PermissionGuard)
-  @RequirePermissions("request.cancel")
   async cancelRequest(@Param("id") id: string, @Req() req) {
     const decId = Number(this.aesEcb.decryptBase64Url(id));
     const userId = req.user.id_user;
@@ -108,7 +95,6 @@ export class RequestController {
    */
   @Put("hod-approval/bulk")
   @UseGuards(PermissionGuard)
-  @RequirePermissions("request.approve_hod")
   hodApprovalBulk(
     @Body()
     body: {
@@ -131,7 +117,6 @@ export class RequestController {
    */
   @Put("it-approval/bulk")
   @UseGuards(PermissionGuard)
-  @RequirePermissions("request.approve_it")
   async itApprovalBulk(
     @Body()
     body: {
@@ -147,6 +132,11 @@ export class RequestController {
       body.remarks ?? "",
       req.user.id_user,
     );
+  }
+  
+ @Get("hods-by-dept/:deptId")
+  async getHodsByDept(@Param("deptId") deptId: string) {
+    return this.userService.getHodsByDeptId(Number(deptId));
   }
 
   @Get("dashboard/latest-period")
@@ -164,7 +154,6 @@ export class RequestController {
    */
   @Delete(":id")
   @UseGuards(PermissionGuard)
-  @RequirePermissions("user.manage")
   async remove(@Param("id") id: number) {
     return this.requestService.remove(id);
   }

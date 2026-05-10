@@ -8,7 +8,6 @@ import {
   UpdateDateColumn,
 } from "typeorm";
 import { User } from "../portal_user_db/user.entity";
-import { CategoryAccount } from "portal_category_account/entities/portal_category_account.entity";
 import { PortalProject } from "portal_project/entities/portal_project.entity";
 import { Position } from "portal_position/entities/portal_position.entity";
 import { PortalDepartment } from "portal_department/entities/portal_department.entity";
@@ -83,10 +82,6 @@ export class RequestEntity {
   @ManyToOne(() => PortalDepartment)
   @JoinColumn({ name: "id_department" })
   department: PortalDepartment;
-
-  @ManyToOne(() => CategoryAccount)
-  @JoinColumn({ name: "category_account" })
-  category: CategoryAccount;
 
   @ManyToOne(() => Position)
   @JoinColumn({ name: "id_position" })

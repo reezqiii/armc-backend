@@ -8,6 +8,7 @@ import {
   Delete,
   Query,
   Req,
+  Patch,
 } from "@nestjs/common";
 import { ProductionService } from "./production.service";
 import { ServerSideDTO } from "DTO/dto.serverside";
@@ -46,6 +47,18 @@ export class ProductionController {
   update(@Param("id") id: string, @Body() body: any, @Req() req: any) {
     const userId = req.user?.id_user || req.user?.id;
     return this.productionService.update(+id, body, userId);
+  }
+
+  @Patch(":id/approve")
+  approve(@Param("id") id: string, @Req() req: any) {
+    const userId = req.user?.id_user || req.user?.id;
+    return this.productionService.approve(+id, userId);
+  }
+
+  @Patch(":id/reject")
+  reject(@Param("id") id: string, @Body() body: any, @Req() req: any) {
+    const userId = req.user?.id_user || req.user?.id;
+    return this.productionService.reject(+id, userId, body.remarks);
   }
 
   @Delete(":id")

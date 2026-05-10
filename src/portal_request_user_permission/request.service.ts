@@ -31,27 +31,11 @@ export class RequestService {
 
       const qb = this.requestRepo
         .createQueryBuilder("request")
-        .leftJoin("request.category", "cat")
-        .leftJoin("request.project", "proj")
-        .leftJoin("request.department", "dept")
-        .leftJoin("request.position", "pos")
-        .leftJoin("request.application", "app")
-        .leftJoin("request.created_by_user", "creator")
-        .select([
-          "request.id_request as id_request",
-          "request.full_name as full_name",
-          "request.badge_no as badge_no",
-          "request.email as email",
-          "request.request_status as request_status",
-          "request.request_reason as request_reason",
-          "request.created_by as created_by",
-          "cat.category_name as category_account_name",
-          "proj.project_name as project_name",
-          "dept.name_of_department as department_name",
-          "pos.position_name as position_name",
-          "app.application_name as application_name",
-          "creator.full_name as created_by_name",
-        ])
+        .leftJoinAndSelect("request.project", "proj")
+        .leftJoinAndSelect("request.department", "dept")
+        .leftJoinAndSelect("request.position", "pos")
+        .leftJoinAndSelect("request.application", "app")
+        .leftJoinAndSelect("request.created_by_user", "creator")
         .where("request.status_active = :active", { active: 1 });
 
       const columnMap: Record<string, string> = {
@@ -60,10 +44,11 @@ export class RequestService {
         badge_no: "request.badge_no",
         email: "request.email",
         request_status: "request.request_status",
-        category_account_name: "cat.category_name",
+        category_account: "request.category_account",
         department_name: "dept.name_of_department",
         project_name: "proj.project_name",
         application_name: "app.application_name",
+        created_by_name: "creator.full_name",
       };
 
       if (search) {
@@ -77,32 +62,41 @@ export class RequestService {
               [key]: `%${value}%`,
             });
           }
-        } catch (e) {
-          throw new BadRequestException("Invalid search format");
-        }
+        } catch (e) {}
       }
 
       if (sort) {
         const [field, dir] = sort.split(",");
-        qb.orderBy(
-          columnMap[field] ?? `request.${field}`,
-          dir.toUpperCase() as any,
-        );
+        const sortColumn = columnMap[field] ?? `request.${field}`;
+        qb.orderBy(sortColumn, dir.toUpperCase() as "ASC" | "DESC");
       } else {
         qb.orderBy("request.id_request", "DESC");
       }
 
-      const [data, totalCount] = await Promise.all([
-        qb.offset(skip).limit(take).getRawMany(),
-        qb.getCount(),
-      ]);
+      const [entities, totalCount] = await qb
+        .skip(skip)
+        .take(take)
+        .getManyAndCount();
+
+      const data = entities.map((req) => ({
+        ...req,
+        created_by_name: req.created_by_user?.full_name || "-",
+        department_name: req.department?.name_of_department || "-",
+        project_name: req.project?.project_name || "-",
+        position_name: req.position?.position_name || "-",
+        application_name: req.application?.application_name || "-",
+        category_account_name:
+          req.category_account === 0
+            ? "Create New Account"
+            : "Request Permission",
+      }));
 
       return {
         data,
-        total_records: totalCount,
+        total: totalCount,
         total_pages: Math.ceil(totalCount / take),
         page,
-        size: take,
+        limit: take,
       };
     } catch (error) {
       console.error("DETAIL ERROR SQL:", error.message);
@@ -117,7 +111,6 @@ export class RequestService {
     const data = await this.requestRepo.findOne({
       where: { id_request: id },
       relations: [
-        "category",
         "project",
         "department",
         "position",
@@ -152,17 +145,15 @@ export class RequestService {
     return { success: true, id_request: saved.id_request };
   }
 
-  async update(
-    id_request: number,
-    data: Partial<RequestEntity>,
-  ): Promise<{ success: boolean; message: string }> {
+  /**
+   * Update pengajuan
+   */
+  async update(id_request: number, data: Partial<RequestEntity>) {
     const existing = await this.requestRepo.findOne({ where: { id_request } });
     if (!existing) throw new NotFoundException("Request not found");
 
     Object.assign(existing, data);
-    await this.requestRepo.save(existing);
-
-    return { success: true, message: "Request updated successfully" };
+    return await this.requestRepo.save(existing);
   }
 
   /**
@@ -178,9 +169,7 @@ export class RequestService {
 
     existing.status_active = 0;
     existing.canceled_by = userId;
-    await this.requestRepo.save(existing);
-
-    return { success: true, message: "Request canceled" };
+    return await this.requestRepo.save(existing);
   }
 
   /**
@@ -200,14 +189,15 @@ export class RequestService {
 
       if (req) {
         req.approval_hod_by_id = userId;
+
         if (action === "approve") {
           req.request_status = 3;
-
           this.notifyItApproval(id).catch((e) => console.error(e));
         } else {
           req.request_status = 2;
           req.rejected_hod_remarks = remarks;
         }
+
         await this.requestRepo.save(req);
       }
     }
@@ -231,16 +221,71 @@ export class RequestService {
 
       if (req) {
         req.approval_it_hod_by_id = userId;
+
         if (action === "approve") {
           req.request_status = 5;
         } else {
           req.request_status = 4;
           req.rejected_it_remarks = remarks;
         }
+
         await this.requestRepo.save(req);
       }
     }
     return { success: true };
+  }
+
+  async getHodsByDeptId(deptId: number) {
+    return this.userRepo
+      .createQueryBuilder("user")
+      .leftJoin("user.role", "role")
+      .where("user.id_department = :deptId", { deptId })
+      .andWhere("role.role_name IN (:...roles)", {
+        roles: ["Head Of Department", "Administrator"],
+      })
+      .select(["user.id_user", "user.badge_no", "user.full_name"])
+      .getMany();
+  }
+
+  /**
+   * Menghitung ringkasan status pengajuan
+   */
+  async getLatestPeriod() {
+    return {
+      month: new Date().getMonth() + 1,
+      year: new Date().getFullYear(),
+    };
+  }
+
+  /**
+   * Menghitung ringkasan status pengajuan
+   * DISESUAIKAN agar menerima parameter dari controller
+   */
+  async getSummary(month?: number, year?: number) {
+    try {
+      const qb = this.requestRepo
+        .createQueryBuilder("r")
+        .where("r.status_active = 1");
+
+      const [total, pending, rejected, completed] = await Promise.all([
+        qb.getCount(),
+        qb.clone().andWhere("r.request_status IN (1, 3)").getCount(),
+        qb.clone().andWhere("r.request_status IN (2, 4)").getCount(),
+        qb.clone().andWhere("r.request_status = 5").getCount(),
+      ]);
+
+      return { total, pending, rejected, completed };
+    } catch (error) {
+      throw new InternalServerErrorException("Summary error: " + error.message);
+    }
+  }
+
+  async remove(id: number) {
+    const result = await this.requestRepo.delete(id);
+    if (result.affected === 0)
+      throw new NotFoundException(`Request REQ-${id} not found`);
+
+    return { success: true, message: "Request deleted successfully" };
   }
 
   private async notifyHod(id: number) {
@@ -286,42 +331,5 @@ export class RequestService {
       `IT Approval Required - REQ-${id}`,
       html,
     );
-  }
-
-  async getLatestPeriod() {
-    return {
-      month: new Date().getMonth() + 1,
-      year: new Date().getFullYear(),
-    };
-  }
-
-  /**
-   * Menghitung ringkasan status pengajuan
-   */
-  async getSummary(month: any, year: number) {
-    try {
-      const qb = this.requestRepo
-        .createQueryBuilder("r")
-        .where("r.status_active = 1");
-
-      const [total, pending, rejected, completed] = await Promise.all([
-        qb.getCount(),
-        qb.clone().andWhere("r.request_status IN (1, 3)").getCount(),
-        qb.clone().andWhere("r.request_status IN (2, 4)").getCount(),
-        qb.clone().andWhere("r.request_status = 5").getCount(),
-      ]);
-
-      return { total, pending, rejected, completed };
-    } catch (error) {
-      throw new InternalServerErrorException("Summary error: " + error.message);
-    }
-  }
-
-  async remove(id: number): Promise<{ success: boolean; message: string }> {
-    const result = await this.requestRepo.delete(id);
-    if (result.affected === 0)
-      throw new NotFoundException(`Request REQ-${id} not found`);
-
-    return { success: true, message: "Request deleted successfully" };
   }
 }

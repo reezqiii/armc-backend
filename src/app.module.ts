@@ -10,7 +10,6 @@ import { RequestModule } from "./portal_request_user_permission/request.module";
 import { NavMenuModule } from "./portal_nav_menu/menu.module";
 import { EmailModule } from "./email/email.module";
 import { PortalUserPermissionModule } from "./portal_user_permission/user_permission.module";
-import { PortalCategoryAccountModule } from "./portal_category_account/portal_category_account.module";
 import { PortalConfigModule } from "./portal_config/portal_config.module";
 import { join } from "node:path";
 import { ServeStaticModule } from "@nestjs/serve-static";
@@ -62,7 +61,6 @@ import { WarehouseModule } from './warehouse/warehouse.module';
     PortalProjectModule,
     PortalDepartmentModule,
     PortalRoleDbModule,
-    PortalCategoryAccountModule,
     RolePermissionModule,
     PortalPositionModule,
     ProductionModule,

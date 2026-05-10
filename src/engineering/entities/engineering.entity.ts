@@ -17,8 +17,18 @@ export class Engineering {
   @Column({ name: "priority", type: "int4", nullable: true })
   priority: number;
 
+  // 1 = Pending, 2 = In Progress, 3 = Completed (Approved), 4 = Rejected
   @Column({ name: "status", type: "int4", nullable: true, default: 1 })
   status: number;
+
+  @Column({ type: "text", nullable: true })
+  remarks: string;
+
+  @Column({ type: "int4", nullable: true })
+  approved_by: number;
+
+  @Column({ type: "int4", nullable: true })
+  rejected_by: number;
 
   @Column({ name: "created_by", type: "int4", nullable: true })
   created_by: number;

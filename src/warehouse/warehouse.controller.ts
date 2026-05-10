@@ -4,6 +4,7 @@ import {
   Post,
   Body,
   Put,
+  Patch,
   Param,
   Delete,
   Query,
@@ -27,8 +28,8 @@ export class WarehouseController {
   }
 
   @Get()
-  findAll(@Query() query: ServerSideDTO) {
-    return this.warehouseService.serverSideList(query);
+  findAll() {
+    return this.warehouseService.findAll();
   }
 
   @Get(":id")
@@ -46,6 +47,18 @@ export class WarehouseController {
   update(@Param("id") id: string, @Body() body: any, @Req() req: any) {
     const userId = req.user?.id_user || req.user?.id;
     return this.warehouseService.update(+id, body, userId);
+  }
+
+  @Patch(":id/approve")
+  approve(@Param("id") id: string, @Req() req: any) {
+    const userId = req.user?.id_user || req.user?.id;
+    return this.warehouseService.approve(+id, userId);
+  }
+
+  @Patch(":id/reject")
+  reject(@Param("id") id: string, @Body() body: any, @Req() req: any) {
+    const userId = req.user?.id_user || req.user?.id;
+    return this.warehouseService.reject(+id, userId, body.remarks);
   }
 
   @Delete(":id")

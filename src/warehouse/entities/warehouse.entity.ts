@@ -23,8 +23,18 @@ export class Warehouse {
   @Column({ name: "location", type: "varchar", length: 100, nullable: true })
   location: string;
 
+  // 1 = Pending, 2 = Approved, 3 = Rejected
   @Column({ name: "status", type: "int4", default: 1 })
   status: number;
+
+  @Column({ type: "text", nullable: true })
+  remarks: string;
+
+  @Column({ type: "int4", nullable: true })
+  approved_by: number;
+
+  @Column({ type: "int4", nullable: true })
+  rejected_by: number;
 
   @Column({ name: "created_by", type: "int4", nullable: true })
   created_by: number;

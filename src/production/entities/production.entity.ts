@@ -15,8 +15,18 @@ export class ProductionBatch {
   @Column({ type: "varchar", length: 255 })
   product_name: string;
 
+  // 1 = Pending, 2 = Approved, 3 = Rejected
   @Column({ type: "int4", nullable: true, default: 1 })
   qc_status: number;
+
+  @Column({ type: "text", nullable: true })
+  remarks: string;
+
+  @Column({ type: "int4", nullable: true })
+  approved_by: number;
+
+  @Column({ type: "int4", nullable: true })
+  rejected_by: number;
 
   @Column({ type: "int4", nullable: true })
   created_by: number;

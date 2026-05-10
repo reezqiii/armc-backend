@@ -339,4 +339,16 @@ export class UserService {
       throw new InternalServerErrorException("Failed to fetch dashboard stats");
     }
   }
+
+  async getHodsByDeptId(deptId: number) {
+    return this._user
+      .createQueryBuilder("user")
+      .leftJoin("user.role", "role")
+      .where("user.id_department = :deptId", { deptId })
+      .andWhere("role.role_name IN (:...roles)", {
+        roles: ["Head Of Department", "Administrator"],
+      })
+      .select(["user.id_user", "user.badge_no", "user.full_name"])
+      .getMany();
+  }
 }

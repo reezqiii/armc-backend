@@ -4,13 +4,13 @@ import {
   Post,
   Body,
   Put,
+  Patch,
   Param,
   Delete,
   Query,
   Req,
 } from "@nestjs/common";
 import { EngineeringService } from "./engineering.service";
-import { ServerSideDTO } from "DTO/dto.serverside";
 
 @Controller("engineering")
 export class EngineeringController {
@@ -27,8 +27,8 @@ export class EngineeringController {
   }
 
   @Get()
-  findAll(@Query() query: ServerSideDTO) {
-    return this.engineeringService.serverSideList(query);
+  findAll() {
+    return this.engineeringService.findAll();
   }
 
   @Get(":id")
@@ -46,6 +46,18 @@ export class EngineeringController {
   update(@Param("id") id: string, @Body() body: any, @Req() req: any) {
     const userId = req.user?.id_user || req.user?.id;
     return this.engineeringService.update(+id, body, userId);
+  }
+
+  @Patch(":id/approve")
+  approve(@Param("id") id: string, @Req() req: any) {
+    const userId = req.user?.id_user || req.user?.id;
+    return this.engineeringService.approve(+id, userId);
+  }
+
+  @Patch(":id/reject")
+  reject(@Param("id") id: string, @Body() body: any, @Req() req: any) {
+    const userId = req.user?.id_user || req.user?.id;
+    return this.engineeringService.reject(+id, userId, body.remarks);
   }
 
   @Delete(":id")

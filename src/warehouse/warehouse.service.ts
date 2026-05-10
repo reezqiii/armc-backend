@@ -25,6 +25,9 @@ export class WarehouseService {
       const qb = this.repo
         .createQueryBuilder("item")
         .leftJoin(User, "creator", "creator.id_user = item.created_by")
+
+        .leftJoin(User, "approver", "approver.id_user = item.approved_by")
+        .leftJoin(User, "rejector", "rejector.id_user = item.rejected_by")
         .select([
           "item.id_item as id",
           "item.item_code as item_code",
@@ -34,8 +37,10 @@ export class WarehouseService {
           "item.location as location",
           "item.unit as unit",
           "item.status as status",
-          "item.created_by as created_by",
+          "item.remarks as remarks",
           "creator.full_name as creator_name",
+          "approver.full_name as approver_name",
+          "rejector.full_name as rejector_name",
         ]);
 
       const columnMap: Record<string, string> = {
@@ -47,12 +52,13 @@ export class WarehouseService {
         quantity: "item.quantity",
         location: "item.location",
         status: "item.status",
+        creator_name: "creator.full_name",
       };
 
       if (search) {
         const filters = JSON.parse(search);
         for (const [key, value] of Object.entries(filters)) {
-          if (!value) continue;
+          if (!value && value !== 0) continue;
           const column = columnMap[key] ?? `item.${key}`;
           qb.andWhere(`CAST(${column} AS TEXT) ILIKE :${key}`, {
             [key]: `%${value}%`,
@@ -89,6 +95,10 @@ export class WarehouseService {
     }
   }
 
+  async findAll() {
+    return this.repo.find({ order: { id_item: "DESC" } });
+  }
+
   async findOne(id: number) {
     const record = await this.repo.findOneBy({ id_item: id });
     if (!record) throw new NotFoundException(`Item ID ${id} not found`);
@@ -98,6 +108,7 @@ export class WarehouseService {
   async create(data: Partial<Warehouse>, userId?: number) {
     const newItem = this.repo.create({
       ...data,
+      status: 1,
       created_by: userId,
     });
     return this.repo.save(newItem);
@@ -110,6 +121,25 @@ export class WarehouseService {
       updated_by: userId,
     });
     return this.findOne(id);
+  }
+
+  async approve(id: number, userId: number) {
+    const record = await this.findOne(id);
+    record.status = 2;
+    record.approved_by = userId;
+    record.rejected_by = null;
+    record.updated_by = userId;
+    return this.repo.save(record);
+  }
+
+  async reject(id: number, userId: number, remarks?: string) {
+    const record = await this.findOne(id);
+    record.status = 3;
+    record.rejected_by = userId;
+    record.approved_by = null;
+    record.remarks = remarks || null;
+    record.updated_by = userId;
+    return this.repo.save(record);
   }
 
   async remove(id: number) {
