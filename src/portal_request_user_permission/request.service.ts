@@ -36,6 +36,7 @@ export class RequestService {
         .leftJoinAndSelect("request.position", "pos")
         .leftJoinAndSelect("request.application", "app")
         .leftJoinAndSelect("request.created_by_user", "creator")
+
         .where("request.status_active = :active", { active: 1 });
 
       const columnMap: Record<string, string> = {
@@ -49,20 +50,44 @@ export class RequestService {
         project_name: "proj.project_name",
         application_name: "app.application_name",
         created_by_name: "creator.full_name",
+        id_department: "request.id_department",
+        requestor_id: "request.created_by",
       };
 
       if (search) {
         try {
           const filters = JSON.parse(search);
+
+          if (filters.status_active !== undefined) {
+            qb.where("request.status_active = :activeStatus", {
+              activeStatus: filters.status_active,
+            });
+            delete filters.status_active;
+          }
+
+          const exactMatchKeys = [
+            "request_status",
+            "id_department",
+            "requestor_id",
+            "category_account",
+          ];
+
           for (const [key, value] of Object.entries(filters)) {
             if (value === undefined || value === null || value === "") continue;
 
             const column = columnMap[key] ?? `request.${key}`;
-            qb.andWhere(`CAST(${column} AS TEXT) ILIKE :${key}`, {
-              [key]: `%${value}%`,
-            });
+
+            if (exactMatchKeys.includes(key)) {
+              qb.andWhere(`${column} = :${key}`, { [key]: value });
+            } else {
+              qb.andWhere(`CAST(${column} AS TEXT) ILIKE :${key}`, {
+                [key]: `%${value}%`,
+              });
+            }
           }
-        } catch (e) {}
+        } catch (e) {
+          console.error("JSON Search Parse Error:", e.message);
+        }
       }
 
       if (sort) {
@@ -85,10 +110,6 @@ export class RequestService {
         project_name: req.project?.project_name || "-",
         position_name: req.position?.position_name || "-",
         application_name: req.application?.application_name || "-",
-        category_account_name:
-          req.category_account === 0
-            ? "Create New Account"
-            : "Request Permission",
       }));
 
       return {
@@ -99,7 +120,7 @@ export class RequestService {
         limit: take,
       };
     } catch (error) {
-      console.error("DETAIL ERROR SQL:", error.message);
+      console.error("SERVER SIDE LIST ERROR:", error.message);
       throw new InternalServerErrorException(error.message);
     }
   }
@@ -294,11 +315,26 @@ export class RequestService {
     if (!hod?.email) return;
 
     const encId = this.aesEcbService.encryptToBase64Url(String(id));
+
+    const categoryName =
+      req.category_account === 0 ? "Create New Account" : "Request Permission";
+
+    const reqDate = new Date().toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
+
     const html = this.mailService.renderTemplate("approval.ejs", {
       approverName: hod.full_name,
+      categoryAccount: categoryName,
       requestNumber: `REQ-${String(id).padStart(6, "0")}`,
-      requestorName: req.created_by_user?.full_name,
-      targetFullName: req.full_name,
+      requestDate: reqDate,
+      requestorName: req.created_by_user?.full_name || "-",
+      targetBadgeNo: req.badge_no || "-",
+      targetFullName: req.full_name || "-",
+      targetEmail: req.email || "-",
+      requestDescription: req.request_reason || "-",
       approvalLink: `${process.env.ARMC_BASE_URL}/user_request/detail_req/${encId}`,
     });
 
@@ -318,11 +354,26 @@ export class RequestService {
 
     const req = await this.findOne(id);
     const encId = this.aesEcbService.encryptToBase64Url(String(id));
+
+    const categoryName =
+      req.category_account === 0 ? "Create New Account" : "Request Permission";
+
+    const reqDate = new Date().toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
+
     const html = this.mailService.renderTemplate("approval.ejs", {
       approverName: "IT Manager",
+      categoryAccount: categoryName,
       requestNumber: `REQ-${String(id).padStart(6, "0")}`,
-      requestorName: req.created_by_user?.full_name,
-      targetFullName: req.full_name,
+      requestDate: reqDate,
+      requestorName: req.created_by_user?.full_name || "-",
+      targetBadgeNo: req.badge_no || "-",
+      targetFullName: req.full_name || "-",
+      targetEmail: req.email || "-",
+      requestDescription: req.request_reason || "-",
       approvalLink: `${process.env.ARMC_BASE_URL}/user_request/detail_req/${encId}`,
     });
 
