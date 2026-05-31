@@ -27,7 +27,7 @@ export class PortalPositionService {
         "position.id_position AS id_position",
         "position.position_name AS position_name",
         "position.is_active AS is_active",
-        "role.role_name AS role_name", 
+        "role.role_name AS role_name",
       ])
       .where("position.is_active = :active", { active: 1 });
 
@@ -74,7 +74,6 @@ export class PortalPositionService {
     });
 
     if (isExist) {
-      // GANTI THROW MENJADI RETURN AGAR TIDAK ERROR 409
       return {
         success: false,
         message: `Position name '${dto.position_name}' already exists.`,
@@ -107,7 +106,6 @@ export class PortalPositionService {
     });
 
     if (isExist) {
-      // GANTI THROW MENJADI RETURN
       return {
         success: false,
         message: `Position '${dto.position_name}' is already used by another record.`,

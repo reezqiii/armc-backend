@@ -1,8 +1,4 @@
-import {
-  Entity,
-  Column,
-  PrimaryGeneratedColumn,
-} from "typeorm";
+import { Entity, Column, PrimaryGeneratedColumn } from "typeorm";
 
 @Entity("app_production_batch")
 export class ProductionBatch {
@@ -14,8 +10,7 @@ export class ProductionBatch {
 
   @Column({ type: "varchar", length: 255 })
   product_name: string;
-
-  // 1 = Pending, 2 = Approved, 3 = Rejected
+  
   @Column({ type: "int4", nullable: true, default: 1 })
   qc_status: number;
 

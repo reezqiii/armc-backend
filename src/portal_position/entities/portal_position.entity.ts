@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column } from "typeorm";
+import { PortalRole } from "portal_role_db/entities/portal_role_db.entity";
+import { Entity, PrimaryGeneratedColumn, Column, JoinColumn, ManyToOne } from "typeorm";
 
 @Entity("portal_position")
 export class Position {
@@ -22,4 +23,8 @@ export class Position {
 
   @Column({ type: "int4", nullable: true })
   deleted_by: number;
+
+  @ManyToOne(() => PortalRole)
+  @JoinColumn({ name: "id_role" })
+  role: PortalRole;
 }

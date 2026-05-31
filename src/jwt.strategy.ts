@@ -24,21 +24,24 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     try {
       const user = await this.userRepo.findOne({
         where: { id_user: payload.id_user, status_user: 1 },
-        relations: ["role", "department", "position", "project"],
+        relations: ["department", "position", "position.role", "project"],
       });
 
-      if (!user) return null;
+      if (!user || !user.position) return null;
+
+      const positionRoleId = user.position.id_role;
 
       const permission_ids = await this.userPermService.getPermissionIds(
         user.id_user,
-        user.id_role,
+        positionRoleId,
       );
 
       return {
         id_user: user.id_user,
         full_name: user.full_name,
-        id_role: user.id_role,
-        role_name: user.role?.role_name ?? null,
+        department_id: user.department?.id_department,
+        id_role: positionRoleId,
+        role_name: user.position.role?.role_name ?? null,
         permission_ids,
       };
     } catch (err) {

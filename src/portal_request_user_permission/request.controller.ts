@@ -31,24 +31,20 @@ export class RequestController {
     private readonly aesEcb: AesEcbService,
   ) {}
 
-
-  /**
-   * Ambil data list dengan metode Server-Side (POST)
-   */
   @Post("/serverside_list")
   @RequirePermissions(7)
-  serverSideList(@Body() body: any, @Query() query: any) {
-    return this.requestService.serverSideList({
-      page: Number(query.page ?? 0),
-      size: Number(query.size ?? 10),
-      sort: query.sort ?? "",
-      search: query.search ?? "",
-    });
+  serverSideList(@Body() body: any, @Query() query: any, @Req() req: any) {
+    return this.requestService.serverSideList(
+      {
+        page: Number(query.page ?? 0),
+        size: Number(query.size ?? 10),
+        sort: query.sort ?? "",
+        search: query.search ?? "",
+      },
+      req.user,
+    );
   }
 
-  /**
-   * Detail Request berdasarkan ID (Ter-enkripsi)
-   */
   @Get(":id")
   @RequirePermissions(7)
   async findOne(@Param("id") id: string) {
@@ -58,9 +54,6 @@ export class RequestController {
     return this.requestService.findOne(numericId);
   }
 
-  /**
-   * Create Request Baru
-   */
   @Post("/create")
   @RequirePermissions(8)
   @UseGuards(PermissionGuard)
@@ -69,9 +62,6 @@ export class RequestController {
     return this.requestService.create(data, userId);
   }
 
-  /**
-   * Update Request
-   */
   @Put(":id")
   @RequirePermissions(9)
   @UseGuards(PermissionGuard)
@@ -82,9 +72,6 @@ export class RequestController {
     return this.requestService.update(decId, data);
   }
 
-  /**
-   * Cancel Request oleh User
-   */
   @Put("cancel/:id")
   @RequirePermissions(10)
   @UseGuards(PermissionGuard)
@@ -95,9 +82,6 @@ export class RequestController {
     return this.requestService.cancelRequest(decId, userId);
   }
 
-  /**
-   * Approval Massal oleh HOD
-   */
   @Put("hod-approval/bulk")
   @RequirePermissions(13)
   @UseGuards(PermissionGuard)
@@ -118,9 +102,6 @@ export class RequestController {
     );
   }
 
-  /**
-   * Approval Massal oleh IT Head
-   */
   @Put("it-approval/bulk")
   @RequirePermissions(14)
   @UseGuards(PermissionGuard)
@@ -140,8 +121,8 @@ export class RequestController {
       req.user.id_user,
     );
   }
-  
- @Get("hods-by-dept/:deptId")
+
+  @Get("hods-by-dept/:deptId")
   async getHodsByDept(@Param("deptId") deptId: string) {
     return this.userService.getHodsByDeptId(Number(deptId));
   }
@@ -153,13 +134,10 @@ export class RequestController {
 
   @Get("dashboard/summary")
   @RequirePermissions(7)
-  getDashboardSummary(@Query() query: any) {
-    return this.requestService.getSummary(query.month, query.year);
+  getDashboardSummary(@Query() query: any, @Req() req: any) {
+    return this.requestService.getSummary(query.month, query.year, req.user);
   }
 
-  /**
-   * Delete Request (Hard Delete)
-   */
   @Delete(":id")
   @UseGuards(PermissionGuard)
   async remove(@Param("id") id: number) {

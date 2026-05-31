@@ -22,8 +22,7 @@ export class Warehouse {
 
   @Column({ name: "location", type: "varchar", length: 100, nullable: true })
   location: string;
-
-  // 1 = Pending, 2 = Approved, 3 = Rejected
+  
   @Column({ name: "status", type: "int4", default: 1 })
   status: number;
 

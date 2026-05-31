@@ -23,7 +23,7 @@ export class RequestService {
     private readonly mailService: EmailService,
   ) {}
 
-  async serverSideList(queryDto: ServerSideDTO) {
+  async serverSideList(queryDto: ServerSideDTO, user: any) {
     try {
       const { page = 0, size = 10, search, sort } = queryDto;
       const take = Number(size);
@@ -36,8 +36,28 @@ export class RequestService {
         .leftJoinAndSelect("request.position", "pos")
         .leftJoinAndSelect("request.application", "app")
         .leftJoinAndSelect("request.created_by_user", "creator")
-
         .where("request.status_active = :active", { active: 1 });
+
+      if (user && user.permission_ids) {
+        const canViewAll = user.permission_ids.includes(12);
+
+        if (!canViewAll) {
+          const canViewDepartment =
+            user.permission_ids.includes(11) ||
+            user.permission_ids.includes(13);
+
+          if (canViewDepartment) {
+            qb.andWhere(
+              "(request.id_department = :deptId OR request.created_by = :userId)",
+              { deptId: user.department_id, userId: user.id_user },
+            );
+          } else {
+            qb.andWhere("request.created_by = :userId", {
+              userId: user.id_user,
+            });
+          }
+        }
+      }
 
       const columnMap: Record<string, string> = {
         id_request: "request.id_request",
@@ -59,7 +79,7 @@ export class RequestService {
           const filters = JSON.parse(search);
 
           if (filters.status_active !== undefined) {
-            qb.where("request.status_active = :activeStatus", {
+            qb.andWhere("request.status_active = :activeStatus", {
               activeStatus: filters.status_active,
             });
             delete filters.status_active;
@@ -125,9 +145,6 @@ export class RequestService {
     }
   }
 
-  /**
-   * Detail pengajuan tunggal
-   */
   async findOne(id: number) {
     const data = await this.requestRepo.findOne({
       where: { id_request: id },
@@ -146,9 +163,6 @@ export class RequestService {
     return data;
   }
 
-  /**
-   * Membuat pengajuan baru
-   */
   async create(data: Partial<RequestEntity>, userId: number) {
     const newRequest = this.requestRepo.create({
       ...data,
@@ -166,9 +180,6 @@ export class RequestService {
     return { success: true, id_request: saved.id_request };
   }
 
-  /**
-   * Update pengajuan
-   */
   async update(id_request: number, data: Partial<RequestEntity>) {
     const existing = await this.requestRepo.findOne({ where: { id_request } });
     if (!existing) throw new NotFoundException("Request not found");
@@ -177,9 +188,6 @@ export class RequestService {
     return await this.requestRepo.save(existing);
   }
 
-  /**
-   * Batalkan pengajuan oleh pembuat (Soft Delete)
-   */
   async cancelRequest(id_request: number, userId: number) {
     const existing = await this.requestRepo.findOne({
       where: { id_request, created_by: userId, status_active: 1 },
@@ -193,9 +201,6 @@ export class RequestService {
     return await this.requestRepo.save(existing);
   }
 
-  /**
-   * Bulk Approval oleh Department Head
-   */
   async hodApprovalBulk(
     encryptedIds: string[],
     action: "approve" | "reject",
@@ -225,9 +230,6 @@ export class RequestService {
     return { success: true };
   }
 
-  /**
-   * Bulk Approval oleh IT Head
-   */
   async itApprovalBulk(
     encryptedIds: string[],
     action: "approve" | "reject",
@@ -268,9 +270,6 @@ export class RequestService {
       .getMany();
   }
 
-  /**
-   * Menghitung ringkasan status pengajuan
-   */
   async getLatestPeriod() {
     return {
       month: new Date().getMonth() + 1,
@@ -278,15 +277,30 @@ export class RequestService {
     };
   }
 
-  /**
-   * Menghitung ringkasan status pengajuan
-   * DISESUAIKAN agar menerima parameter dari controller
-   */
-  async getSummary(month?: number, year?: number) {
+  async getSummary(month?: number, year?: number, user?: any) {
     try {
       const qb = this.requestRepo
         .createQueryBuilder("r")
         .where("r.status_active = 1");
+
+      if (user && user.permission_ids) {
+        const userPerms = user.permission_ids.map(Number);
+        const canViewAll = userPerms.includes(12);
+
+        if (!canViewAll) {
+          const canViewDepartment =
+            userPerms.includes(11) || userPerms.includes(13);
+
+          if (canViewDepartment) {
+            qb.andWhere(
+              "(r.id_department = :deptId OR r.created_by = :userId)",
+              { deptId: user.department_id, userId: user.id_user },
+            );
+          } else {
+            qb.andWhere("r.created_by = :userId", { userId: user.id_user });
+          }
+        }
+      }
 
       const [total, pending, rejected, completed] = await Promise.all([
         qb.getCount(),
