@@ -23,32 +23,39 @@ export class PortalUserPermissionService {
     private dataSource: DataSource,
   ) {}
 
-  async getUserExtraPermissions(userId: number) {
+  async getUserExtraPermissions(userId: number, id_role: number) {
     const permissions = await this.permissionRepo.manager.query(
       `
     SELECT 
       p.id_permission, 
       p.permission_name, 
       p.permission_group,
-      CASE 
-        WHEN up.id_user IS NOT NULL THEN true 
-        ELSE false 
-      END as assigned
+      -- Cek apakah ada di tabel User Permission (DAC)
+      (up.id_user IS NOT NULL) as is_dac,
+      -- Cek apakah ada di tabel Role Permission (RBAC)
+      (rp.id_permission IS NOT NULL) as is_role_default
     FROM portal_permission p
-  
     LEFT JOIN portal_user_permission up ON up.id_portal_permission = p.id_permission 
       AND up.id_user = $1
+    LEFT JOIN role_has_permission rp ON rp.id_permission = p.id_permission 
+      AND rp.id_role = $2
     WHERE p.is_active = 1
     ORDER BY p.permission_group ASC, p.permission_name ASC
   `,
-      [userId],
+      [userId, id_role],
     );
 
     return permissions.map((p) => ({
       id_permission: Number(p.id_permission),
       permission_name: p.permission_name,
       permission_group: p.permission_group,
-      assigned: p.assigned === true || p.assigned === "true",
+      assigned:
+        p.is_dac === true ||
+        p.is_dac === "true" ||
+        p.is_role_default === true ||
+        p.is_role_default === "true",
+      is_role_default:
+        p.is_role_default === true || p.is_role_default === "true",
     }));
   }
 
@@ -81,10 +88,28 @@ export class PortalUserPermissionService {
     await queryRunner.startTransaction();
 
     try {
+      const currentPermissions = await queryRunner.manager.find(
+        PortalUserPermission,
+        {
+          where: { id_user: userId },
+        },
+      );
+      const currentIds = currentPermissions.map((p) =>
+        Number(p.id_portal_permission),
+      );
+      const isSame =
+        currentIds.length === permissionIds.length &&
+        currentIds.every((id) => permissionIds.includes(id));
+      if (isSame) {
+        await queryRunner.rollbackTransaction();
+        return {
+          success: true,
+          message: "No changes detected, nothing to sync.",
+        };
+      }
       await queryRunner.manager.delete(PortalUserPermission, {
         id_user: userId,
       });
-
       if (permissionIds && permissionIds.length > 0) {
         const toInsert = permissionIds.map((pId) => ({
           id_user: userId,
@@ -92,7 +117,6 @@ export class PortalUserPermissionService {
           created_by: admin_id,
         }));
         await queryRunner.manager.insert(PortalUserPermission, toInsert);
-      } else {
       }
 
       await queryRunner.commitTransaction();

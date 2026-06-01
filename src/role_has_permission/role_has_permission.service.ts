@@ -75,7 +75,7 @@ export class RolePermissionService {
            USING public.portal_user_db pud
            WHERE pup.id_user = pud.id_user
              AND pud.id_role = $1
-             AND pup.id_permission = ANY($2)`,
+             AND pup.id_portal_permission = ANY($2)`,
           [id_role, removedPermIds],
         );
       }

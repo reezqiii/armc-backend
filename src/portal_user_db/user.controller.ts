@@ -10,6 +10,7 @@ import {
   Req,
   BadRequestException,
   Query,
+  NotFoundException,
 } from "@nestjs/common";
 import { UserService } from "./user.service";
 import { PortalUserPermissionService } from "../portal_user_permission/user_permission.service";
@@ -90,18 +91,20 @@ export class UserController {
   async getUserExtraPermissions(@Param("id") id: string) {
     try {
       const rawDecrypted = this.aesEcbService.decryptBase64Url(id);
-
       const decryptedId = Number(rawDecrypted);
 
       if (isNaN(decryptedId) || rawDecrypted === "") {
         throw new Error();
       }
-
-      return await this._perm.getUserExtraPermissions(decryptedId);
+      const user = await this._user.findOneById(decryptedId);
+      if (!user) throw new NotFoundException("User not found");
+      return await this._perm.getUserExtraPermissions(
+        decryptedId,
+        user.id_role,
+      );
     } catch (err) {
       if (err instanceof Error) console.log("Detail Error:", err.message);
-
-      throw new BadRequestException("Invalid User ID");
+      throw new BadRequestException("Invalid User ID or Data");
     }
   }
 
