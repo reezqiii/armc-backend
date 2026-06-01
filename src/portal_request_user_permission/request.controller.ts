@@ -124,7 +124,7 @@ export class RequestController {
 
   @Get("hods-by-dept/:deptId")
   async getHodsByDept(@Param("deptId") deptId: string) {
-    return this.userService.getHodsByDeptId(Number(deptId));
+    return this.requestService.getHodsByDeptId(Number(deptId));
   }
 
   @Get("dashboard/latest-period")

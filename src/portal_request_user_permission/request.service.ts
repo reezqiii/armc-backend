@@ -263,9 +263,14 @@ export class RequestService {
       .createQueryBuilder("user")
       .leftJoin("user.role", "role")
       .where("user.id_department = :deptId", { deptId })
-      .andWhere("role.role_name IN (:...roles)", {
-        roles: ["Head Of Department", "Administrator"],
-      })
+      .andWhere(
+        "(role.role_name ILIKE :hod OR role.role_name ILIKE :head OR role.role_name = :admin)",
+        {
+          hod: "%HOD%",
+          head: "%Head Of Department%",
+          admin: "Administrator",
+        },
+      )
       .select(["user.id_user", "user.badge_no", "user.full_name"])
       .getMany();
   }
