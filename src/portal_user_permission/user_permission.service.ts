@@ -59,22 +59,21 @@ export class PortalUserPermissionService {
   }
 
   async getPermissionIds(id_user: number, id_role: number): Promise<number[]> {
-    const count = await this.userPermRepo.count({ where: { id_user } });
-
-    if (count > 0) {
-      const userPermissions = await this.userPermRepo.find({
-        where: { id_user },
-        select: ["id_portal_permission"],
-      });
-      return userPermissions.map((up) => Number(up.id_portal_permission));
-    }
-
     const rolePermissions = await this.rolePermRepo.find({
       where: { id_role: id_role },
       select: ["id_permission"],
     });
+    const rolePermIds = rolePermissions.map((rp) => Number(rp.id_permission));
+    const userPermissions = await this.userPermRepo.find({
+      where: { id_user: id_user },
+      select: ["id_portal_permission"],
+    });
+    const userPermIds = userPermissions.map((up) =>
+      Number(up.id_portal_permission),
+    );
+    const combinedPermissions = [...new Set([...rolePermIds, ...userPermIds])];
 
-    return rolePermissions.map((rp) => Number(rp.id_permission));
+    return combinedPermissions;
   }
 
   async syncUserPermissions(
