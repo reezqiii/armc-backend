@@ -53,8 +53,14 @@ export class RolePermissionService {
     await queryRunner.startTransaction();
 
     try {
+      const oldPermissions = await queryRunner.manager.find(RolePermission, {
+        where: { id_role: id_role },
+      });
+      const oldPermIds = oldPermissions.map((rp) => Number(rp.id_permission));
+      const removedPermIds = oldPermIds.filter(
+        (id) => !permission_ids.includes(id),
+      );
       await queryRunner.manager.delete(RolePermission, { id_role: id_role });
-
       if (permission_ids && permission_ids.length > 0) {
         const newEntries = permission_ids.map((pId) => ({
           id_role: id_role,
@@ -63,14 +69,25 @@ export class RolePermissionService {
         }));
         await queryRunner.manager.insert(RolePermission, newEntries);
       }
+      if (removedPermIds.length > 0) {
+        await queryRunner.query(
+          `DELETE FROM public.portal_user_permission pup
+           USING public.portal_user_db pud
+           WHERE pup.id_user = pud.id_user
+             AND pud.id_role = $1
+             AND pup.id_permission = ANY($2)`,
+          [id_role, removedPermIds],
+        );
+      }
 
       await queryRunner.commitTransaction();
       return {
         success: true,
-        message: "Role permissions updated successfully",
+        message: "Role permissions updated and synced to users successfully",
       };
     } catch (error) {
       await queryRunner.rollbackTransaction();
+      console.error(error); 
       throw new InternalServerErrorException("Failed to sync permissions");
     } finally {
       await queryRunner.release();
