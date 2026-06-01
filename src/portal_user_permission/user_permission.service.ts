@@ -30,14 +30,13 @@ export class PortalUserPermissionService {
       p.id_permission, 
       p.permission_name, 
       p.permission_group,
-      -- Cek apakah ada di tabel User Permission (DAC)
       (up.id_user IS NOT NULL) as is_dac,
-      -- Cek apakah ada di tabel Role Permission (RBAC)
+      -- Perhatikan perubahan di baris bawah ini
       (rp.id_permission IS NOT NULL) as is_role_default
     FROM portal_permission p
     LEFT JOIN portal_user_permission up ON up.id_portal_permission = p.id_permission 
       AND up.id_user = $1
-    LEFT JOIN role_has_permission rp ON rp.id_permission = p.id_permission 
+    LEFT JOIN portal_role_permission rp ON rp.id_permission = p.id_permission 
       AND rp.id_role = $2
     WHERE p.is_active = 1
     ORDER BY p.permission_group ASC, p.permission_name ASC
