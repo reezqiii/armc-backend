@@ -41,9 +41,11 @@ export class AuthService {
       throw new UnauthorizedException("Invalid username or password");
     }
 
+    const positionRoleId = login.position?.id_role;
+
     const permission_ids = await this.userPermService.getPermissionIds(
       login.id_user,
-      login.id_role,
+      positionRoleId,
     );
 
     const payload = { id_user: login.id_user };
@@ -59,8 +61,8 @@ export class AuthService {
         department_id: login.id_department,
         department_name: login.department?.name_of_department ?? "-",
         position_name: login.position?.position_name ?? "-",
-        role_id: login.id_role,
-        role_name: login.role?.role_name ?? null,
+        role_id: positionRoleId, 
+        role_name: login.position?.role?.role_name ?? null,
         permission_ids,
       },
     };

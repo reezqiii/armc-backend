@@ -40,12 +40,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         id_user: user.id_user,
         full_name: user.full_name,
         department_id: user.department?.id_department,
+        position_name: user.position?.position_name ?? "-",
         id_role: positionRoleId,
         role_name: user.position.role?.role_name ?? null,
         permission_ids,
       };
     } catch (err) {
-      console.error("=== ERROR IN JWT VALIDATE ===", err);
+      console.error("ERROR IN JWT VALIDATE", err);
       return null;
     }
   }
